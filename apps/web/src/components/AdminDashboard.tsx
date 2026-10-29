@@ -16,6 +16,11 @@ import {
   Save,
   X,
   ShieldAlert,
+  BellRing,
+  Send,
+  Smartphone,
+  Trophy,
+  Clock,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
 import { Lang } from '../utils/i18n';
@@ -291,6 +296,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
 
+  // Quản lý PWA Push Notifications & Staggered Request Queue (Chia đều Request)
+  const [pushStatus, setPushStatus] = useState<any | null>(null);
+  const [spreadWindowSeconds, setSpreadWindowSeconds] = useState<number>(18);
+  const [minIntervalMs, setMinIntervalMs] = useState<number>(1200);
+  const [autoRemindUnstudied, setAutoRemindUnstudied] = useState<boolean>(true);
+
   const cardBg = darkMode
     ? 'bg-slate-900/90 border-slate-800 text-slate-100'
     : 'bg-white/95 border-blue-100/90 text-slate-800';
@@ -341,6 +352,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchDayDetail(selectedDay);
   }, [selectedDay]);
 
+  const fetchPushStatus = async (syncInputs = false) => {
+    try {
+      const res = await fetch('/api/admin/push/status', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPushStatus(data);
+        if (syncInputs && data.queueStatus?.config) {
+          setSpreadWindowSeconds(data.queueStatus.config.spreadWindowSeconds ?? 18);
+          setMinIntervalMs(data.queueStatus.config.minIntervalMs ?? 1200);
+          setAutoRemindUnstudied(Boolean(data.queueStatus.config.autoRemindUnstudied));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchPushStatus(true);
+    const interval = setInterval(() => {
+      fetchPushStatus(false);
+    }, 1200);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSavePushConfig = async () => {
+    const res = await fetch('/api/admin/push/config', {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        spreadWindowSeconds: Number(spreadWindowSeconds),
+        minIntervalMs: Number(minIntervalMs),
+        autoRemindUnstudied,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      showMessage(data.message);
+      fetchPushStatus(true);
+    }
+  };
+
+  const handleTriggerPush = async (
+    type: 'NEW_DAY_UNLOCKED' | 'NEW_TOP_1' | 'UNSTUDIED_REMINDER'
+  ) => {
+    const res = await fetch('/api/admin/push/trigger', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        type,
+        dayNumber: selectedDay,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMessage(data.message || 'Lỗi gửi thông báo Push', true);
+      return;
+    }
+    showMessage(data.message);
+    fetchPushStatus(false);
+  };
+
   const handleSaveDayMeta = async () => {
     const res = await fetch(`/api/admin/challenges/${selectedDay}/unlock`, {
       method: 'PUT',
@@ -375,6 +450,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showMessage(data.message);
       setShowLockConfirmModal(false);
       fetchDayDetail(selectedDay);
+      fetchPushStatus(false);
       onRefreshGlobal();
     }
   };
@@ -878,6 +954,315 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= HỆ THỐNG PUSH NOTIFICATION PWA (CHIA ĐỀU REQUEST - KHÔNG GỬI DỒN CÙNG LÚC) ================= */}
+      {pushStatus && (
+        <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 ${cardBg}`}>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-800">
+            <div>
+              <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
+                <BellRing className="w-5 h-5 text-amber-500" />
+                3. Hệ thống Push Thông báo PWA (Chia đều Request — Staggered Queue)
+              </h3>
+              <p className={`text-xs mt-0.5 ${textSecondary}`}>
+                Tự động & chủ động gửi thông báo tới tất cả thiết bị đã cài đặt PWA theo từng nhịp chia đều (không gửi dồn cùng một lúc tránh nghẽn mạng).
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 ${
+                  pushStatus.queueStatus?.isProcessing
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse'
+                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                }`}
+              >
+                <Smartphone className="w-4 h-4" />
+                {pushStatus.queueStatus?.isProcessing
+                  ? `Đang chia đều: còn ${pushStatus.queueStatus.pendingRequestsCount} request...`
+                  : `${pushStatus.stats?.totalPwaDevices || 0} Thiết bị cài PWA sẵn sàng`}
+              </span>
+            </div>
+          </div>
+
+          {/* 3 Kịch bản Push chính */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {/* Kịch bản 1: Mở khóa ngày mới */}
+            <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-600 text-white">
+                    Kịch bản 1 • Tất cả PWA
+                  </span>
+                  <Unlock className="w-4 h-4 text-blue-500" />
+                </div>
+                <h4 className={`text-sm font-black ${textPrimary}`}>
+                  🔓 Mở khóa ngày mới để học
+                </h4>
+                <p className={`text-xs leading-relaxed ${textSecondary}`}>
+                  Tự động kích hoạt ngay khi mở khóa ngày mới hoặc đúng 00:00. Rải đều thông báo tới{' '}
+                  <strong>{pushStatus.stats?.totalPwaDevices || 0} thiết bị PWA</strong>.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleTriggerPush('NEW_DAY_UNLOCKED')}
+                className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Push Mở khóa Day {selectedDay} ngay
+              </button>
+            </div>
+
+            {/* Kịch bản 2: Người leo lên Top 1 mới */}
+            <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
+                    Kịch bản 2 • Tất cả PWA
+                  </span>
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                </div>
+                <h4 className={`text-sm font-black ${textPrimary}`}>
+                  👑 Có người leo lên Top 1 mới
+                </h4>
+                <p className={`text-xs leading-relaxed ${textSecondary}`}>
+                  Tự động phát khi có người vượt điểm lên Top 1. Top 1 hiện tại:{' '}
+                  <strong>
+                    {pushStatus.stats?.currentTop1?.fullName || 'Chưa có'} (
+                    {pushStatus.stats?.currentTop1?.totalScore?.toLocaleString() || 0}đ)
+                  </strong>
+                  .
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleTriggerPush('NEW_TOP_1')}
+                className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                Push Thông báo Top 1 mới
+              </button>
+            </div>
+
+            {/* Kịch bản 3: Những ai có tài khoản mà chưa học */}
+            <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
+                    Kịch bản 3 • Lọc TK chưa học
+                  </span>
+                  <Clock className="w-4 h-4 text-rose-500" />
+                </div>
+                <h4 className={`text-sm font-black ${textPrimary}`}>
+                  ⏰ Có tài khoản mà chưa học
+                </h4>
+                <p className={`text-xs leading-relaxed ${textSecondary}`}>
+                  Hiện có{' '}
+                  <strong className="text-rose-500">
+                    {pushStatus.stats?.unstudiedAccountsCount || 0} tài khoản cài PWA
+                  </strong>{' '}
+                  chưa hoàn thành {pushStatus.stats?.latestUnlockedDay?.title || 'bài hôm nay'} (hoặc chưa học bài nào).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleTriggerPush('UNSTUDIED_REMINDER')}
+                className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                Push Nhắc {pushStatus.stats?.unstudiedAccountsCount || 0} TK chưa học
+              </button>
+            </div>
+          </div>
+
+          {/* Bộ điều khiển tốc độ chia đều Request (Staggered Rate-Limit Config) */}
+          <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className={`text-xs sm:text-sm font-black ${textPrimary}`}>
+                  ⚙️ Cấu hình Chia Đều Request (Không thông báo cùng một lúc)
+                </h4>
+                <p className={`text-[11px] ${textSecondary}`}>
+                  Hệ thống tự động chia tổng khung thời gian cho số lượng thiết bị PWA để gửi tuần tự từng request một.
+                </p>
+              </div>
+              <label className="text-xs font-extrabold flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoRemindUnstudied}
+                  onChange={(e) => setAutoRemindUnstudied(e.target.checked)}
+                />
+                <span>Tự động nhắc người có TK chưa học mỗi ngày</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                  Tổng khung thời gian rải đều (giây)
+                </label>
+                <input
+                  type="number"
+                  min={3}
+                  max={3600}
+                  value={spreadWindowSeconds}
+                  onChange={(e) => setSpreadWindowSeconds(Number(e.target.value))}
+                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                  Khoảng cách tối thiểu giữa 2 request (ms)
+                </label>
+                <input
+                  type="number"
+                  min={200}
+                  max={15000}
+                  step={100}
+                  value={minIntervalMs}
+                  onChange={(e) => setMinIntervalMs(Number(e.target.value))}
+                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={handleSavePushConfig}
+                  className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 h-[38px]"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Lưu cấu hình chia đều
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Danh sách tài khoản cài PWA chưa học & Tiến độ chiến dịch Push đang rải đều */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Cột trái: Danh sách những ai có tài khoản PWA mà chưa học */}
+            <div className={`lg:col-span-5 p-4 rounded-2xl border space-y-2.5 ${subCardBg}`}>
+              <div className="flex items-center justify-between">
+                <h4 className={`text-xs font-black uppercase tracking-wider ${textPrimary}`}>
+                  📋 Danh sách TK cài PWA chưa học ({pushStatus.stats?.unstudiedAccountsCount || 0})
+                </h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                  Mục tiêu nhắc học
+                </span>
+              </div>
+
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {(pushStatus.stats?.unstudiedAccounts || []).length === 0 ? (
+                  <p className="text-xs text-emerald-600 font-bold py-4 text-center">
+                    🎉 Tất cả tài khoản cài PWA đều đã hoàn thành bài học hôm nay!
+                  </p>
+                ) : (
+                  (pushStatus.stats?.unstudiedAccounts || []).map((u: any) => (
+                    <div
+                      key={u.id}
+                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${
+                        darkMode
+                          ? 'bg-slate-900/70 border-slate-700'
+                          : 'bg-white border-slate-200'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className={`font-extrabold truncate ${textPrimary}`}>
+                          {u.fullName}{' '}
+                          <span className="text-[10px] font-bold text-blue-500">
+                            (GEN {u.employeeId})
+                          </span>
+                        </div>
+                        <div className={`text-[10px] ${textSecondary}`}>
+                          {u.neverStudiedAnyDay
+                            ? '⚠️ Có tài khoản nhưng chưa học ngày nào (0/30)'
+                            : `Đã học ${u.completedDays}/30 ngày • Chưa làm ${u.targetDayTitle}`}
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-extrabold shrink-0">
+                        Chưa học
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Cột phải: Tiến độ rải đều Request thời gian thực (Staggered Queue Monitor) */}
+            <div className={`lg:col-span-7 p-4 rounded-2xl border space-y-2.5 ${subCardBg}`}>
+              <div className="flex items-center justify-between">
+                <h4 className={`text-xs font-black uppercase tracking-wider ${textPrimary}`}>
+                  📡 Tiến độ rải đều Request Push (Trực tiếp từng nhịp)
+                </h4>
+                <span className={`text-[10px] font-bold ${textSecondary}`}>
+                  Tuần tự 1 request / nhịp
+                </span>
+              </div>
+
+              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                {(pushStatus.campaigns || []).length === 0 ? (
+                  <p className={`text-xs py-6 text-center ${textSecondary}`}>
+                    Chưa có chiến dịch Push nào. Hãy bấm 1 trong 3 nút Push bên trên hoặc mở khóa ngày mới để xem các request được chia đều!
+                  </p>
+                ) : (
+                  (pushStatus.campaigns || []).slice(0, 5).map((camp: any) => {
+                    const pct =
+                      camp.totalTargets > 0
+                        ? Math.round((camp.sentCount / camp.totalTargets) * 100)
+                        : 100;
+                    return (
+                      <div
+                        key={camp.id}
+                        className={`p-3 rounded-xl border space-y-2 text-xs ${
+                          darkMode
+                            ? 'bg-slate-900/70 border-slate-700'
+                            : 'bg-white border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`font-extrabold truncate ${textPrimary}`}>
+                            {camp.title}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                              camp.status === 'SENDING'
+                                ? 'bg-amber-100 text-amber-800 animate-pulse'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {camp.status === 'SENDING'
+                              ? `Đang gửi ${camp.sentCount}/${camp.totalTargets}`
+                              : `Hoàn tất ${camp.sentCount}/${camp.totalTargets}`}
+                          </span>
+                        </div>
+
+                        {/* Thanh tiến trình nhảy từng request một */}
+                        <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                          <div
+                            className="h-full bg-blue-600 transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+
+                        <div className={`flex flex-wrap items-center justify-between gap-1 text-[10px] ${textSecondary}`}>
+                          <span>
+                            ⏱️ Chia đều: <strong>{camp.staggerIntervalMs}ms / 1 request</strong> (Tổng khung ~
+                            {Math.round((camp.totalSpreadMs || 0) / 1000)}s)
+                          </span>
+                          <span>
+                            {camp.recentLogs?.[0]
+                              ? `Vừa gửi [${camp.recentLogs[0].orderIndex}/${camp.recentLogs[0].total}]: ${camp.recentLogs[0].recipientName} (GEN ${camp.recentLogs[0].employeeId})`
+                              : ''}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>

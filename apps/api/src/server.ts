@@ -8,6 +8,7 @@ import rateLimit from '@fastify/rate-limit';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { store } from './services/store.js';
+import { pushService } from './services/pushNotification.js';
 import {
   registerSchema,
   loginSchema,
@@ -508,7 +509,12 @@ app.post(
       };
     });
 
-    const { isFirstOfficialAttempt } = store.recordAttempt({
+    const {
+      isFirstOfficialAttempt,
+      climbedToTop1,
+      previousTop1,
+      newTop1,
+    } = store.recordAttempt({
       id: crypto.randomUUID(),
       userId,
       challengeId: challenge.id,
@@ -524,6 +530,12 @@ app.post(
 
     store.completeActiveSession(userId, dayNumber);
 
+    // KHI CÓ NGƯỜI VỪA LEO LÊN TOP 1 MỚI -> Tự động rải đều thông báo Push cho tất cả ai cài PWA
+    let top1PushCampaign = null;
+    if (climbedToTop1 && newTop1) {
+      top1PushCampaign = pushService.enqueueNewTop1(newTop1, previousTop1);
+    }
+
     return {
       dayNumber,
       score,
@@ -532,6 +544,8 @@ app.post(
       wrongCount,
       timeSpentMs: serverElapsedMs,
       isFirstOfficialAttempt,
+      climbedToTop1,
+      top1PushCampaign,
       submittedDuringGracePeriod: !isUnlocked && Boolean(session),
       detailedReview,
     };
@@ -637,6 +651,7 @@ app.put(
       return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
     }
 
+    let pushCampaign = null;
     let msg = `Đã cập nhật ${result.challenge.title} (${result.challenge.dateLabel})`;
     if (body.unlockNow === false) {
       if (result.lockModeUsed === 'FORCE') {
@@ -645,13 +660,15 @@ app.put(
         msg = `🛡️ Đã KHÓA MỀM ${result.challenge.title}: Chặn người mới vào, nhưng vẫn cho phép ${result.activePlayersAffected} người đang làm dở được nộp bài nốt!`;
       }
     } else if (body.unlockNow === true) {
-      msg = `🔓 Đã MỞ KHÓA ${result.challenge.title} cho nhân viên vào làm bài!`;
+      pushCampaign = pushService.enqueueNewDayUnlocked(result.challenge);
+      msg = `🔓 Đã MỞ KHÓA ${result.challenge.title} & đang chia đều thông báo Push tới ${pushCampaign.totalTargets} thiết bị PWA (${pushCampaign.staggerIntervalMs}ms/request)!`;
     }
 
     return {
       message: msg,
       challenge: result.challenge,
       activePlayersAffected: result.activePlayersAffected,
+      pushCampaign,
     };
   }
 );
@@ -801,6 +818,214 @@ app.post(
     };
   }
 );
+
+// ==================== 5. PWA WEB PUSH NOTIFICATIONS & STAGGERED DISPATCHER (CHIA ĐỀU REQUEST) ====================
+
+// Lấy VAPID Public Key để trình duyệt / PWA đăng ký Web Push
+app.get('/api/push/vapid-public-key', async () => {
+  return {
+    publicKey: pushService.getVapidPublicKey(),
+  };
+});
+
+// Đăng ký hoặc đồng bộ thiết bị cài đặt PWA với tài khoản người dùng
+app.post('/api/push/subscribe', async (request: any, reply) => {
+  const body = (request.body || {}) as {
+    subscription?: {
+      endpoint?: string;
+      keys?: { p256dh?: string; auth?: string };
+    };
+    userId?: string | null;
+    employeeId?: string | null;
+    fullName?: string | null;
+    isPwaInstalled?: boolean;
+    userAgent?: string;
+  };
+
+  let authUserId: string | null = body.userId || null;
+  try {
+    await request.jwtVerify();
+    if (request.user?.sub) {
+      authUserId = request.user.sub;
+    }
+  } catch {
+    // Cho phép cả thiết bị PWA đăng ký trước khi đăng nhập hoặc dùng body.userId
+  }
+
+  const endpoint =
+    body.subscription?.endpoint ||
+    `https://pwa-client.speakright.local/device/${authUserId || crypto.randomUUID().slice(0, 8)}`;
+
+  const record = store.upsertPwaSubscription({
+    endpoint,
+    keys: body.subscription?.keys,
+    userId: authUserId,
+    employeeId: body.employeeId || null,
+    fullName: body.fullName || null,
+    isPwaInstalled: body.isPwaInstalled ?? true,
+    userAgent: body.userAgent || (request.headers['user-agent'] as string) || 'PWA Standalone',
+  });
+
+  return reply.send({
+    message: 'Đã kích hoạt nhận thông báo PWA thành công!',
+    subscription: record,
+  });
+});
+
+// Hủy đăng ký nhận thông báo PWA
+app.post('/api/push/unsubscribe', async (request: any) => {
+  const { endpoint } = (request.body || {}) as { endpoint?: string };
+  if (endpoint) {
+    store.removePwaSubscription(endpoint);
+  }
+  return { message: 'Đã tắt nhận thông báo PWA trên thiết bị này.' };
+});
+
+// Đồng bộ thông báo thời gian thực cho các máy đã cài PWA (nhận đúng nhịp chia đều của Queue)
+app.get('/api/push/poll', async (request: any) => {
+  const since = Number(request.query?.since || 0);
+  let userId: string | null = (request.query?.userId as string) || null;
+  try {
+    await request.jwtVerify();
+    if (request.user?.sub) userId = request.user.sub;
+  } catch {
+    // ignore
+  }
+
+  const notifications = store.getRecentInAppNotifications(userId, since);
+  return {
+    notifications,
+    serverTime: Date.now(),
+  };
+});
+
+// Admin: Xem thống kê thiết bị cài PWA, danh sách tài khoản chưa học & tiến độ rải đều Request Push
+app.get(
+  '/api/admin/push/status',
+  { preHandler: [(app as any).requireAdmin] },
+  async () => {
+    const pwaSubs = store.getPwaSubscriptions(true);
+    const unstudiedList = store.getUnstudiedAccountsWithPwa();
+    const leaderboard = store.getLeaderboard();
+    const latestDay = store.getLatestUnlockedChallenge();
+
+    return {
+      vapidPublicKey: pushService.getVapidPublicKey(),
+      queueStatus: pushService.getQueueStatus(),
+      stats: {
+        totalPwaDevices: pwaSubs.length,
+        unstudiedAccountsCount: unstudiedList.length,
+        unstudiedAccounts: unstudiedList.map((item) => ({
+          id: item.user.id,
+          employeeId: item.user.employeeId,
+          fullName: item.user.fullName,
+          department: item.user.department,
+          completedDays: item.user.completedDays,
+          totalScore: item.user.totalScore,
+          targetDayNumber: item.targetDay.dayNumber,
+          targetDayTitle: item.targetDay.title,
+          neverStudiedAnyDay: item.neverStudiedAnyDay,
+          pwaDevicesCount: item.subscriptions.length,
+        })),
+        currentTop1: leaderboard[0] || null,
+        latestUnlockedDay: {
+          dayNumber: latestDay.dayNumber,
+          title: latestDay.title,
+          dateLabel: latestDay.dateLabel,
+        },
+      },
+      subscriptions: pwaSubs,
+      campaigns: store.getPushCampaigns(),
+    };
+  }
+);
+
+// Admin: Cấu hình tốc độ chia đều request (Spread Window & Khoảng cách ms giữa các request)
+app.put(
+  '/api/admin/push/config',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any) => {
+    const body = (request.body || {}) as {
+      spreadWindowSeconds?: number;
+      minIntervalMs?: number;
+      maxIntervalMs?: number;
+      autoRemindUnstudied?: boolean;
+    };
+
+    const updated = store.updatePushConfig({
+      ...(body.spreadWindowSeconds !== undefined
+        ? { spreadWindowSeconds: Math.max(3, Math.min(3600, Number(body.spreadWindowSeconds))) }
+        : {}),
+      ...(body.minIntervalMs !== undefined
+        ? { minIntervalMs: Math.max(200, Math.min(30000, Number(body.minIntervalMs))) }
+        : {}),
+      ...(body.maxIntervalMs !== undefined
+        ? { maxIntervalMs: Math.max(500, Math.min(60000, Number(body.maxIntervalMs))) }
+        : {}),
+      ...(body.autoRemindUnstudied !== undefined
+        ? { autoRemindUnstudied: Boolean(body.autoRemindUnstudied) }
+        : {}),
+    });
+
+    return {
+      message: `Đã lưu cấu hình chia đều Request Push (Tổng khung chia đều: ${updated.spreadWindowSeconds}s, Khoảng cách tối thiểu: ${updated.minIntervalMs}ms/request)!`,
+      config: updated,
+    };
+  }
+);
+
+// Admin: Phát lệnh Push thông báo chia đều request cho 3 kịch bản
+app.post(
+  '/api/admin/push/trigger',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const { type, dayNumber } = (request.body || {}) as {
+      type: 'NEW_DAY_UNLOCKED' | 'NEW_TOP_1' | 'UNSTUDIED_REMINDER';
+      dayNumber?: number;
+    };
+
+    if (type === 'NEW_DAY_UNLOCKED') {
+      const targetDay =
+        (dayNumber ? store.getChallengeByDay(Number(dayNumber)) : undefined) ||
+        store.getLatestUnlockedChallenge();
+      const campaign = pushService.enqueueNewDayUnlocked(targetDay);
+      return {
+        message: `🚀 Đang chia đều ${campaign.totalTargets} request thông báo mở khóa ${targetDay.title} (Cách nhau ${campaign.staggerIntervalMs}ms/request, tổng ${Math.round(campaign.totalSpreadMs / 1000)}s)!`,
+        campaign,
+      };
+    }
+
+    if (type === 'NEW_TOP_1') {
+      const lb = store.getLeaderboard();
+      const top1 = lb[0];
+      const top2 = lb[1] || null;
+      if (!top1) {
+        return reply.status(400).send({ message: 'Chưa có dữ liệu Bảng xếp hạng.' });
+      }
+      const campaign = pushService.enqueueNewTop1(top1, top2);
+      return {
+        message: `👑 Đang chia đều ${campaign.totalTargets} request thông báo Top 1 mới (${top1.fullName}) tới toàn bộ PWA (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`,
+        campaign,
+      };
+    }
+
+    if (type === 'UNSTUDIED_REMINDER') {
+      const campaign = pushService.enqueueUnstudiedAccountsReminder();
+      return {
+        message:
+          campaign.totalTargets > 0
+            ? `⏰ Đang chia đều ${campaign.totalTargets} request nhắc học tới những người có tài khoản PWA mà chưa học (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`
+            : '🎉 Tuyệt vời! Tất cả tài khoản cài PWA đều đã hoàn thành bài học hôm nay.',
+        campaign,
+      };
+    }
+
+    return reply.status(400).send({ message: 'Loại thông báo Push không hợp lệ.' });
+  }
+);
+
+// Khởi động bộ lập lịch tự động kiểm tra Mở khóa ngày mới & Nhắc người chưa học
+pushService.startAutoScheduler();
 
 const port = Number(process.env.PORT || 4000);
 app.listen({ port, host: '0.0.0.0' }, (err, address) => {

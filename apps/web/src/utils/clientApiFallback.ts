@@ -87,10 +87,80 @@ interface ActiveSession {
   questionsSnapshot: QuestionItem[];
 }
 
+export type ClientPushType =
+  | 'NEW_DAY_UNLOCKED'
+  | 'NEW_TOP_1'
+  | 'UNSTUDIED_REMINDER';
+
+interface ClientPwaSub {
+  id: string;
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  userId: string | null;
+  employeeId: string | null;
+  fullName: string | null;
+  isPwaInstalled: boolean;
+  isSimulated?: boolean;
+  userAgent: string;
+  createdAt: string;
+  updatedAt: string;
+  lastNotifiedAt?: string | null;
+}
+
+interface ClientPushCampaign {
+  id: string;
+  type: ClientPushType;
+  title: string;
+  body: string;
+  targetUrl: string;
+  totalTargets: number;
+  sentCount: number;
+  successCount: number;
+  failedCount: number;
+  staggerIntervalMs: number;
+  totalSpreadMs: number;
+  status: 'QUEUED' | 'SENDING' | 'COMPLETED';
+  createdAt: string;
+  completedAt?: string | null;
+  recentLogs: {
+    recipientName: string;
+    employeeId: string;
+    sentAt: string;
+    orderIndex: number;
+    total: number;
+    status: 'SENT' | 'DELIVERED_LOCAL' | 'FAILED';
+  }[];
+}
+
+interface ClientInAppNotif {
+  id: string;
+  campaignId: string;
+  type: ClientPushType;
+  userId: string | null;
+  title: string;
+  body: string;
+  targetUrl: string;
+  deliveredAt: string;
+}
+
+interface ClientPushConfig {
+  spreadWindowSeconds: number;
+  minIntervalMs: number;
+  maxIntervalMs: number;
+  autoRemindUnstudied: boolean;
+  lastTop1UserId: string | null;
+  notifiedUnlockedDays: number[];
+  notifiedUnstudiedKeys: string[];
+}
+
 interface ClientDbShape {
   users: UserRecord[];
   challenges: DailyChallengeItem[];
   attempts: AttemptRecord[];
+  pwaSubscriptions?: ClientPwaSub[];
+  pushCampaigns?: ClientPushCampaign[];
+  inAppNotifications?: ClientInAppNotif[];
+  pushConfig?: ClientPushConfig;
 }
 
 const STORAGE_KEY = 'sr_github_pages_db_v1';
@@ -414,17 +484,360 @@ function createInitialDb(): ClientDbShape {
       completedDays: 13,
       createdAt: new Date().toISOString(),
     },
+    {
+      id: 'u-6',
+      employeeId: '20260006',
+      fullName: 'Vũ Đức Trọng',
+      email: 'ductrong.eng@gmail.com',
+      phone: '0912345006',
+      department: 'Production',
+      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DucTrong',
+      passwordPlain: 'Speak@2026',
+      role: 'USER',
+      totalScore: 0,
+      totalTimeMs: 0,
+      completedDays: 0,
+      createdAt: new Date().toISOString(),
+    },
   ];
 
-  return {
+  return ensureClientPushState({
     users,
     challenges: generate30Days(),
     attempts: [],
-  };
+  });
+}
+
+function ensureClientPushState(db: ClientDbShape): ClientDbShape {
+  if (!Array.isArray(db.pwaSubscriptions) || db.pwaSubscriptions.length === 0) {
+    db.pwaSubscriptions = db.users
+      .filter((u) => u.role === 'USER')
+      .map((u, idx) => ({
+        id: `pwa-seed-${u.id}`,
+        endpoint: `https://pwa-device.speakright.local/endpoint/${u.employeeId}`,
+        keys: { p256dh: `seed_p256dh_${u.employeeId}`, auth: `seed_auth_${u.employeeId}` },
+        userId: u.id,
+        employeeId: u.employeeId,
+        fullName: u.fullName,
+        isPwaInstalled: true,
+        isSimulated: true,
+        userAgent:
+          idx % 2 === 0
+            ? 'iPhone iOS 17.5 Standalone PWA'
+            : 'Android 14 Chrome Standalone PWA',
+        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastNotifiedAt: null,
+      }));
+  }
+  if (!Array.isArray(db.pushCampaigns)) db.pushCampaigns = [];
+  if (!Array.isArray(db.inAppNotifications)) db.inAppNotifications = [];
+  if (!db.pushConfig) {
+    db.pushConfig = {
+      spreadWindowSeconds: 18,
+      minIntervalMs: 1200,
+      maxIntervalMs: 5000,
+      autoRemindUnstudied: true,
+      lastTop1UserId: 'u-1',
+      notifiedUnlockedDays: [1],
+      notifiedUnstudiedKeys: [],
+    };
+  }
+  return db;
 }
 
 const activeSessions = new Map<string, ActiveSession>();
 const forceLockedDays = new Map<number, number>();
+
+interface ClientQueuedTask {
+  campaignId: string;
+  subscription: ClientPwaSub;
+  type: ClientPushType;
+  userId: string | null;
+  recipientName: string;
+  employeeId: string;
+  title: string;
+  body: string;
+  targetUrl: string;
+  orderIndex: number;
+  totalInCampaign: number;
+  delayAfterMs: number;
+}
+
+const clientPushQueue: ClientQueuedTask[] = [];
+let clientQueueRunning = false;
+
+function computeClientStaggerMs(db: ClientDbShape, total: number): number {
+  if (total <= 1) return 0;
+  const cfg = db.pushConfig!;
+  const raw = Math.floor((Math.max(3, cfg.spreadWindowSeconds) * 1000) / total);
+  return Math.max(cfg.minIntervalMs, Math.min(cfg.maxIntervalMs, raw));
+}
+
+function getLatestUnlockedDay(db: ClientDbShape): DailyChallengeItem {
+  const unlocked = db.challenges
+    .filter((c) => isDayUnlocked(c))
+    .sort((a, b) => b.dayNumber - a.dayNumber);
+  return unlocked[0] || db.challenges[0];
+}
+
+function getClientUnstudiedWithPwa(db: ClientDbShape) {
+  const targetDay = getLatestUnlockedDay(db);
+  const subs = (db.pwaSubscriptions || []).filter((s) => s.isPwaInstalled);
+  const results: {
+    user: UserRecord;
+    subscriptions: ClientPwaSub[];
+    targetDay: DailyChallengeItem;
+    neverStudiedAnyDay: boolean;
+  }[] = [];
+
+  for (const user of db.users) {
+    const doneDay = db.attempts.some(
+      (a) => a.userId === user.id && a.dayNumber === targetDay.dayNumber
+    );
+    const neverStudiedAnyDay =
+      user.completedDays === 0 && !db.attempts.some((a) => a.userId === user.id);
+
+    if (!doneDay || neverStudiedAnyDay) {
+      const userSubs = subs.filter((s) => s.userId === user.id);
+      if (userSubs.length > 0) {
+        results.push({ user, subscriptions: userSubs, targetDay, neverStudiedAnyDay });
+      }
+    }
+  }
+  return results;
+}
+
+function runClientStaggerQueue() {
+  if (clientQueueRunning) return;
+  clientQueueRunning = true;
+
+  const step = () => {
+    const task = clientPushQueue.shift();
+    if (!task) {
+      clientQueueRunning = false;
+      return;
+    }
+
+    const db = loadDb();
+    const camp = (db.pushCampaigns || []).find((c) => c.id === task.campaignId);
+    if (camp) {
+      camp.status = 'SENDING';
+      camp.sentCount += 1;
+      camp.successCount += 1;
+      camp.recentLogs.unshift({
+        recipientName: task.recipientName,
+        employeeId: task.employeeId,
+        sentAt: new Date().toISOString(),
+        orderIndex: task.orderIndex,
+        total: task.totalInCampaign,
+        status: 'DELIVERED_LOCAL',
+      });
+      if (camp.recentLogs.length > 25) camp.recentLogs = camp.recentLogs.slice(0, 25);
+      if (camp.sentCount >= camp.totalTargets) {
+        camp.status = 'COMPLETED';
+        camp.completedAt = new Date().toISOString();
+      }
+    }
+
+    if (task.orderIndex === 1 || task.userId !== null) {
+      db.inAppNotifications = db.inAppNotifications || [];
+      db.inAppNotifications.unshift({
+        id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        campaignId: task.campaignId,
+        type: task.type,
+        userId: task.userId,
+        title: task.title,
+        body: task.body,
+        targetUrl: task.targetUrl,
+        deliveredAt: new Date().toISOString(),
+      });
+      if (db.inAppNotifications.length > 80) {
+        db.inAppNotifications = db.inAppNotifications.slice(0, 80);
+      }
+    }
+
+    saveDb(db);
+
+    if (clientPushQueue.length > 0) {
+      setTimeout(step, Math.max(250, task.delayAfterMs));
+    } else {
+      clientQueueRunning = false;
+    }
+  };
+
+  setTimeout(step, 50);
+}
+
+function enqueueClientStaggerCampaign(
+  db: ClientDbShape,
+  type: ClientPushType,
+  title: string,
+  body: string,
+  targetUrl: string,
+  rawTasks: {
+    subscription: ClientPwaSub;
+    userId: string | null;
+    recipientName: string;
+    employeeId: string;
+    title: string;
+    body: string;
+    targetUrl: string;
+  }[]
+): ClientPushCampaign {
+  const totalTargets = rawTasks.length;
+  const staggerIntervalMs = computeClientStaggerMs(db, totalTargets);
+  const totalSpreadMs = Math.max(0, (totalTargets - 1) * staggerIntervalMs);
+
+  const campaign: ClientPushCampaign = {
+    id: `camp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    type,
+    title,
+    body,
+    targetUrl,
+    totalTargets,
+    sentCount: 0,
+    successCount: 0,
+    failedCount: 0,
+    staggerIntervalMs,
+    totalSpreadMs,
+    status: totalTargets === 0 ? 'COMPLETED' : 'QUEUED',
+    createdAt: new Date().toISOString(),
+    completedAt: totalTargets === 0 ? new Date().toISOString() : null,
+    recentLogs: [],
+  };
+
+  db.pushCampaigns = db.pushCampaigns || [];
+  db.pushCampaigns.unshift(campaign);
+  if (db.pushCampaigns.length > 30) db.pushCampaigns = db.pushCampaigns.slice(0, 30);
+  saveDb(db);
+
+  rawTasks.forEach((t, idx) => {
+    clientPushQueue.push({
+      campaignId: campaign.id,
+      subscription: t.subscription,
+      type,
+      userId: t.userId,
+      recipientName: t.recipientName,
+      employeeId: t.employeeId,
+      title: t.title,
+      body: t.body,
+      targetUrl: t.targetUrl,
+      orderIndex: idx + 1,
+      totalInCampaign: totalTargets,
+      delayAfterMs: idx < totalTargets - 1 ? staggerIntervalMs : 250,
+    });
+  });
+
+  if (totalTargets > 0) {
+    runClientStaggerQueue();
+  }
+  return campaign;
+}
+
+function triggerClientDayUnlocked(
+  db: ClientDbShape,
+  challenge: DailyChallengeItem
+): ClientPushCampaign {
+  const subs = (db.pwaSubscriptions || []).filter((s) => s.isPwaInstalled);
+  const title = `🔓 Đã mở khóa ${challenge.title} (${challenge.dateLabel})!`;
+  const body = `Bài học phát âm mới của ${challenge.title} đã sẵn sàng. Vào hoàn thành 10 câu hỏi để tích điểm ngay nhé!`;
+  const targetUrl = '/#challenges';
+  return enqueueClientStaggerCampaign(
+    db,
+    'NEW_DAY_UNLOCKED',
+    title,
+    body,
+    targetUrl,
+    subs.map((sub) => ({
+      subscription: sub,
+      userId: null,
+      recipientName: sub.fullName || 'Người dùng PWA',
+      employeeId: sub.employeeId || 'PWA',
+      title,
+      body,
+      targetUrl,
+    }))
+  );
+}
+
+function triggerClientNewTop1(
+  db: ClientDbShape,
+  newTop1: { id: string; fullName: string; employeeId: string; totalScore: number },
+  prevTop1?: { id: string; fullName: string; employeeId: string; totalScore: number } | null
+): ClientPushCampaign {
+  const subs = (db.pwaSubscriptions || []).filter((s) => s.isPwaInstalled);
+  const title = `👑 Ngôi vương đổi chủ! Top 1 mới lộ diện!`;
+  const body =
+    prevTop1 && prevTop1.id !== newTop1.id
+      ? `${newTop1.fullName} (GEN ${newTop1.employeeId}) vừa vượt qua ${prevTop1.fullName} để leo lên vị trí Top 1 với ${newTop1.totalScore.toLocaleString()} điểm! Vào đua Top ngay!`
+      : `${newTop1.fullName} (GEN ${newTop1.employeeId}) vừa vươn lên dẫn đầu Bảng Xếp Hạng Top 1 với ${newTop1.totalScore.toLocaleString()} điểm!`;
+  const targetUrl = '/#leaderboard';
+  return enqueueClientStaggerCampaign(
+    db,
+    'NEW_TOP_1',
+    title,
+    body,
+    targetUrl,
+    subs.map((sub) => ({
+      subscription: sub,
+      userId: null,
+      recipientName: sub.fullName || 'Người dùng PWA',
+      employeeId: sub.employeeId || 'PWA',
+      title,
+      body,
+      targetUrl,
+    }))
+  );
+}
+
+function triggerClientUnstudiedReminder(db: ClientDbShape): ClientPushCampaign {
+  const unstudiedList = getClientUnstudiedWithPwa(db);
+  const latestDay = getLatestUnlockedDay(db);
+  const summaryTitle = `⏰ Nhắc học: Tài khoản chưa hoàn thành ${latestDay.title}`;
+  const summaryBody = `Thông báo cá nhân hóa gửi rải đều tới ${unstudiedList.length} tài khoản đã cài PWA nhưng chưa học ${latestDay.title}.`;
+  const targetUrl = '/#challenges';
+
+  const tasks: {
+    subscription: ClientPwaSub;
+    userId: string | null;
+    recipientName: string;
+    employeeId: string;
+    title: string;
+    body: string;
+    targetUrl: string;
+  }[] = [];
+
+  for (const item of unstudiedList) {
+    const personalTitle = item.neverStudiedAnyDay
+      ? `👋 ${item.user.fullName} ơi, bạn có tài khoản nhưng chưa học bài nào!`
+      : `⏰ Nhắc học: ${item.user.fullName} chưa hoàn thành ${item.targetDay.title}!`;
+    const personalBody = item.neverStudiedAnyDay
+      ? `Tài khoản GEN ${item.user.employeeId} chưa bắt đầu ngày thử thách nào. ${item.targetDay.title} (${item.targetDay.dateLabel}) đang mở, vào học 2 phút ngay nhé!`
+      : `Chào ${item.user.fullName} (GEN ${item.user.employeeId}), bạn đừng quên hoàn thành 10 câu hỏi của ${item.targetDay.title} hôm nay để giữ vững thứ hạng nhé!`;
+
+    for (const sub of item.subscriptions) {
+      tasks.push({
+        subscription: sub,
+        userId: item.user.id,
+        recipientName: item.user.fullName,
+        employeeId: item.user.employeeId,
+        title: personalTitle,
+        body: personalBody,
+        targetUrl,
+      });
+    }
+  }
+
+  return enqueueClientStaggerCampaign(
+    db,
+    'UNSTUDIED_REMINDER',
+    summaryTitle,
+    summaryBody,
+    targetUrl,
+    tasks
+  );
+}
 
 function loadDb(): ClientDbShape {
   try {
@@ -432,7 +845,7 @@ function loadDb(): ClientDbShape {
     if (raw) {
       const parsed = JSON.parse(raw) as ClientDbShape;
       if (parsed?.users?.length && parsed?.challenges?.length) {
-        return parsed;
+        return ensureClientPushState(parsed);
       }
     }
   } catch {
@@ -725,6 +1138,86 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     });
   }
 
+  // PUBLIC PWA PUSH ENDPOINTS
+  if (path === '/api/push/vapid-public-key' && method === 'GET') {
+    return jsonResponse({
+      publicKey:
+        'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+    });
+  }
+
+  if (path === '/api/push/subscribe' && method === 'POST') {
+    const authed = decodeUserFromHeaders(init?.headers, db);
+    const userId = body.userId || authed?.id || null;
+    const matchedUser = userId ? db.users.find((u) => u.id === userId) : undefined;
+    const endpoint =
+      body.subscription?.endpoint ||
+      `https://pwa-client.speakright.local/device/${matchedUser?.employeeId || 'pwa-guest'}`;
+
+    db.pwaSubscriptions = db.pwaSubscriptions || [];
+    const existing =
+      db.pwaSubscriptions.find((s) => s.endpoint === endpoint) ||
+      (userId ? db.pwaSubscriptions.find((s) => s.userId === userId && s.isSimulated) : undefined);
+
+    const now = new Date().toISOString();
+    if (existing) {
+      existing.endpoint = endpoint;
+      existing.userId = userId;
+      existing.employeeId = body.employeeId || matchedUser?.employeeId || existing.employeeId;
+      existing.fullName = body.fullName || matchedUser?.fullName || existing.fullName;
+      existing.isPwaInstalled = body.isPwaInstalled ?? true;
+      existing.updatedAt = now;
+      saveDb(db);
+      return jsonResponse({
+        message: 'Đã kích hoạt nhận thông báo PWA thành công!',
+        subscription: existing,
+      });
+    }
+
+    const created: ClientPwaSub = {
+      id: `pwa-${Date.now()}`,
+      endpoint,
+      keys: body.subscription?.keys || { p256dh: 'local', auth: 'local' },
+      userId,
+      employeeId: body.employeeId || matchedUser?.employeeId || null,
+      fullName: body.fullName || matchedUser?.fullName || null,
+      isPwaInstalled: body.isPwaInstalled ?? true,
+      userAgent: body.userAgent || navigator.userAgent,
+      createdAt: now,
+      updatedAt: now,
+      lastNotifiedAt: null,
+    };
+    db.pwaSubscriptions.push(created);
+    saveDb(db);
+    return jsonResponse({
+      message: 'Đã kích hoạt nhận thông báo PWA thành công!',
+      subscription: created,
+    });
+  }
+
+  if (path === '/api/push/unsubscribe' && method === 'POST') {
+    if (body.endpoint && db.pwaSubscriptions) {
+      db.pwaSubscriptions = db.pwaSubscriptions.filter((s) => s.endpoint !== body.endpoint);
+      saveDb(db);
+    }
+    return jsonResponse({ message: 'Đã tắt nhận thông báo PWA.' });
+  }
+
+  if (path === '/api/push/poll' && method === 'GET') {
+    const since = Number(url.searchParams.get('since') || 0);
+    const authed = decodeUserFromHeaders(init?.headers, db);
+    const userId = url.searchParams.get('userId') || authed?.id || null;
+    const notifications = (db.inAppNotifications || []).filter((n) => {
+      const timeOk = new Date(n.deliveredAt).getTime() > since;
+      if (!timeOk) return false;
+      return n.userId === null || (userId && n.userId === userId);
+    });
+    return jsonResponse({
+      notifications,
+      serverTime: Date.now(),
+    });
+  }
+
   // Xác thực người dùng cho các API bên dưới
   const currentUser = decodeUserFromHeaders(init?.headers, db);
   if (!currentUser) {
@@ -895,8 +1388,13 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       (a) => a.userId === currentUser.id && a.dayNumber === dayNumber
     );
     const isFirstOfficialAttempt = !existingAttempt;
+    let climbedToTop1 = false;
+    let top1PushCampaign: ClientPushCampaign | null = null;
 
     if (isFirstOfficialAttempt) {
+      const prevTop1 = getLeaderboard(db)[0] || null;
+      const baselineTop1Id = db.pushConfig?.lastTop1UserId || prevTop1?.id || null;
+
       db.attempts.push({
         id: `att-${Date.now()}`,
         userId: currentUser.id,
@@ -913,6 +1411,13 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       currentUser.totalScore += score;
       currentUser.totalTimeMs += elapsedMs;
       currentUser.completedDays += 1;
+
+      const newTop1 = getLeaderboard(db)[0] || null;
+      if (newTop1 && newTop1.totalScore > 0 && baselineTop1Id !== newTop1.id) {
+        climbedToTop1 = true;
+        if (db.pushConfig) db.pushConfig.lastTop1UserId = newTop1.id;
+        top1PushCampaign = triggerClientNewTop1(db, newTop1, prevTop1);
+      }
       saveDb(db);
     }
 
@@ -926,6 +1431,8 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       wrongCount,
       timeSpentMs: elapsedMs,
       isFirstOfficialAttempt,
+      climbedToTop1,
+      top1PushCampaign,
       submittedDuringGracePeriod: false,
       detailedReview,
     });
@@ -996,12 +1503,14 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     if (body.title !== undefined) challenge.title = String(body.title).trim();
     if (body.dateLabel !== undefined) challenge.dateLabel = String(body.dateLabel).trim();
 
+    let pushCampaign: ClientPushCampaign | null = null;
     let msg = `Đã cập nhật ${challenge.title} (${challenge.dateLabel})`;
     if (body.unlockNow === true) {
       challenge.unlockDate = new Date(Date.now() - 60000).toISOString();
       challenge.isPublished = true;
       forceLockedDays.delete(dayNumber);
-      msg = `🔓 Đã MỞ KHÓA ${challenge.title} cho nhân viên vào làm bài!`;
+      pushCampaign = triggerClientDayUnlocked(db, challenge);
+      msg = `🔓 Đã MỞ KHÓA ${challenge.title} & đang chia đều thông báo Push tới ${pushCampaign.totalTargets} thiết bị PWA (${pushCampaign.staggerIntervalMs}ms/request)!`;
     } else if (body.unlockNow === false) {
       challenge.unlockDate = new Date(Date.now() + 86400000 * 30).toISOString();
       if (body.lockMode === 'FORCE') {
@@ -1017,6 +1526,7 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       message: msg,
       challenge,
       activePlayersAffected: 0,
+      pushCampaign,
     });
   }
 
@@ -1127,6 +1637,109 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     return jsonResponse({
       message: 'Đã nạp lại (Re-seed) toàn bộ 30 ngày thử thách và Bộ 10 Câu Hỏi chuẩn thành công!',
     });
+  }
+
+  // 18. GET /api/admin/push/status
+  if (path === '/api/admin/push/status' && method === 'GET') {
+    const pwaSubs = (db.pwaSubscriptions || []).filter((s) => s.isPwaInstalled);
+    const unstudiedList = getClientUnstudiedWithPwa(db);
+    const lb = getLeaderboard(db);
+    const latestDay = getLatestUnlockedDay(db);
+
+    return jsonResponse({
+      vapidPublicKey:
+        'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+      queueStatus: {
+        isProcessing: clientQueueRunning,
+        pendingRequestsCount: clientPushQueue.length,
+        config: db.pushConfig,
+      },
+      stats: {
+        totalPwaDevices: pwaSubs.length,
+        unstudiedAccountsCount: unstudiedList.length,
+        unstudiedAccounts: unstudiedList.map((item) => ({
+          id: item.user.id,
+          employeeId: item.user.employeeId,
+          fullName: item.user.fullName,
+          department: item.user.department,
+          completedDays: item.user.completedDays,
+          totalScore: item.user.totalScore,
+          targetDayNumber: item.targetDay.dayNumber,
+          targetDayTitle: item.targetDay.title,
+          neverStudiedAnyDay: item.neverStudiedAnyDay,
+          pwaDevicesCount: item.subscriptions.length,
+        })),
+        currentTop1: lb[0] || null,
+        latestUnlockedDay: {
+          dayNumber: latestDay.dayNumber,
+          title: latestDay.title,
+          dateLabel: latestDay.dateLabel,
+        },
+      },
+      subscriptions: pwaSubs,
+      campaigns: db.pushCampaigns || [],
+    });
+  }
+
+  // 19. PUT /api/admin/push/config
+  if (path === '/api/admin/push/config' && method === 'PUT') {
+    db.pushConfig = {
+      ...db.pushConfig!,
+      ...(body.spreadWindowSeconds !== undefined
+        ? { spreadWindowSeconds: Math.max(3, Math.min(3600, Number(body.spreadWindowSeconds))) }
+        : {}),
+      ...(body.minIntervalMs !== undefined
+        ? { minIntervalMs: Math.max(200, Math.min(30000, Number(body.minIntervalMs))) }
+        : {}),
+      ...(body.maxIntervalMs !== undefined
+        ? { maxIntervalMs: Math.max(500, Math.min(60000, Number(body.maxIntervalMs))) }
+        : {}),
+      ...(body.autoRemindUnstudied !== undefined
+        ? { autoRemindUnstudied: Boolean(body.autoRemindUnstudied) }
+        : {}),
+    };
+    saveDb(db);
+    return jsonResponse({
+      message: `Đã lưu cấu hình chia đều Request Push (Tổng khung chia đều: ${db.pushConfig.spreadWindowSeconds}s, Khoảng cách tối thiểu: ${db.pushConfig.minIntervalMs}ms/request)!`,
+      config: db.pushConfig,
+    });
+  }
+
+  // 20. POST /api/admin/push/trigger
+  if (path === '/api/admin/push/trigger' && method === 'POST') {
+    const type = body.type as ClientPushType;
+    if (type === 'NEW_DAY_UNLOCKED') {
+      const targetDay =
+        (body.dayNumber ? db.challenges.find((c) => c.dayNumber === Number(body.dayNumber)) : undefined) ||
+        getLatestUnlockedDay(db);
+      const campaign = triggerClientDayUnlocked(db, targetDay);
+      return jsonResponse({
+        message: `🚀 Đang chia đều ${campaign.totalTargets} request thông báo mở khóa ${targetDay.title} (Cách nhau ${campaign.staggerIntervalMs}ms/request, tổng ${Math.round(campaign.totalSpreadMs / 1000)}s)!`,
+        campaign,
+      });
+    }
+    if (type === 'NEW_TOP_1') {
+      const lb = getLeaderboard(db);
+      const top1 = lb[0];
+      const top2 = lb[1] || null;
+      if (!top1) return jsonResponse({ message: 'Chưa có dữ liệu BXH.' }, 400);
+      const campaign = triggerClientNewTop1(db, top1, top2);
+      return jsonResponse({
+        message: `👑 Đang chia đều ${campaign.totalTargets} request thông báo Top 1 mới (${top1.fullName}) tới toàn bộ PWA (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`,
+        campaign,
+      });
+    }
+    if (type === 'UNSTUDIED_REMINDER') {
+      const campaign = triggerClientUnstudiedReminder(db);
+      return jsonResponse({
+        message:
+          campaign.totalTargets > 0
+            ? `⏰ Đang chia đều ${campaign.totalTargets} request nhắc học tới những người có tài khoản PWA mà chưa học (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`
+            : '🎉 Tuyệt vời! Tất cả tài khoản cài PWA đều đã hoàn thành bài học hôm nay.',
+        campaign,
+      });
+    }
+    return jsonResponse({ message: 'Loại thông báo không hợp lệ.' }, 400);
   }
 
   return jsonResponse({ message: 'API route not found' }, 404);

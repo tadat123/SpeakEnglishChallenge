@@ -1,138 +1,200 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Share, PlusSquare, Smartphone, X, CheckCircle2 } from 'lucide-react';
+import { Download, Share, PlusSquare, X, CheckCircle2, MoreVertical } from 'lucide-react';
+import { Lang } from '../utils/i18n';
 
-export const InstallPwaModal: React.FC = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showIosGuide, setShowIosGuide] = useState(false);
+interface InstallPwaModalProps {
+  lang: Lang;
+  darkMode: boolean;
+}
+
+const PWA_I18N = {
+  vi: {
+    bannerTitle: 'Thêm Speak Right 2026 ra Màn hình chính',
+    bannerSub: 'Mở nhanh 1 chạm trên Điện thoại & Tablet (Không cần cài APK)',
+    btnLabel: 'Hướng dẫn',
+    modalTitle: 'Thêm ra Màn hình chính',
+    modalSub: 'Tạo lối tắt mở nhanh kèm biểu tượng Shin-chan an toàn 100%',
+    androidTitle: '🤖 Điện thoại / Tablet Android (Samsung, Xiaomi, Oppo...)',
+    androidStep1:
+      'Bấm vào biểu tượng Menu 3 gạch (≡ ở góc dưới phải trên Samsung Internet) hoặc 3 chấm (⋮ ở góc trên phải trên Chrome).',
+    androidStep2:
+      'Chọn "Thêm trang vào" (Add page to) → "Màn hình chính" (Home screen). Biểu tượng Speak Right sẽ hiện ngay ngoài màn hình!',
+    iosTitle: '🍎 iPhone / iPad (Trình duyệt Safari)',
+    iosStep1:
+      'Bấm vào nút Chia sẻ (Share) ở thanh công cụ dưới đáy màn hình Safari.',
+    iosStep2:
+      'Cuộn xuống chọn "Thêm vào MH chính" (Add to Home Screen) rồi bấm "Thêm" (Add) ở góc trên phải.',
+    doneBtn: 'Đã hiểu',
+  },
+  en: {
+    bannerTitle: 'Add Speak Right 2026 to Home Screen',
+    bannerSub: '1-tap quick launch on Mobile & Tablet (No APK needed)',
+    btnLabel: 'How to add',
+    modalTitle: 'Add to Home Screen',
+    modalSub: 'Create a 100% safe quick-launch shortcut on your device',
+    androidTitle: '🤖 Android Phone / Tablet (Chrome & Samsung Internet)',
+    androidStep1:
+      'Tap the Menu icon (≡ at bottom-right in Samsung Internet, or ⋮ at top-right in Chrome).',
+    androidStep2:
+      'Select "Add page to" → "Home screen" (or "Add to Home screen"). The Speak Right icon will appear on your home screen!',
+    iosTitle: '🍎 iPhone / iPad (Safari Browser)',
+    iosStep1: 'Tap the Share button on the bottom toolbar in Safari.',
+    iosStep2: 'Scroll down and tap "Add to Home Screen", then tap "Add".',
+    doneBtn: 'Got it',
+  },
+  ko: {
+    bannerTitle: 'Speak Right 2026 홈 화면에 추가',
+    bannerSub: '모바일 및 태블릿에서 원터치로 빠르게 실행하세요',
+    btnLabel: '추가 방법',
+    modalTitle: '홈 화면에 바로가기 추가',
+    modalSub: 'APK 설치 없이 안전하게 홈 화면 아이콘을 생성합니다',
+    androidTitle: '🤖 안드로이드 스마트폰 / 태블릿 (삼성 인터넷 & 크롬)',
+    androidStep1:
+      '브라우저 메뉴 버튼(삼성 인터넷 하단 ≡ 또는 크롬 상단 ⋮)을 누릅니다.',
+    androidStep2:
+      '"현재 페이지 추가" → "홈 화면"을 선택하면 바탕화면에 아이콘이 생성됩니다!',
+    iosTitle: '🍎 iPhone / iPad (Safari 브라우저)',
+    iosStep1: '하단 바에서 공유(Share) 버튼을 누릅니다.',
+    iosStep2: '"홈 화면에 추가(Add to Home Screen)"를 선택한 후 "추가"를 누릅니다.',
+    doneBtn: '확인',
+  },
+};
+
+export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ lang, darkMode }) => {
+  const [showGuide, setShowGuide] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const pt = PWA_I18N[lang];
+  const baseUrl = import.meta.env.BASE_URL || '/';
 
   useEffect(() => {
     const standalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true;
     setIsStandalone(standalone);
-
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
   if (isStandalone || dismissed) return null;
 
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-    } else {
-      setShowIosGuide(true);
-    }
-  };
-
   return (
     <>
-      {/* Nút/Banner cài đặt nổi gọn gàng trên Điện thoại & Tablet */}
-      <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 text-white px-3.5 py-2.5 rounded-2xl shadow-md flex items-center justify-between gap-2 mb-4">
+      {/* Nút/Banner hiển thị trên Điện thoại & Tablet (lg:hidden), trong suốt nhẹ để thấy nền */}
+      <div
+        className={`lg:hidden backdrop-blur-sm px-3.5 py-2.5 rounded-2xl shadow-md border flex items-center justify-between gap-2 mb-3.5 transition-colors ${
+          darkMode
+            ? 'bg-indigo-950/65 border-indigo-700/60 text-white'
+            : 'bg-blue-600/75 border-white/50 text-white'
+        }`}
+      >
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-            <Smartphone className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src={`${baseUrl}logo.png`}
+            alt="Speak Right"
+            className="w-9 h-9 object-contain shrink-0 drop-shadow-sm"
+          />
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-bold truncate">Cài đặt App Speak Right 2026</p>
-            <p className="text-[11px] text-blue-100 truncate">
-              Mở nhanh từ màn hình chính ĐT & Tablet
-            </p>
+            <p className="text-xs sm:text-sm font-extrabold truncate">{pt.bannerTitle}</p>
+            <p className="text-[11px] text-blue-100 truncate">{pt.bannerSub}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={handleInstallClick}
-            className="bg-white text-blue-700 hover:bg-blue-50 active:scale-95 transition font-bold text-xs px-3 py-2 rounded-xl shadow-sm flex items-center gap-1"
+            onClick={() => setShowGuide(true)}
+            className="bg-white/90 text-blue-700 hover:bg-white active:scale-95 transition font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1"
           >
             <Download className="w-3.5 h-3.5" />
-            Cài đặt
+            {pt.btnLabel}
           </button>
           <button
             onClick={() => setDismissed(true)}
             className="p-1.5 text-blue-100 hover:text-white rounded-lg"
-            aria-label="Đóng"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Modal hướng dẫn 4 bước cho iPhone / iPad (Safari) & Android */}
-      {showIosGuide && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      {/* Modal hướng dẫn trực quan cho Android & iOS/iPadOS (Không sinh APK -> Không bao giờ bị Play Protect chặn) */}
+      {showGuide && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4">
+          <div
+            className={`w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl border backdrop-blur-md ${
+              darkMode
+                ? 'bg-slate-900/90 border-slate-700 text-white'
+                : 'bg-white/90 border-white text-slate-900'
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between pb-3 border-b ${
+                darkMode ? 'border-slate-800' : 'border-slate-200/70'
+              }`}
+            >
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                  📲
-                </div>
+                <img
+                  src={`${baseUrl}logo.png`}
+                  alt="Speak Right"
+                  className="w-11 h-11 object-contain"
+                />
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-base">
-                    Cài đặt App ra Màn hình chính
-                  </h3>
-                  <p className="text-xs text-slate-500">Dành cho iPhone, iPad & Điện thoại Android</p>
+                  <h3 className="font-black text-base">{pt.modalTitle}</h3>
+                  <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {pt.modalSub}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowIosGuide(false)}
-                className="p-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
+                onClick={() => setShowGuide(false)}
+                className={`p-2 rounded-full ${
+                  darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-500'
+                }`}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3.5 my-4 text-sm text-slate-700">
-              <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl">
-                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  1
-                </span>
-                <p>
-                  Mở đường dẫn này bằng trình duyệt <strong>Safari</strong> (trên iPhone/iPad) hoặc{' '}
-                  <strong>Chrome</strong> (trên Android).
-                </p>
+            <div className="space-y-3 my-4 text-xs sm:text-sm">
+              {/* Hướng dẫn Android */}
+              <div
+                className={`p-3.5 rounded-2xl border space-y-2 ${
+                  darkMode
+                    ? 'bg-slate-800/75 border-slate-700 text-slate-200'
+                    : 'bg-blue-50/80 border-blue-200/80 text-slate-700'
+                }`}
+              >
+                <div className="font-extrabold text-blue-500 flex items-center gap-1.5">
+                  <MoreVertical className="w-4 h-4 shrink-0" />
+                  <span>{pt.androidTitle}</span>
+                </div>
+                <p className="leading-relaxed">1. {pt.androidStep1}</p>
+                <p className="leading-relaxed font-semibold">2. {pt.androidStep2}</p>
               </div>
 
-              <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl">
-                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  2
-                </span>
-                <p className="flex-1">
-                  Bấm vào biểu tượng <strong>Chia sẻ (Share)</strong>{' '}
-                  <Share className="w-4 h-4 inline text-blue-600 mx-0.5" /> ở thanh công cụ dưới đáy
-                  màn hình (hoặc menu 3 chấm trên Chrome).
-                </p>
-              </div>
-
-              <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl">
-                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  3
-                </span>
-                <p className="flex-1">
-                  Cuộn xuống chọn{' '}
-                  <strong className="text-blue-700">
-                    "Thêm vào MH chính" (Add to Home Screen)
-                  </strong>{' '}
-                  <PlusSquare className="w-4 h-4 inline text-blue-600 mx-0.5" /> rồi bấm{' '}
-                  <strong>Thêm</strong>.
+              {/* Hướng dẫn iOS / iPadOS */}
+              <div
+                className={`p-3.5 rounded-2xl border space-y-2 ${
+                  darkMode
+                    ? 'bg-slate-800/75 border-slate-700 text-slate-200'
+                    : 'bg-slate-50/90 border-slate-200/80 text-slate-700'
+                }`}
+              >
+                <div className="font-extrabold text-indigo-500 flex items-center gap-1.5">
+                  <Share className="w-4 h-4 shrink-0" />
+                  <span>{pt.iosTitle}</span>
+                </div>
+                <p className="leading-relaxed">1. {pt.iosStep1}</p>
+                <p className="leading-relaxed font-semibold">
+                  2. {pt.iosStep2} <PlusSquare className="w-3.5 h-3.5 inline text-blue-500 ml-0.5" />
                 </p>
               </div>
             </div>
 
             <button
-              onClick={() => setShowIosGuide(false)}
-              className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2"
+              onClick={() => setShowGuide(false)}
+              className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
-              Đã hiểu
+              {pt.doneBtn}
             </button>
           </div>
         </div>

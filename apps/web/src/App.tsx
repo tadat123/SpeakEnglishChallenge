@@ -22,12 +22,21 @@ import {
   Zap,
   Sun,
   Moon,
+  BellRing,
+  X,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
+import { InstallPwaModal } from './components/InstallPwaModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ResponsiveBackground, PerfmonsterFooter } from './components/LayoutDecor';
 import { playPronunciation } from './utils/audio';
 import { Lang, TRANSLATIONS } from './utils/i18n';
+import {
+  isRunningStandalonePwa,
+  registerPwaServiceWorker,
+  syncAndSubscribePwaPush,
+  triggerLocalServiceWorkerNotification,
+} from './utils/pwaPush';
 
 type TabType = 'home' | 'challenges' | 'leaderboard' | 'profile' | 'admin';
 
@@ -98,16 +107,23 @@ export const App: React.FC = () => {
   const [autoNextOnSelect, setAutoNextOnSelect] = useState<boolean>(true);
   const [gracePeriodNotice, setGracePeriodNotice] = useState<string | null>(null);
   const [forceLockModalMsg, setForceLockModalMsg] = useState<string | null>(null);
+  const [livePushAlert, setLivePushAlert] = useState<{
+    id: string;
+    title: string;
+    body: string;
+    targetUrl: string;
+    type?: string;
+  } | null>(null);
 
-  // Hệ thống biến giao diện Sáng / Tối tường minh (Không phụ thuộc vào Dark Mode của Hệ điều hành Windows/Mac)
+  // Hệ thống biến giao diện Sáng / Tối tường minh (Mờ nhẹ 58%-65% trên Mobile/Tablet để nhìn xuyên thấy cảnh nền Shin-chan)
   const cardBg = darkMode
-    ? 'bg-slate-900/90 border-slate-800 text-slate-100'
-    : 'bg-white/95 border-blue-100/90 text-slate-800';
+    ? 'bg-slate-900/60 lg:bg-slate-900/80 border-slate-700/60 text-slate-100 backdrop-blur-[2px] lg:backdrop-blur-sm'
+    : 'bg-white/60 lg:bg-white/80 border-white/70 text-slate-800 backdrop-blur-[2px] lg:backdrop-blur-sm';
   const subCardBg = darkMode
-    ? 'bg-slate-800/90 border-slate-700 text-slate-100'
-    : 'bg-slate-50/90 border-slate-200/80 text-slate-800';
+    ? 'bg-slate-800/55 lg:bg-slate-800/75 border-slate-700/60 text-slate-100'
+    : 'bg-white/55 lg:bg-slate-50/80 border-white/70 text-slate-800';
   const textPrimary = darkMode ? 'text-white' : 'text-slate-900';
-  const textSecondary = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const textSecondary = darkMode ? 'text-slate-300' : 'text-slate-600';
 
   const getHeaders = (withJson = false): Record<string, string> => {
     const h: Record<string, string> = {
@@ -176,6 +192,86 @@ export const App: React.FC = () => {
       fetchAllData();
     }
   }, [token]);
+
+  // Đăng ký Service Worker PWA & Nhận thông báo đẩy theo nhịp chia đều (Staggered Push Queue)
+  useEffect(() => {
+    registerPwaServiceWorker();
+
+    const onSwMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data) return;
+
+      if (data.type === 'PWA_PUSH_RECEIVED' && data.payload) {
+        setLivePushAlert({
+          id: `sw-${Date.now()}`,
+          title: data.payload.title || 'SPEAK RIGHT 2026',
+          body: data.payload.body || '',
+          targetUrl: data.payload.url || '/#challenges',
+          type: data.payload.type,
+        });
+        fetchAllData();
+      } else if (data.type === 'PWA_NOTIFICATION_CLICK' && data.targetUrl) {
+        const cleanTab = data.targetUrl.replace(/^.*#/, '').split('/')[0] as TabType;
+        if (VALID_TABS.includes(cleanTab)) {
+          navigateToTab(cleanTab);
+        }
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+
+    let lastPollTime = Date.now() - 2000;
+    const seenIds = new Set<string>();
+
+    const pollInterval = setInterval(async () => {
+      const pwaEnabled =
+        isRunningStandalonePwa() || localStorage.getItem('sr_pwa_push_active') === 'true';
+      if (!pwaEnabled && !token) return;
+
+      try {
+        const uidParam = user?.id ? `&userId=${encodeURIComponent(user.id)}` : '';
+        const res = await fetch(`/api/push/poll?since=${lastPollTime}${uidParam}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const notifs = Array.isArray(data.notifications) ? data.notifications : [];
+        if (data.serverTime) {
+          lastPollTime = data.serverTime;
+        }
+
+        for (const n of notifs) {
+          if (seenIds.has(n.id)) continue;
+          seenIds.add(n.id);
+
+          setLivePushAlert({
+            id: n.id,
+            title: n.title,
+            body: n.body,
+            targetUrl: n.targetUrl || '/#challenges',
+            type: n.type,
+          });
+
+          triggerLocalServiceWorkerNotification({
+            title: n.title,
+            body: n.body,
+            targetUrl: n.targetUrl || './#challenges',
+            type: n.type,
+            tag: n.id,
+          });
+
+          fetchAllData();
+        }
+      } catch {
+        // ignore transient poll error
+      }
+    }, 3500);
+
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+      clearInterval(pollInterval);
+    };
+  }, [token, user?.id]);
 
   useEffect(() => {
     if (!activeQuiz) {
@@ -558,6 +654,54 @@ export const App: React.FC = () => {
 
       {/* ================= NỘI DUNG CHÍNH ================= */}
       <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 pb-6">
+        <InstallPwaModal lang={lang} darkMode={darkMode} />
+
+        {/* Banner Thông Báo Đẩy PWA Thời Gian Thực (Nhận từ Staggered Push Queue) */}
+        {livePushAlert && (
+          <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-blue-700 to-blue-600 text-white shadow-xl border border-blue-400/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <BellRing className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
+                    PWA Push Notification
+                  </span>
+                </div>
+                <h4 className="text-xs sm:text-sm font-black mt-1">{livePushAlert.title}</h4>
+                <p className="text-xs text-blue-100 leading-relaxed mt-0.5">
+                  {livePushAlert.body}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = livePushAlert.targetUrl || '#challenges';
+                  setLivePushAlert(null);
+                  if (target.includes('leaderboard')) {
+                    navigateToTab('leaderboard');
+                  } else {
+                    navigateToTab('challenges');
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs shadow-sm"
+              >
+                Xem ngay →
+              </button>
+              <button
+                type="button"
+                onClick={() => setLivePushAlert(null)}
+                className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ---------- A. MÀN HÌNH LÀM BÀI ---------- */}
         {activeQuiz ? (
           <div className={`max-w-2xl mx-auto rounded-3xl shadow-xl border p-4 sm:p-6 backdrop-blur-md ${cardBg}`}>
@@ -808,6 +952,12 @@ export const App: React.FC = () => {
                   {t.completedDayMsg} Day {quizResult.dayNumber}
                 </p>
 
+                {quizResult.climbedToTop1 && (
+                  <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md">
+                    👑 Chúc mừng bạn vừa leo lên vị trí TOP 1 Bảng Xếp Hạng! Hệ thống đang chia đều request Push thông báo tin vui này tới toàn bộ người dùng cài PWA!
+                  </div>
+                )}
+
                 <div className={`my-5 p-4 rounded-3xl border ${subCardBg}`}>
                   <div className="text-4xl font-black text-blue-600">
                     {quizResult.score}/{quizResult.totalPoints} {t.pointsSuffix}
@@ -918,7 +1068,7 @@ export const App: React.FC = () => {
             {/* ================= 1. TRANG CHỦ ================= */}
             {activeTab === 'home' && (
               <div className="space-y-4">
-                <div className="bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 rounded-3xl p-5 sm:p-6 text-white shadow-xl">
+                <div className="bg-gradient-to-br from-blue-600/75 via-blue-600/70 to-indigo-700/75 backdrop-blur-[2px] border border-white/30 rounded-3xl p-5 sm:p-6 text-white shadow-xl">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1.5">
                       <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-0.5 rounded-full text-xs font-extrabold">
@@ -942,7 +1092,7 @@ export const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-white/15 text-center">
+                  <div className="grid grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-white/20 text-center">
                     <div
                       onClick={() => navigateToTab('challenges')}
                       className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
@@ -981,7 +1131,7 @@ export const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                   {/* Lộ trình nhanh 6 ngày */}
-                  <div className={`lg:col-span-6 rounded-3xl p-4 sm:p-5 border shadow-md backdrop-blur-md ${cardBg}`}>
+                  <div className={`lg:col-span-6 rounded-3xl p-4 sm:p-5 border shadow-md ${cardBg}`}>
                     <div className="flex items-center justify-between mb-3">
                       <h2 className={`text-sm sm:text-base font-black flex items-center gap-1.5 ${textPrimary}`}>
                         <Calendar className="w-4 h-4 text-blue-600" /> {t.progressTitle} (
@@ -1007,14 +1157,14 @@ export const App: React.FC = () => {
                               isCompleted
                                 ? darkMode
                                   ? 'bg-emerald-950/40 border-emerald-500'
-                                  : 'bg-emerald-50/90 border-emerald-400'
+                                  : 'bg-emerald-50/60 border-emerald-400'
                                 : isOpen
                                 ? darkMode
-                                  ? 'bg-blue-950/50 border-blue-500 shadow-sm'
-                                  : 'bg-blue-50/90 border-blue-600 shadow-sm'
+                                  ? 'bg-blue-950/45 border-blue-500 shadow-sm'
+                                  : 'bg-blue-50/65 border-blue-600 shadow-sm'
                                 : darkMode
-                                ? 'bg-slate-800/70 border-slate-700 text-slate-400'
-                                : 'bg-slate-50/90 border-slate-200 text-slate-500'
+                                ? 'bg-slate-800/50 border-slate-700/70 text-slate-300'
+                                : 'bg-white/55 border-white/70 text-slate-600'
                             }`}
                           >
                             <div className="flex items-center justify-between">
@@ -1050,7 +1200,7 @@ export const App: React.FC = () => {
                   </div>
 
                   {/* Bảng Xếp Hạng Top 5 ngay tại Trang chủ */}
-                  <div className={`lg:col-span-6 rounded-3xl p-4 sm:p-5 border shadow-md backdrop-blur-md flex flex-col justify-between ${cardBg}`}>
+                  <div className={`lg:col-span-6 rounded-3xl p-4 sm:p-5 border shadow-md flex flex-col justify-between ${cardBg}`}>
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <h2 className={`text-sm sm:text-base font-black flex items-center gap-1.5 ${textPrimary}`}>
@@ -1064,7 +1214,7 @@ export const App: React.FC = () => {
                         </button>
                       </div>
 
-                      <div className={`divide-y ${darkMode ? 'divide-slate-800' : 'divide-slate-100'}`}>
+                      <div className={`divide-y ${darkMode ? 'divide-slate-700/60' : 'divide-slate-200/60'}`}>
                         {(leaderboardData.topList || []).slice(0, 5).map((item: any) => (
                           <div
                             key={item.id}
@@ -1106,8 +1256,8 @@ export const App: React.FC = () => {
                     <div
                       className={`mt-3 pt-3 border-t flex items-center justify-between px-3.5 py-2.5 rounded-2xl ${
                         darkMode
-                          ? 'border-slate-800 bg-blue-950/50 text-blue-200'
-                          : 'border-slate-100 bg-blue-50 text-blue-950'
+                          ? 'border-slate-700/60 bg-blue-950/50 text-blue-200'
+                          : 'border-white/70 bg-blue-50/75 text-blue-950'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1131,7 +1281,7 @@ export const App: React.FC = () => {
             {/* ================= 2. TAB 30 NGÀY ================= */}
             {activeTab === 'challenges' && (
               <div className="space-y-4">
-                <div className={`rounded-2xl p-4 border shadow-sm backdrop-blur-md flex items-center justify-between ${cardBg}`}>
+                <div className={`rounded-2xl p-4 border shadow-sm flex items-center justify-between ${cardBg}`}>
                   <div>
                     <h2 className={`text-base font-black ${textPrimary}`}>{t.journey30Days}</h2>
                     <p className={`text-xs ${textSecondary}`}>
@@ -1154,18 +1304,18 @@ export const App: React.FC = () => {
                       <div
                         key={c.dayNumber}
                         onClick={() => handleStartDay(c)}
-                        className={`p-3.5 rounded-2xl border-2 transition cursor-pointer select-none flex flex-col justify-between min-h-[100px] backdrop-blur-md ${
+                        className={`p-3.5 rounded-2xl border-2 transition cursor-pointer select-none flex flex-col justify-between min-h-[100px] backdrop-blur-[2px] ${
                           isCompleted
                             ? darkMode
-                              ? 'bg-slate-900/90 border-emerald-500 shadow-sm'
-                              : 'bg-white/95 border-emerald-500 shadow-sm'
+                              ? 'bg-slate-900/60 border-emerald-500 shadow-sm'
+                              : 'bg-white/65 border-emerald-500 shadow-sm'
                             : isOpen
                             ? darkMode
-                              ? 'bg-blue-950/60 border-blue-500 shadow-sm'
-                              : 'bg-blue-50/95 border-blue-600 ring-2 ring-blue-100 shadow-sm'
+                              ? 'bg-blue-950/55 border-blue-500 shadow-sm'
+                              : 'bg-blue-50/70 border-blue-600 ring-2 ring-blue-100 shadow-sm'
                             : darkMode
-                            ? 'bg-slate-900/75 border-slate-800 text-slate-400'
-                            : 'bg-white/85 border-slate-200 text-slate-500'
+                            ? 'bg-slate-900/55 border-slate-700/70 text-slate-300'
+                            : 'bg-white/60 border-white/75 text-slate-600'
                         }`}
                       >
                         <div className="flex items-start justify-between">

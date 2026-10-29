@@ -10,35 +10,27 @@ export const ResponsiveBackground: React.FC<ResponsiveBackgroundProps> = ({ dark
   return (
     <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden select-none">
       {!darkMode ? (
-        <>
-          {/* 3 ảnh nền Sáng chuẩn kích thước: Desktop (>=1024px), Tablet (768px-1023px), Mobile (<768px) */}
-          <picture key="light-bg" className="w-full h-full block">
-            <source media="(min-width: 1024px)" srcSet={`${baseUrl}backgrounds/bg-desktop-light.jpg`} />
-            <source media="(min-width: 768px)" srcSet={`${baseUrl}backgrounds/bg-tablet-light.jpg`} />
-            <img
-              src={`${baseUrl}backgrounds/bg-mobile-light.jpg`}
-              alt="Speak Right 2026 Light Background"
-              className="w-full h-full object-cover object-bottom"
-            />
-          </picture>
-          {/* Lớp phủ sáng dịu nhẹ */}
-          <div className="absolute inset-0 bg-white/10" />
-        </>
+        /* 3 ảnh nền Sáng chuẩn kích thước: Desktop (>=1024px), Tablet (768px-1023px), Mobile (<768px) */
+        <picture key="light-bg" className="w-full h-full block">
+          <source media="(min-width: 1024px)" srcSet={`${baseUrl}backgrounds/bg-desktop-light.jpg`} />
+          <source media="(min-width: 768px)" srcSet={`${baseUrl}backgrounds/bg-tablet-light.jpg`} />
+          <img
+            src={`${baseUrl}backgrounds/bg-mobile-light.jpg`}
+            alt="Speak Right 2026 Light Background"
+            className="w-full h-full object-cover object-bottom"
+          />
+        </picture>
       ) : (
-        <>
-          {/* 3 ảnh nền Đêm (Dark Mode) chuẩn kích thước: Desktop (>=1024px), Tablet (768px-1023px), Mobile (<768px) */}
-          <picture key="dark-bg" className="w-full h-full block">
-            <source media="(min-width: 1024px)" srcSet={`${baseUrl}backgrounds/bg-desktop-dark.jpg`} />
-            <source media="(min-width: 768px)" srcSet={`${baseUrl}backgrounds/bg-tablet-dark.jpg`} />
-            <img
-              src={`${baseUrl}backgrounds/bg-mobile-dark.jpg`}
-              alt="Speak Right 2026 Dark Background"
-              className="w-full h-full object-cover object-bottom"
-            />
-          </picture>
-          {/* Lớp phủ đêm dịu nhẹ */}
-          <div className="absolute inset-0 bg-slate-950/20" />
-        </>
+        /* 3 ảnh nền Đêm (Dark Mode) chuẩn kích thước: Desktop (>=1024px), Tablet (768px-1023px), Mobile (<768px) */
+        <picture key="dark-bg" className="w-full h-full block">
+          <source media="(min-width: 1024px)" srcSet={`${baseUrl}backgrounds/bg-desktop-dark.jpg`} />
+          <source media="(min-width: 768px)" srcSet={`${baseUrl}backgrounds/bg-tablet-dark.jpg`} />
+          <img
+            src={`${baseUrl}backgrounds/bg-mobile-dark.jpg`}
+            alt="Speak Right 2026 Dark Background"
+            className="w-full h-full object-cover object-bottom"
+          />
+        </picture>
       )}
     </div>
   );
@@ -92,8 +84,8 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
     <footer
       className={`relative overflow-hidden pt-10 sm:pt-12 pb-24 md:pb-8 px-4 sm:px-8 mt-auto border-t transition-colors ${
         darkMode
-          ? 'bg-gradient-to-b from-[#1a1c6b]/85 to-[#12144d]/90 backdrop-blur-md text-white border-indigo-900/60'
-          : 'bg-gradient-to-b from-white/80 via-sky-50/85 to-blue-100/85 backdrop-blur-md text-slate-800 border-white/70'
+          ? 'bg-gradient-to-b from-[#1a1c6b]/60 to-[#12144d]/70 backdrop-blur-[2px] text-white border-indigo-900/50'
+          : 'bg-gradient-to-b from-white/55 via-sky-50/60 to-blue-100/65 backdrop-blur-[2px] text-slate-800 border-white/60'
       }`}
     >
       <div className="max-w-5xl mx-auto relative z-10">

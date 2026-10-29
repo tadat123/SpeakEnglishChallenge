@@ -284,11 +284,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       {/* Khung Card Đăng nhập */}
       <div className="w-full max-w-md mx-auto px-3 py-6 my-auto">
         <div
-          className={`backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden border ${
-            darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-sky-100'
+          className={`backdrop-blur-[3px] rounded-3xl shadow-2xl overflow-hidden border ${
+            darkMode ? 'bg-slate-900/65 border-slate-700/70' : 'bg-white/65 border-white/80'
           }`}
         >
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-4 sm:p-5 text-center">
+          <div className="bg-gradient-to-r from-blue-600/80 via-indigo-600/75 to-blue-700/80 text-white p-4 sm:p-5 text-center">
             <img
               src={`${import.meta.env.BASE_URL || '/'}logo.png`}
               alt="Speak Right 2026 Logo"
