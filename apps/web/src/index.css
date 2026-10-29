@@ -4,16 +4,17 @@
 
 @layer base {
   html {
+    font-family: 'Nunito', 'Plus Jakarta Sans', system-ui, sans-serif;
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
   }
 
   body {
     overscroll-behavior-y: none;
+    letter-spacing: -0.01em;
   }
 }
 
-/* Safe area padding cho iPhone tai thỏ / Dynamic Island & iPad */
 .pb-safe {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }

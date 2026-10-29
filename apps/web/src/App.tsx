@@ -348,12 +348,11 @@ export const App: React.FC = () => {
 
   const handleExportLeaderboardCsv = () => {
     const rows = [
-      ['Hạng', 'Số GEN (8 số)', 'Họ và Tên', 'Phòng Ban', 'Tổng Điểm', 'Số Ngày Hoàn Thành'],
+      ['Hạng', 'Số GEN (8 số)', 'Họ và Tên', 'Tổng Điểm', 'Số Ngày Hoàn Thành'],
       ...(leaderboardData.topList || []).map((u: any) => [
         u.rank,
         `="${u.employeeId}"`,
         `"${u.fullName}"`,
-        `"${u.department}"`,
         u.totalScore,
         u.completedDays,
       ]),
@@ -977,7 +976,7 @@ export const App: React.FC = () => {
                                   {item.fullName}
                                 </div>
                                 <div className="text-[10px] text-slate-400 truncate">
-                                  {item.department} • {item.completedDays}/30 hôm
+                                  GEN {item.employeeId} • {item.completedDays}/30 hôm
                                 </div>
                               </div>
                             </div>
@@ -1098,33 +1097,13 @@ export const App: React.FC = () => {
             {/* ================= 3. TAB BẢNG XẾP HẠNG ================= */}
             {activeTab === 'leaderboard' && (
               <div className="max-w-3xl mx-auto space-y-3.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white p-3.5 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200/80">
                   <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-amber-500" /> Bảng xếp hạng
+                    <Trophy className="w-5 h-5 text-amber-500" /> Bảng xếp hạng Top 50
                   </h2>
-
-                  <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-xl">
-                    <button
-                      onClick={() => handleSwitchLeaderboardScope('company')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition ${
-                        leaderboardData.scope === 'company'
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-slate-600'
-                      }`}
-                    >
-                      Toàn công ty
-                    </button>
-                    <button
-                      onClick={() => handleSwitchLeaderboardScope('department')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition ${
-                        leaderboardData.scope === 'department'
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-slate-600'
-                      }`}
-                    >
-                      Bộ phận ({user.department})
-                    </button>
-                  </div>
+                  <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-xl">
+                    Cập nhật thời gian thực
+                  </span>
                 </div>
 
                 <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm divide-y divide-slate-100 overflow-hidden">
@@ -1166,7 +1145,7 @@ export const App: React.FC = () => {
                               )}
                             </div>
                             <div className="text-[11px] text-slate-500 truncate">
-                              GEN: {item.employeeId} • {item.department}
+                              Số GEN: {item.employeeId}
                             </div>
                           </div>
                         </div>
@@ -1215,7 +1194,7 @@ export const App: React.FC = () => {
                     <div>
                       <h2 className="text-lg font-black text-slate-900">{user.fullName}</h2>
                       <p className="text-xs text-slate-500">
-                        Số GEN: <strong>{user.employeeId}</strong> • {user.department}
+                        Số GEN: <strong>{user.employeeId}</strong>
                       </p>
                       <p className="text-xs text-blue-600 font-semibold">{user.email}</p>
                     </div>
@@ -1321,6 +1300,40 @@ export const App: React.FC = () => {
           </>
         )}
       </main>
+
+      {/* ================= FOOTER ================= */}
+      <footer className="bg-white border-t border-slate-200/80 py-5 px-4 mb-16 md:mb-0">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs font-black">
+              🎙️
+            </div>
+            <div>
+              <p className="text-xs font-black text-blue-950">
+                SPEAK RIGHT DAILY CHALLENGE 2026
+              </p>
+              <p className="text-[11px] text-slate-500 font-semibold">
+                Practice Today, A More Confident Tomorrow!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
+            <button onClick={() => navigateToTab('home')} className="hover:text-blue-600">
+              Trang chủ
+            </button>
+            <button onClick={() => navigateToTab('challenges')} className="hover:text-blue-600">
+              30 Ngày
+            </button>
+            <button onClick={() => navigateToTab('leaderboard')} className="hover:text-blue-600">
+              Xếp hạng
+            </button>
+            <button onClick={() => navigateToTab('profile')} className="hover:text-blue-600">
+              Cá nhân
+            </button>
+          </div>
+        </div>
+      </footer>
 
       {/* ================= MODAL THÔNG BÁO KHI ADMIN KHÓA KHẨN CẤP (FORCE LOCK) LÚC ĐANG THI ================= */}
       {forceLockModalMsg && (
