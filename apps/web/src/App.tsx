@@ -46,13 +46,12 @@ export const App: React.FC = () => {
     return raw ? JSON.parse(raw) : null;
   });
 
-  // Ngôn ngữ (Anh / Việt / Hàn) & Giao diện Sáng / Tối
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem('sr_lang') as Lang;
     return saved === 'en' || saved === 'ko' || saved === 'vi' ? saved : 'vi';
   });
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem('sr_theme_v2') === 'dark';
+    return localStorage.getItem('sr_theme_v3') === 'dark';
   });
 
   const t = TRANSLATIONS[lang];
@@ -61,10 +60,12 @@ export const App: React.FC = () => {
     const root = document.documentElement;
     if (darkMode) {
       root.classList.add('dark');
-      localStorage.setItem('sr_theme_v2', 'dark');
+      root.style.colorScheme = 'dark';
+      localStorage.setItem('sr_theme_v3', 'dark');
     } else {
       root.classList.remove('dark');
-      localStorage.setItem('sr_theme_v2', 'light');
+      root.style.colorScheme = 'light';
+      localStorage.setItem('sr_theme_v3', 'light');
     }
   }, [darkMode]);
 
@@ -98,6 +99,16 @@ export const App: React.FC = () => {
   const [autoNextOnSelect, setAutoNextOnSelect] = useState<boolean>(true);
   const [gracePeriodNotice, setGracePeriodNotice] = useState<string | null>(null);
   const [forceLockModalMsg, setForceLockModalMsg] = useState<string | null>(null);
+
+  // Hệ thống biến giao diện Sáng / Tối tường minh (Không phụ thuộc vào Dark Mode của Hệ điều hành Windows/Mac)
+  const cardBg = darkMode
+    ? 'bg-slate-900/90 border-slate-800 text-slate-100'
+    : 'bg-white/95 border-blue-100/90 text-slate-800';
+  const subCardBg = darkMode
+    ? 'bg-slate-800/90 border-slate-700 text-slate-100'
+    : 'bg-slate-50/90 border-slate-200/80 text-slate-800';
+  const textPrimary = darkMode ? 'text-white' : 'text-slate-900';
+  const textSecondary = darkMode ? 'text-slate-400' : 'text-slate-500';
 
   const getHeaders = (withJson = false): Record<string, string> => {
     const h: Record<string, string> = {
@@ -394,11 +405,21 @@ export const App: React.FC = () => {
   const myRankNumber = leaderboardData?.myRank?.rank ?? profileData?.user?.rank ?? 12;
 
   return (
-    <div className="min-h-screen text-slate-800 dark:text-slate-100 flex flex-col relative transition-colors">
+    <div
+      className={`min-h-screen flex flex-col relative transition-colors ${
+        darkMode ? 'text-slate-100' : 'text-slate-800'
+      }`}
+    >
       <ResponsiveBackground darkMode={darkMode} />
 
-      {/* ================= TOP HEADER (3 HÀNG THEO ĐÚNG YÊU CẦU + ĐA NGÔN NGỮ + SÁNG/TỐI) ================= */}
-      <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-3 sm:px-6 py-2">
+      {/* ================= TOP HEADER (SÁNG TRẮNG TRONG CHẾ ĐỘ SÁNG, TỐI TRONG CHẾ ĐỘ TỐI) ================= */}
+      <header
+        className={`sticky top-0 z-30 backdrop-blur-md border-b px-3 sm:px-6 py-2 transition-colors ${
+          darkMode
+            ? 'bg-slate-900/95 border-slate-800 text-white'
+            : 'bg-white/95 border-blue-100 text-slate-900 shadow-sm'
+        }`}
+      >
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
           {/* Cột Trái: 3 Hàng (SPEAK RIGHT 2026 / Nguyễn Thị Thảo / GEN 20261234) */}
           <div
@@ -409,20 +430,28 @@ export const App: React.FC = () => {
               🎙️
             </div>
             <div className="leading-tight min-w-0">
-              <div className="text-xs sm:text-sm font-black text-blue-700 dark:text-blue-400 truncate">
+              <div
+                className={`text-xs sm:text-sm font-black truncate ${
+                  darkMode ? 'text-blue-400' : 'text-blue-700'
+                }`}
+              >
                 SPEAK RIGHT 2026
               </div>
-              <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
+              <div className={`text-xs sm:text-sm font-extrabold truncate ${textPrimary}`}>
                 {user.fullName}
               </div>
-              <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">
+              <div className={`text-[11px] font-bold truncate ${textSecondary}`}>
                 GEN {user.employeeId}
               </div>
             </div>
           </div>
 
           {/* Menu ngang cho Tablet & Desktop */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
+          <nav
+            className={`hidden md:flex items-center gap-1 p-1 rounded-2xl ${
+              darkMode ? 'bg-slate-800' : 'bg-slate-100'
+            }`}
+          >
             {[
               { id: 'home', label: t.home, icon: Home },
               { id: 'challenges', label: t.challenges, icon: Calendar },
@@ -441,7 +470,9 @@ export const App: React.FC = () => {
                   className={`px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-blue-600'
+                      : darkMode
+                      ? 'text-slate-300 hover:text-white'
+                      : 'text-slate-600 hover:text-blue-600'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -453,7 +484,11 @@ export const App: React.FC = () => {
 
           {/* Cột Phải: Đổi ngôn ngữ (VI / EN / KO) + Sáng/Tối + Đăng xuất */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <div className="bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl flex items-center">
+            <div
+              className={`p-0.5 rounded-xl flex items-center ${
+                darkMode ? 'bg-slate-800' : 'bg-slate-100'
+              }`}
+            >
               {(['vi', 'en', 'ko'] as Lang[]).map((l) => (
                 <button
                   key={l}
@@ -461,7 +496,9 @@ export const App: React.FC = () => {
                   className={`px-1.5 py-1 rounded-lg text-[10px] font-extrabold uppercase transition ${
                     lang === l
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400'
+                      : darkMode
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-blue-600'
                   }`}
                 >
                   {l}
@@ -470,7 +507,11 @@ export const App: React.FC = () => {
             </div>
 
             {/* Thanh chọn chế độ Sáng / Tối trực quan 2 nút */}
-            <div className="bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl flex items-center">
+            <div
+              className={`p-0.5 rounded-xl flex items-center ${
+                darkMode ? 'bg-slate-800' : 'bg-slate-100'
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => setDarkMode(false)}
@@ -490,7 +531,7 @@ export const App: React.FC = () => {
                 className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
                   darkMode
                     ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
                 title="Chế độ Tối"
               >
@@ -502,7 +543,11 @@ export const App: React.FC = () => {
             <button
               onClick={handleLogout}
               title={t.logout}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-red-50 text-slate-500 hover:text-red-600 transition"
+              className={`p-2 rounded-xl transition ${
+                darkMode
+                  ? 'bg-slate-800 text-slate-400 hover:text-red-400'
+                  : 'bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600'
+              }`}
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -510,32 +555,32 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* ================= NỘI DUNG CHÍNH (KHÔNG CÒN KHOẢNG TRẮNG DƯ KHI VUỐT) ================= */}
+      {/* ================= NỘI DUNG CHÍNH ================= */}
       <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 pb-6">
         <InstallPwaModal />
 
         {/* ---------- A. MÀN HÌNH LÀM BÀI ---------- */}
         {activeQuiz ? (
-          <div className="max-w-2xl mx-auto bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6">
+          <div className={`max-w-2xl mx-auto rounded-3xl shadow-xl border p-4 sm:p-6 backdrop-blur-md ${cardBg}`}>
             {gracePeriodNotice && (
-              <div className="mb-3 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-200 text-xs font-extrabold flex items-center gap-2">
+              <div className="mb-3 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs font-extrabold flex items-center gap-2">
                 <span>{gracePeriodNotice}</span>
               </div>
             )}
 
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
               <button
                 onClick={() => navigateToTab('home')}
-                className="p-1.5 -ml-1.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1 text-xs font-bold"
+                className="p-1.5 -ml-1.5 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center gap-1 text-xs font-bold"
               >
                 <ChevronLeft className="w-5 h-5" /> {t.backBtn}
               </button>
               <div className="text-center">
-                <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                <h2 className={`text-sm sm:text-base font-black ${textPrimary}`}>
                   {activeQuiz.title} ({activeQuiz.dateLabel})
                 </h2>
               </div>
-              <div className="flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 px-2.5 py-1 rounded-full text-xs font-extrabold">
+              <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2.5 py-1 rounded-full text-xs font-extrabold">
                 <Clock className="w-3.5 h-3.5" />
                 {formatTimeMmSs(activeQuiz.elapsedSeconds)}
               </div>
@@ -557,8 +602,10 @@ export const App: React.FC = () => {
                         isCurrent
                           ? 'bg-blue-600 text-white shadow-sm scale-105'
                           : answered
-                          ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : darkMode
+                          ? 'bg-slate-800 text-slate-400'
+                          : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {idx + 1}
@@ -572,8 +619,8 @@ export const App: React.FC = () => {
                 onClick={() => setAutoNextOnSelect(!autoNextOnSelect)}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 border transition ${
                   autoNextOnSelect
-                    ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                    : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-slate-100 border-slate-200 text-slate-500'
                 }`}
               >
                 <Zap className="w-3 h-3" />
@@ -588,14 +635,20 @@ export const App: React.FC = () => {
 
               return (
                 <div className="mt-3">
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 dark:from-slate-800 dark:to-slate-800/80 border border-blue-100 dark:border-slate-700 rounded-2xl p-4 sm:p-5">
+                  <div
+                    className={`border rounded-2xl p-4 sm:p-5 ${
+                      darkMode
+                        ? 'bg-slate-800 border-slate-700'
+                        : 'bg-gradient-to-br from-blue-50 to-indigo-50/60 border-blue-100'
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1">
                         <span className="inline-block text-[11px] font-extrabold bg-blue-600 text-white px-2.5 py-0.5 rounded-md mb-1.5">
                           {t.questionLabel} {activeQuiz.currentIndex + 1}/
                           {activeQuiz.questions.length} • {q.categoryLabel}
                         </span>
-                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-snug">
+                        <h3 className={`text-base sm:text-lg font-extrabold leading-snug ${textPrimary}`}>
                           {q.promptText}
                         </h3>
                       </div>
@@ -619,13 +672,13 @@ export const App: React.FC = () => {
                     </div>
 
                     {q.statementText && (
-                      <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs sm:text-sm font-extrabold">
+                      <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs sm:text-sm font-extrabold">
                         📌 {q.statementText}
                       </div>
                     )}
 
                     {q.promptVideoUrl && (
-                      <div className="mt-3 rounded-2xl overflow-hidden bg-slate-950 border border-blue-200 dark:border-slate-700 flex justify-center">
+                      <div className="mt-3 rounded-2xl overflow-hidden bg-slate-950 border border-blue-200 flex justify-center">
                         <video
                           src={q.promptVideoUrl}
                           controls
@@ -646,8 +699,12 @@ export const App: React.FC = () => {
                           onClick={() => handleSelectOption(q, opt.id)}
                           className={`flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl border-2 cursor-pointer transition select-none active:scale-[0.99] ${
                             isSelected
-                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/60 shadow-sm'
-                              : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 bg-white dark:bg-slate-800/80'
+                              ? darkMode
+                                ? 'border-blue-500 bg-blue-950/60 shadow-sm'
+                                : 'border-blue-600 bg-blue-50 shadow-sm'
+                              : darkMode
+                              ? 'border-slate-700 bg-slate-800/80 hover:border-blue-400'
+                              : 'border-slate-200 bg-white hover:border-blue-300'
                           }`}
                         >
                           {opt.hasOptionAudio && (
@@ -672,11 +729,11 @@ export const App: React.FC = () => {
                           )}
 
                           <div className="flex-1 min-w-0">
-                            <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white block">
+                            <span className={`text-sm sm:text-base font-bold block ${textPrimary}`}>
                               {opt.id}. {opt.text}
                             </span>
                             {opt.hasOptionAudio && (
-                              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
+                              <span className="text-[11px] text-blue-600 font-semibold">
                                 {t.tapSpeakerHint}
                               </span>
                             )}
@@ -694,7 +751,7 @@ export const App: React.FC = () => {
                     })}
                   </div>
 
-                  <div className="flex items-center justify-between gap-2.5 mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between gap-2.5 mt-5 pt-3.5 border-t border-slate-200/60">
                     <button
                       type="button"
                       disabled={activeQuiz.currentIndex === 0}
@@ -703,7 +760,11 @@ export const App: React.FC = () => {
                           prev ? { ...prev, currentIndex: prev.currentIndex - 1 } : null
                         )
                       }
-                      className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs sm:text-sm disabled:opacity-40"
+                      className={`px-4 py-3 rounded-2xl border font-bold text-xs sm:text-sm disabled:opacity-40 ${
+                        darkMode
+                          ? 'border-slate-700 text-slate-300'
+                          : 'border-slate-200 text-slate-600'
+                      }`}
                     >
                       {t.prevQuestion}
                     </button>
@@ -736,24 +797,24 @@ export const App: React.FC = () => {
             })()}
           </div>
         ) : quizResult ? (
-          /* ---------- B. MÀN HÌNH KẾT QUẢ & XEM ĐÁP ÁN ---------- */
+          /* ---------- B. MÀN HÌNH KẾT QUẢ ---------- */
           <div className="max-w-2xl mx-auto">
             {!showDetailedReview ? (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-6 text-center">
-                <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center mb-2">
+              <div className={`rounded-3xl shadow-xl border p-6 text-center backdrop-blur-md ${cardBg}`}>
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-100 flex items-center justify-center mb-2">
                   <Star className="w-10 h-10 text-amber-400 fill-amber-400" />
                 </div>
                 <h2 className="text-2xl font-black text-rose-500">Great Job!</h2>
-                <p className="text-sm font-bold text-blue-900 dark:text-blue-300">
+                <p className={`text-sm font-bold ${textPrimary}`}>
                   {t.completedDayMsg} Day {quizResult.dayNumber}
                 </p>
 
-                <div className="my-5 p-4 rounded-3xl bg-blue-50/70 dark:bg-slate-800 border border-blue-100 dark:border-slate-700">
-                  <div className="text-4xl font-black text-blue-700 dark:text-blue-400">
+                <div className={`my-5 p-4 rounded-3xl border ${subCardBg}`}>
+                  <div className="text-4xl font-black text-blue-600">
                     {quizResult.score}/{quizResult.totalPoints} {t.pointsSuffix}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-blue-100 dark:border-slate-700 text-xs">
+                  <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200/60 text-xs">
                     <div>
                       <span className="text-base font-black text-emerald-600 block">
                         {quizResult.correctCount}
@@ -767,7 +828,7 @@ export const App: React.FC = () => {
                       {t.wrongCountLabel}
                     </div>
                     <div>
-                      <span className="text-base font-black text-blue-700 dark:text-blue-400 block">
+                      <span className="text-base font-black text-blue-600 block">
                         {formatTimeMmSs(Math.round(quizResult.timeSpentMs / 1000))}
                       </span>
                       {t.timeSpentLabel}
@@ -787,22 +848,24 @@ export const App: React.FC = () => {
                   </button>
                   <button
                     onClick={() => navigateToTab('home')}
-                    className="py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-sm"
+                    className={`py-3.5 rounded-2xl font-bold text-sm ${
+                      darkMode ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'
+                    }`}
                   >
                     {t.backToHome}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-200/80 dark:border-slate-800 p-4 sm:p-6">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+              <div className={`rounded-3xl shadow-xl border p-4 sm:p-6 backdrop-blur-md ${cardBg}`}>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 mb-3">
                   <button
                     onClick={() => setShowDetailedReview(false)}
                     className="inline-flex items-center gap-1 text-xs font-extrabold text-blue-600"
                   >
                     <ChevronLeft className="w-5 h-5" /> {t.resultBtn}
                   </button>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                  <h3 className={`text-sm sm:text-base font-black ${textPrimary}`}>
                     Day {quizResult.dayNumber}
                   </h3>
                   <button
@@ -819,8 +882,8 @@ export const App: React.FC = () => {
                       key={item.questionId}
                       className={`p-3 rounded-2xl border ${
                         item.isCorrect
-                          ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
-                          : 'bg-rose-50/50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800'
+                          ? 'bg-emerald-50/80 border-emerald-200 text-slate-900'
+                          : 'bg-rose-50/80 border-rose-200 text-slate-900'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -830,7 +893,7 @@ export const App: React.FC = () => {
                           ) : (
                             <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                           )}
-                          <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                          <span className="text-xs font-extrabold">
                             {t.questionLabel} {item.orderIndex}: {item.correctOptionId}.{' '}
                             {item.correctOptionText}
                           </span>
@@ -843,9 +906,7 @@ export const App: React.FC = () => {
                           <Volume2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 pl-6">
-                        {item.explanation}
-                      </p>
+                      <p className="text-xs text-slate-700 mt-1 pl-6">{item.explanation}</p>
                     </div>
                   ))}
                 </div>
@@ -858,7 +919,7 @@ export const App: React.FC = () => {
             {/* ================= 1. TRANG CHỦ ================= */}
             {activeTab === 'home' && (
               <div className="space-y-4">
-                <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 rounded-3xl p-5 sm:p-6 text-white shadow-lg">
+                <div className="bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 rounded-3xl p-5 sm:p-6 text-white shadow-xl">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1.5">
                       <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-0.5 rounded-full text-xs font-extrabold">
@@ -885,7 +946,7 @@ export const App: React.FC = () => {
                   <div className="grid grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-white/15 text-center">
                     <div
                       onClick={() => navigateToTab('challenges')}
-                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-2.5 cursor-pointer transition"
+                      className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
                     >
                       <div className="text-lg sm:text-2xl font-black text-amber-300">
                         {completedCount}/30 {t.daysUnit}
@@ -897,7 +958,7 @@ export const App: React.FC = () => {
 
                     <div
                       onClick={() => navigateToTab('profile')}
-                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-2.5 cursor-pointer transition"
+                      className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
                     >
                       <div className="text-lg sm:text-2xl font-black text-white">
                         {myTotalScore.toLocaleString()} {t.pointsSuffix}
@@ -909,7 +970,7 @@ export const App: React.FC = () => {
 
                     <div
                       onClick={() => navigateToTab('leaderboard')}
-                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-2.5 cursor-pointer transition"
+                      className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
                     >
                       <div className="text-lg sm:text-2xl font-black text-emerald-300">
                         #{myRankNumber}
@@ -921,15 +982,15 @@ export const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                   {/* Lộ trình nhanh 6 ngày */}
-                  <div className="lg:col-span-6 bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                  <div className={`lg:col-span-6 rounded-3xl p-4 sm:p-5 border shadow-md backdrop-blur-md ${cardBg}`}>
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <h2 className={`text-sm sm:text-base font-black flex items-center gap-1.5 ${textPrimary}`}>
                         <Calendar className="w-4 h-4 text-blue-600" /> {t.progressTitle} (
                         {completedCount}/30)
                       </h2>
                       <button
                         onClick={() => navigateToTab('challenges')}
-                        className="text-xs font-extrabold text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+                        className="text-xs font-extrabold text-blue-600 hover:underline flex items-center"
                       >
                         {t.viewAll30Days} <ChevronRight className="w-4 h-4" />
                       </button>
@@ -945,14 +1006,20 @@ export const App: React.FC = () => {
                             onClick={() => handleStartDay(c)}
                             className={`p-3 rounded-2xl border-2 cursor-pointer transition flex flex-col justify-between ${
                               isCompleted
-                                ? 'bg-emerald-50/40 dark:bg-emerald-950/30 border-emerald-400'
+                                ? darkMode
+                                  ? 'bg-emerald-950/40 border-emerald-500'
+                                  : 'bg-emerald-50/90 border-emerald-400'
                                 : isOpen
-                                ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-600 shadow-sm'
-                                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-400'
+                                ? darkMode
+                                  ? 'bg-blue-950/50 border-blue-500 shadow-sm'
+                                  : 'bg-blue-50/90 border-blue-600 shadow-sm'
+                                : darkMode
+                                ? 'bg-slate-800/70 border-slate-700 text-slate-400'
+                                : 'bg-slate-50/90 border-slate-200 text-slate-500'
                             }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-black text-slate-900 dark:text-white">
+                              <span className={`text-sm font-black ${textPrimary}`}>
                                 {c.title}
                               </span>
                               {isCompleted ? (
@@ -965,16 +1032,14 @@ export const App: React.FC = () => {
                                 <Lock className="w-3.5 h-3.5 text-slate-400" />
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 mt-1">{c.dateLabel}</div>
+                            <div className={`text-[11px] mt-1 ${textSecondary}`}>{c.dateLabel}</div>
                             <div className="mt-2 text-xs font-extrabold">
                               {isCompleted ? (
-                                <span className="text-emerald-700 dark:text-emerald-400">
+                                <span className="text-emerald-600">
                                   {c.score}/100{t.pointsSuffix}
                                 </span>
                               ) : isOpen ? (
-                                <span className="text-blue-700 dark:text-blue-400">
-                                  {t.tapToStart}
-                                </span>
+                                <span className="text-blue-600">{t.tapToStart}</span>
                               ) : (
                                 <span className="text-slate-400">{t.lockedBadge}</span>
                               )}
@@ -986,21 +1051,21 @@ export const App: React.FC = () => {
                   </div>
 
                   {/* Bảng Xếp Hạng Top 5 ngay tại Trang chủ */}
-                  <div className="lg:col-span-6 bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                  <div className={`lg:col-span-6 rounded-3xl p-4 sm:p-5 border shadow-md backdrop-blur-md flex flex-col justify-between ${cardBg}`}>
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <h2 className={`text-sm sm:text-base font-black flex items-center gap-1.5 ${textPrimary}`}>
                           <Trophy className="w-4 h-4 text-amber-500" /> {t.topLeaderboardTitle}
                         </h2>
                         <button
                           onClick={() => navigateToTab('leaderboard')}
-                          className="text-xs font-extrabold text-blue-600 dark:text-blue-400 hover:underline flex items-center"
+                          className="text-xs font-extrabold text-blue-600 hover:underline flex items-center"
                         >
                           {t.viewTop50} <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      <div className={`divide-y ${darkMode ? 'divide-slate-800' : 'divide-slate-100'}`}>
                         {(leaderboardData.topList || []).slice(0, 5).map((item: any) => (
                           <div
                             key={item.id}
@@ -1022,15 +1087,15 @@ export const App: React.FC = () => {
                                 className="w-8 h-8 rounded-full bg-slate-100 shrink-0"
                               />
                               <div className="min-w-0">
-                                <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
+                                <div className={`text-xs sm:text-sm font-extrabold truncate ${textPrimary}`}>
                                   {item.fullName}
                                 </div>
-                                <div className="text-[10px] text-slate-400 truncate">
+                                <div className={`text-[10px] truncate ${textSecondary}`}>
                                   GEN {item.employeeId} • {item.completedDays}/30 {t.daysUnit}
                                 </div>
                               </div>
                             </div>
-                            <span className="text-xs sm:text-sm font-black text-blue-700 dark:text-blue-400 shrink-0">
+                            <span className="text-xs sm:text-sm font-black text-blue-600 shrink-0">
                               {item.totalScore.toLocaleString()}
                               {t.pointsSuffix}
                             </span>
@@ -1039,16 +1104,22 @@ export const App: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-blue-50/80 dark:bg-blue-950/40 px-3.5 py-2.5 rounded-2xl">
+                    <div
+                      className={`mt-3 pt-3 border-t flex items-center justify-between px-3.5 py-2.5 rounded-2xl ${
+                        darkMode
+                          ? 'border-slate-800 bg-blue-950/50 text-blue-200'
+                          : 'border-slate-100 bg-blue-50 text-blue-950'
+                      }`}
+                    >
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black bg-blue-600 text-white px-2 py-0.5 rounded-md">
                           #{myRankNumber}
                         </span>
-                        <span className="text-xs font-extrabold text-blue-950 dark:text-blue-200">
+                        <span className="text-xs font-extrabold">
                           {user.fullName} ({t.youBadge})
                         </span>
                       </div>
-                      <span className="text-xs font-black text-blue-700 dark:text-blue-400">
+                      <span className="text-xs font-black text-blue-600">
                         {myTotalScore.toLocaleString()}
                         {t.pointsSuffix} • {completedCount}/30 {t.daysUnit}
                       </span>
@@ -1061,12 +1132,10 @@ export const App: React.FC = () => {
             {/* ================= 2. TAB 30 NGÀY ================= */}
             {activeTab === 'challenges' && (
               <div className="space-y-4">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                <div className={`rounded-2xl p-4 border shadow-sm backdrop-blur-md flex items-center justify-between ${cardBg}`}>
                   <div>
-                    <h2 className="text-base font-black text-slate-900 dark:text-white">
-                      {t.journey30Days}
-                    </h2>
-                    <p className="text-xs text-slate-500">
+                    <h2 className={`text-base font-black ${textPrimary}`}>{t.journey30Days}</h2>
+                    <p className={`text-xs ${textSecondary}`}>
                       {t.completedDaysLabel}: <strong>{completedCount}/30 {t.daysUnit}</strong>
                     </p>
                   </div>
@@ -1086,20 +1155,26 @@ export const App: React.FC = () => {
                       <div
                         key={c.dayNumber}
                         onClick={() => handleStartDay(c)}
-                        className={`p-3.5 rounded-2xl border-2 transition cursor-pointer select-none flex flex-col justify-between min-h-[100px] ${
+                        className={`p-3.5 rounded-2xl border-2 transition cursor-pointer select-none flex flex-col justify-between min-h-[100px] backdrop-blur-md ${
                           isCompleted
-                            ? 'bg-white dark:bg-slate-900 border-emerald-500 shadow-sm'
+                            ? darkMode
+                              ? 'bg-slate-900/90 border-emerald-500 shadow-sm'
+                              : 'bg-white/95 border-emerald-500 shadow-sm'
                             : isOpen
-                            ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-600 ring-2 ring-blue-100 dark:ring-blue-900 shadow-sm'
-                            : 'bg-slate-100/70 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400'
+                            ? darkMode
+                              ? 'bg-blue-950/60 border-blue-500 shadow-sm'
+                              : 'bg-blue-50/95 border-blue-600 ring-2 ring-blue-100 shadow-sm'
+                            : darkMode
+                            ? 'bg-slate-900/75 border-slate-800 text-slate-400'
+                            : 'bg-white/85 border-slate-200 text-slate-500'
                         }`}
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                            <div className={`text-sm sm:text-base font-black ${textPrimary}`}>
                               {c.title}
                             </div>
-                            <div className="text-[11px] text-slate-500">{c.dateLabel}</div>
+                            <div className={`text-[11px] ${textSecondary}`}>{c.dateLabel}</div>
                           </div>
 
                           {isCompleted ? (
@@ -1126,13 +1201,13 @@ export const App: React.FC = () => {
                                   }`}
                                 />
                               ))}
-                              <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400 ml-1">
+                              <span className="text-xs font-extrabold text-emerald-600 ml-1">
                                 {c.score}
                                 {t.pointsSuffix}
                               </span>
                             </div>
                           ) : isOpen ? (
-                            <span className="text-xs font-extrabold text-blue-700 dark:text-blue-400">
+                            <span className="text-xs font-extrabold text-blue-600">
                               {t.tapToStart}
                             </span>
                           ) : (
@@ -1149,23 +1224,31 @@ export const App: React.FC = () => {
             {/* ================= 3. TAB BẢNG XẾP HẠNG ================= */}
             {activeTab === 'leaderboard' && (
               <div className="max-w-3xl mx-auto space-y-3.5">
-                <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                  <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <div className={`flex items-center justify-between p-4 rounded-2xl border backdrop-blur-md ${cardBg}`}>
+                  <h2 className={`text-base font-black flex items-center gap-2 ${textPrimary}`}>
                     <Trophy className="w-5 h-5 text-amber-500" /> {t.leaderboard} Top 50
                   </h2>
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-3 py-1 rounded-xl">
+                  <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-xl">
                     {t.realtimeUpdate}
                   </span>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+                <div
+                  className={`rounded-3xl border shadow-sm divide-y overflow-hidden backdrop-blur-md ${cardBg} ${
+                    darkMode ? 'divide-slate-800' : 'divide-slate-100'
+                  }`}
+                >
                   {(leaderboardData.topList || []).map((item: any) => {
                     const isMe = item.id === user.id;
                     return (
                       <div
                         key={item.id}
                         className={`flex items-center justify-between p-3.5 sm:px-5 ${
-                          isMe ? 'bg-blue-50/90 dark:bg-blue-950/40 font-bold' : ''
+                          isMe
+                            ? darkMode
+                              ? 'bg-blue-950/50 font-bold'
+                              : 'bg-blue-50/90 font-bold'
+                            : ''
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -1177,7 +1260,7 @@ export const App: React.FC = () => {
                             ) : item.rank === 3 ? (
                               <span className="text-xl">🥉</span>
                             ) : (
-                              <span className="text-xs font-black text-slate-500">
+                              <span className={`text-xs font-black ${textSecondary}`}>
                                 #{item.rank}
                               </span>
                             )}
@@ -1188,7 +1271,7 @@ export const App: React.FC = () => {
                             className="w-9 h-9 rounded-full bg-slate-100 shrink-0"
                           />
                           <div className="min-w-0">
-                            <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
+                            <div className={`text-xs sm:text-sm font-extrabold truncate ${textPrimary}`}>
                               {item.fullName}{' '}
                               {isMe && (
                                 <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full ml-1">
@@ -1196,14 +1279,14 @@ export const App: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 truncate">
+                            <div className={`text-[11px] truncate ${textSecondary}`}>
                               GEN {item.employeeId}
                             </div>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="text-sm sm:text-base font-black text-blue-700 dark:text-blue-400">
+                          <div className="text-sm sm:text-base font-black text-blue-600">
                             {item.totalScore.toLocaleString()}
                             {t.pointsSuffix}
                           </div>
@@ -1237,7 +1320,7 @@ export const App: React.FC = () => {
             {/* ================= 4. TAB CÁ NHÂN (PROFILE) ================= */}
             {activeTab === 'profile' && (
               <div className="max-w-3xl mx-auto space-y-4">
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md ${cardBg}`}>
                   <div className="flex items-center gap-4">
                     <img
                       src={user.avatarUrl}
@@ -1245,42 +1328,38 @@ export const App: React.FC = () => {
                       className="w-16 h-16 rounded-full bg-blue-50 border-2 border-blue-100"
                     />
                     <div>
-                      <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                        {user.fullName}
-                      </h2>
-                      <p className="text-xs text-slate-500">
+                      <h2 className={`text-lg font-black ${textPrimary}`}>{user.fullName}</h2>
+                      <p className={`text-xs ${textSecondary}`}>
                         GEN <strong>{user.employeeId}</strong>
                       </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
-                        {user.email}
-                      </p>
+                      <p className="text-xs text-blue-600 font-semibold">{user.email}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2.5 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
-                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-2xl">
-                      <div className="text-lg sm:text-xl font-black text-blue-700 dark:text-blue-400">
+                  <div className="grid grid-cols-3 gap-2.5 mt-4 pt-4 border-t border-slate-200/60 text-center">
+                    <div className={`p-3 rounded-2xl border ${subCardBg}`}>
+                      <div className="text-lg sm:text-xl font-black text-blue-600">
                         {myTotalScore.toLocaleString()}
                       </div>
-                      <div className="text-[11px] text-slate-500">{t.totalScoreLabel}</div>
+                      <div className={`text-[11px] ${textSecondary}`}>{t.totalScoreLabel}</div>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-2xl">
-                      <div className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                    <div className={`p-3 rounded-2xl border ${subCardBg}`}>
+                      <div className={`text-lg sm:text-xl font-black ${textPrimary}`}>
                         {completedCount}/30
                       </div>
-                      <div className="text-[11px] text-slate-500">{t.completedDaysLabel}</div>
+                      <div className={`text-[11px] ${textSecondary}`}>{t.completedDaysLabel}</div>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-2xl">
+                    <div className={`p-3 rounded-2xl border ${subCardBg}`}>
                       <div className="text-lg sm:text-xl font-black text-emerald-600">
                         #{myRankNumber}
                       </div>
-                      <div className="text-[11px] text-slate-500">{t.rankLabel}</div>
+                      <div className={`text-[11px] ${textSecondary}`}>{t.rankLabel}</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 mb-3">
+                <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md ${cardBg}`}>
+                  <h3 className={`text-sm font-black flex items-center gap-1.5 mb-3 ${textPrimary}`}>
                     <Award className="w-4 h-4 text-amber-500" /> {t.milestonesTitle}
                   </h3>
                   <div className="grid grid-cols-5 gap-2 text-center">
@@ -1291,8 +1370,8 @@ export const App: React.FC = () => {
                           key={m}
                           className={`p-2.5 rounded-2xl border ${
                             unlocked
-                              ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300'
-                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                              ? 'bg-amber-50/90 border-amber-300 text-amber-900'
+                              : `${subCardBg} opacity-70`
                           }`}
                         >
                           <div className="text-base">{unlocked ? '🏅' : '🔒'}</div>
@@ -1303,9 +1382,9 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md ${cardBg}`}>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <h3 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
                       <BarChart3 className="w-4 h-4 text-blue-600" /> {t.statsCorrectWrong}
                     </h3>
                     <div className="flex gap-3 text-[11px] font-bold">
@@ -1314,7 +1393,7 @@ export const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-7 gap-2 items-end h-28 pt-4 px-2 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                  <div className={`grid grid-cols-7 gap-2 items-end h-28 pt-4 px-2 rounded-2xl border ${subCardBg}`}>
                     {[
                       { day: 'D1', ok: 8, err: 2 },
                       { day: 'D2', ok: 9, err: 1 },
@@ -1335,7 +1414,7 @@ export const App: React.FC = () => {
                             style={{ height: `${Math.max(8, bar.err * 10)}%` }}
                           />
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500">{bar.day}</span>
+                        <span className={`text-[10px] font-bold ${textSecondary}`}>{bar.day}</span>
                       </div>
                     ))}
                   </div>
@@ -1366,11 +1445,11 @@ export const App: React.FC = () => {
       {/* ================= MODAL KHI ADMIN FORCE LOCK ================= */}
       {forceLockModalMsg && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl space-y-4">
+          <div className={`w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl space-y-4 border ${cardBg}`}>
             <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
               <Lock className="w-7 h-7" />
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-semibold">
+            <p className="text-xs sm:text-sm leading-relaxed font-semibold">
               {forceLockModalMsg}
             </p>
             <button
@@ -1389,20 +1468,18 @@ export const App: React.FC = () => {
       {/* ================= MODAL NGÀY CHƯA MỞ KHÓA ================= */}
       {lockedModalDay && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl relative">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
+          <div className={`w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl relative border ${cardBg}`}>
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
               <Lock className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mt-3">
-              {lockedModalDay.title}
-            </h3>
-            <p className="text-xs font-semibold text-slate-500">{lockedModalDay.dateLabel}</p>
+            <h3 className={`text-xl font-black mt-3 ${textPrimary}`}>{lockedModalDay.title}</h3>
+            <p className={`text-xs font-semibold ${textSecondary}`}>{lockedModalDay.dateLabel}</p>
 
-            <div className="bg-amber-50 dark:bg-amber-950/50 rounded-2xl p-3.5 my-4 border border-amber-200 dark:border-amber-800 text-xs sm:text-sm font-extrabold text-amber-900 dark:text-amber-200">
+            <div className="bg-amber-50 rounded-2xl p-3.5 my-4 border border-amber-200 text-xs sm:text-sm font-extrabold text-amber-900">
               📅 {t.lockedTomorrowMsg}
             </div>
 
-            <p className="text-xs font-bold italic text-blue-800 dark:text-blue-400">
+            <p className="text-xs font-bold italic text-blue-700">
               “Keep practicing, better pronunciation is coming!”
             </p>
 
@@ -1427,7 +1504,13 @@ export const App: React.FC = () => {
       )}
 
       {/* ================= BOTTOM NAVIGATION BAR ================= */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-1 pb-safe">
+      <nav
+        className={`md:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-md border-t px-2 py-1 pb-safe transition-colors ${
+          darkMode
+            ? 'bg-slate-900/95 border-slate-800 text-white'
+            : 'bg-white/95 border-blue-100 text-slate-800 shadow-lg'
+        }`}
+      >
         <div
           className={`grid ${
             user.role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'
@@ -1450,8 +1533,10 @@ export const App: React.FC = () => {
                 onClick={() => navigateToTab(item.id as TabType)}
                 className={`flex flex-col items-center justify-center py-1.5 rounded-2xl transition ${
                   isActive
-                    ? 'text-blue-600 dark:text-blue-400 font-extrabold'
-                    : 'text-slate-400 font-medium'
+                    ? 'text-blue-600 font-extrabold'
+                    : darkMode
+                    ? 'text-slate-400 font-medium'
+                    : 'text-slate-500 font-medium'
                 }`}
               >
                 <Icon className="w-5 h-5" />
