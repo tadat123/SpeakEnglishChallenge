@@ -15,6 +15,8 @@ import {
   ExternalLink,
   Copy,
   Zap,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import {
   checkPasswordStrength,
@@ -22,25 +24,35 @@ import {
   validateGenId,
   validatePersonalGmail,
 } from '../utils/validation';
+import { Lang, TRANSLATIONS } from '../utils/i18n';
 
 interface AuthScreenProps {
   onAuthSuccess: (token: string, user: any) => void;
+  lang: Lang;
+  onChangeLang: (l: Lang) => void;
+  darkMode: boolean;
+  onToggleDarkMode: () => void;
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({
+  onAuthSuccess,
+  lang,
+  onChangeLang,
+  darkMode,
+  onToggleDarkMode,
+}) => {
+  const t = TRANSLATIONS[lang];
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Form states
   const [employeeId, setEmployeeId] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Forgot / Reset password states
   const [otpOrToken, setOtpOrToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [demoEmailBox, setDemoEmailBox] = useState<{
@@ -203,23 +215,49 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-600 via-blue-500 to-sky-100 flex items-center justify-center p-3 sm:p-6">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-white/60">
-        {/* Header mềm mại, thân thiện */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-6 text-center">
+    <div className="min-h-[100dvh] bg-gradient-to-b from-blue-600 via-blue-500 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col justify-between items-center p-3 sm:p-6">
+      {/* Thanh chọn Ngôn ngữ (VI / EN / KO) & Sáng/Tối ở góc trên */}
+      <div className="w-full max-w-md flex items-center justify-end gap-2 pt-1">
+        <div className="bg-white/20 dark:bg-slate-800/80 backdrop-blur-md p-1 rounded-xl flex items-center gap-1 border border-white/20">
+          {(['vi', 'en', 'ko'] as Lang[]).map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => onChangeLang(l)}
+              className={`px-2 py-1 rounded-lg text-[11px] font-extrabold uppercase transition ${
+                lang === l
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-white/90 hover:text-white'
+              }`}
+            >
+              {l === 'vi' ? '🇻🇳 VI' : l === 'en' ? '🇬🇧 EN' : '🇰🇷 KO'}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={onToggleDarkMode}
+          className="p-2 rounded-xl bg-white/20 dark:bg-slate-800/80 text-white border border-white/20 backdrop-blur-md"
+          title="Đổi giao diện Sáng / Tối"
+        >
+          {darkMode ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* Khung Card Đăng nhập */}
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-white/60 dark:border-slate-800 my-auto">
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-5 sm:p-6 text-center">
           <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-extrabold mb-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             30 DAYS PRONUNCIATION
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">SPEAK RIGHT 2026</h1>
-          <p className="text-xs text-blue-100 mt-1 font-medium">
-            Luyện phát âm mỗi ngày • Tự tin giao tiếp
-          </p>
         </div>
 
         <div className="p-5 sm:p-6">
           {(mode === 'login' || mode === 'register') && (
-            <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-2xl mb-4">
+            <div className="grid grid-cols-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mb-4">
               <button
                 type="button"
                 onClick={() => {
@@ -227,10 +265,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   setErrorMsg('');
                 }}
                 className={`py-2.5 text-xs sm:text-sm font-extrabold rounded-xl transition ${
-                  mode === 'login' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600'
+                  mode === 'login'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Đăng nhập
+                {t.loginTab}
               </button>
               <button
                 type="button"
@@ -239,23 +279,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   setErrorMsg('');
                 }}
                 className={`py-2.5 text-xs sm:text-sm font-extrabold rounded-xl transition ${
-                  mode === 'register' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600'
+                  mode === 'register'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                Đăng ký mới
+                {t.registerTab}
               </button>
             </div>
           )}
 
           {errorMsg && (
-            <div className="mb-3 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
+            <div className="mb-3 p-3 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-bold flex items-center gap-2">
               <XCircle className="w-4 h-4 text-red-600 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-3 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+            <div className="mb-3 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -265,8 +307,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           {mode === 'login' && (
             <form onSubmit={handleLogin} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Số GEN (8 số)
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                  {t.genLabel}
                 </label>
                 <div className="relative">
                   <Hash className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -275,14 +317,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     inputMode="numeric"
                     value={employeeId}
                     onChange={(e) => handleGenInput(e.target.value)}
-                    placeholder="VD: 20261234"
-                    className="w-full pl-10 pr-16 py-3 rounded-2xl border border-slate-200 focus:border-blue-600 outline-none text-sm font-bold tracking-wider"
+                    placeholder="20261234"
+                    className="w-full pl-10 pr-16 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-600 outline-none text-sm font-bold tracking-wider"
                   />
                   <span
                     className={`absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold px-2 py-0.5 rounded-lg ${
                       employeeId.length === 8
                         ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-slate-100 text-slate-500'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
                     }`}
                   >
                     {employeeId.length}/8
@@ -292,7 +334,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-extrabold text-slate-700">Mật khẩu</label>
+                  <label className="text-xs font-extrabold text-slate-700 dark:text-slate-200">
+                    {t.passwordLabel}
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
@@ -300,9 +344,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                       setErrorMsg('');
                       setSuccessMsg('');
                     }}
-                    className="text-xs font-bold text-blue-600 hover:underline"
+                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    Quên mật khẩu?
+                    {t.forgotPassword}
                   </button>
                 </div>
                 <div className="relative">
@@ -311,8 +355,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu"
-                    className="w-full pl-10 pr-10 py-3 rounded-2xl border border-slate-200 focus:border-blue-600 outline-none text-sm"
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-10 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-600 outline-none text-sm"
                   />
                   <button
                     type="button"
@@ -329,42 +373,50 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 disabled={loading}
                 className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-blue-600/25 transition"
               >
-                {loading ? 'Đang vào...' : 'Đăng nhập'}
+                {loading ? t.loggingIn : t.loginBtn}
               </button>
 
-              <div className="pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <p className="text-[11px] font-bold text-slate-400 mb-2 flex items-center gap-1">
-                  <Zap className="w-3.5 h-3.5 text-amber-500" /> Trải nghiệm nhanh 1 chạm:
+                  <Zap className="w-3.5 h-3.5 text-amber-500" /> {t.quickDemo}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => performLogin('20261234', 'Speak@2026')}
-                    className="p-2.5 rounded-2xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 text-left transition active:scale-95"
+                    className="p-2.5 rounded-2xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/50 hover:bg-blue-100 text-left transition active:scale-95"
                   >
-                    <div className="text-xs font-extrabold text-blue-800">👩‍💼 Nguyễn Thảo</div>
-                    <div className="text-[10px] text-blue-600">GEN: 20261234</div>
+                    <div className="text-xs font-extrabold text-blue-800 dark:text-blue-300">
+                      👩‍💼 Nguyễn Thị Thảo
+                    </div>
+                    <div className="text-[10px] text-blue-600 dark:text-blue-400">
+                      GEN 20261234
+                    </div>
                   </button>
                   <button
                     type="button"
                     onClick={() => performLogin('88888888', 'Admin@2026')}
-                    className="p-2.5 rounded-2xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-left transition active:scale-95"
+                    className="p-2.5 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/50 hover:bg-indigo-100 text-left transition active:scale-95"
                   >
-                    <div className="text-xs font-extrabold text-indigo-800">🛡️ Quản trị Admin</div>
-                    <div className="text-[10px] text-indigo-600">GEN: 88888888</div>
+                    <div className="text-xs font-extrabold text-indigo-800 dark:text-indigo-300">
+                      🛡️ Admin CMS
+                    </div>
+                    <div className="text-[10px] text-indigo-600 dark:text-indigo-400">
+                      GEN 88888888
+                    </div>
                   </button>
                 </div>
               </div>
             </form>
           )}
 
-          {/* ================= 2. ĐĂNG KÝ (ĐÃ BỎ PHÒNG BAN & ẨN NÚT ĐĂNG KÝ KHI NHẬP @SAMSUNG.COM) ================= */}
+          {/* ================= 2. ĐĂNG KÝ ================= */}
           {mode === 'register' && (
             <form onSubmit={handleRegister} className="space-y-3.5">
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                    Số GEN (8 số) *
+                  <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                    {t.genLabel} *
                   </label>
                   <div className="relative">
                     <Hash className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -374,7 +426,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                       value={employeeId}
                       onChange={(e) => handleGenInput(e.target.value)}
                       placeholder="20268888"
-                      className="w-full pl-8 pr-11 py-2.5 rounded-2xl border border-slate-200 focus:border-blue-600 outline-none text-sm font-bold"
+                      className="w-full pl-8 pr-11 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-600 outline-none text-sm font-bold"
                     />
                     <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
                       {employeeId.length}/8
@@ -383,8 +435,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                    Họ và tên *
+                  <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                    {t.fullNameLabel} *
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -393,15 +445,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Nguyễn Văn A"
-                      className="w-full pl-8 pr-2.5 py-2.5 rounded-2xl border border-slate-200 focus:border-blue-600 outline-none text-sm"
+                      className="w-full pl-8 pr-2.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-600 outline-none text-sm"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Email cá nhân (Gmail) *
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                  {t.emailLabel} *
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -413,21 +465,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     className={`w-full pl-10 pr-3 py-2.5 rounded-2xl border outline-none text-sm ${
                       hasSamsungWarning
                         ? 'border-red-500 bg-red-50 text-red-900'
-                        : 'border-slate-200 focus:border-blue-600'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-600'
                     }`}
                   />
                 </div>
                 {hasSamsungWarning && (
-                  <div className="mt-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-600 flex items-center gap-1.5">
+                  <div className="mt-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-xs font-bold text-red-600 dark:text-red-300 flex items-center gap-1.5">
                     <ShieldAlert className="w-4 h-4 shrink-0" />
-                    <span>Không được sử dụng email @samsung.com. Vui lòng nhập Gmail cá nhân!</span>
+                    <span>{t.samsungWarning}</span>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Mật khẩu *
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                  {t.passwordLabel} *
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -435,8 +487,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="VD: Speak@2026"
-                    className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 focus:border-blue-600 outline-none text-sm"
+                    placeholder="Speak@2026"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-600 outline-none text-sm"
                   />
                   <button
                     type="button"
@@ -447,9 +499,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1 mt-2 bg-slate-50 p-2.5 rounded-2xl text-[11px]">
+                <div className="grid grid-cols-2 gap-1 mt-2 bg-slate-50 dark:bg-slate-800/70 p-2.5 rounded-2xl text-[11px]">
                   <span className={pwdCriteria.minLength ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
-                    ✓ 8+ ký tự
+                    ✓ 8+ chars
                   </span>
                   <span
                     className={
@@ -458,25 +510,24 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                         : 'text-slate-400'
                     }
                   >
-                    ✓ Hoa & thường
+                    ✓ A-Z & a-z
                   </span>
                   <span className={pwdCriteria.hasNumber ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
-                    ✓ Chữ số (0-9)
+                    ✓ 0-9
                   </span>
                   <span className={pwdCriteria.hasSpecial ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
-                    ✓ Ký tự đặc biệt
+                    ✓ !@#$...
                   </span>
                 </div>
               </div>
 
-              {/* Chỉ hiển thị nút Đăng ký khi KHÔNG vi phạm @samsung.com */}
               {!hasSamsungWarning && (
                 <button
                   type="submit"
                   disabled={loading}
                   className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition disabled:opacity-50"
                 >
-                  {loading ? 'Đang tạo...' : 'Đăng ký'}
+                  {loading ? '...' : t.registerBtn}
                 </button>
               )}
             </form>
@@ -490,19 +541,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 onClick={() => setMode('login')}
                 className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600"
               >
-                <ArrowLeft className="w-4 h-4" /> Quay lại
+                <ArrowLeft className="w-4 h-4" /> {t.backBtn}
               </button>
 
               <div>
-                <h2 className="text-base font-extrabold text-slate-900">Khôi phục mật khẩu</h2>
-                <p className="text-xs text-slate-500">
-                  Nhận mã OTP 6 số hoặc bấm nút khôi phục trong Gmail
-                </p>
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  {t.recoverTitle}
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t.recoverDesc}</p>
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Gmail đã đăng ký *
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                  {t.emailLabel} *
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -514,23 +565,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     className={`w-full pl-10 pr-3 py-2.5 rounded-2xl border outline-none text-sm ${
                       hasSamsungWarning
                         ? 'border-red-500 bg-red-50 text-red-900'
-                        : 'border-slate-200 focus:border-blue-600'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-600'
                     }`}
                   />
                 </div>
                 {hasSamsungWarning && (
-                  <p className="mt-1.5 text-xs font-bold text-red-600">
-                    Không được sử dụng email @samsung.com!
-                  </p>
+                  <p className="mt-1.5 text-xs font-bold text-red-600">{t.samsungWarning}</p>
                 )}
               </div>
 
               <button
                 type="button"
                 onClick={() => setEmail('thaonguyen.work@gmail.com')}
-                className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl"
+                className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-3 py-1.5 rounded-xl"
               >
-                + Điền nhanh Gmail mẫu (thaonguyen.work@gmail.com)
+                + thaonguyen.work@gmail.com
               </button>
 
               {!hasSamsungWarning && (
@@ -539,13 +588,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   disabled={loading}
                   className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition"
                 >
-                  {loading ? 'Đang gửi...' : 'Nhận Mã OTP & Link Qua Gmail'}
+                  {loading ? '...' : t.sendOtpBtn}
                 </button>
               )}
             </form>
           )}
 
-          {/* ================= 4. ĐẶT LẠI MẬT KHẨU ================= */}
+          {/* ================= 4. ĐẶT LẠI MẬT KHẨU (EMAIL LUÔN BẰNG TIẾNG VIỆT) ================= */}
           {mode === 'reset' && (
             <form onSubmit={handleResetPassword} className="space-y-3.5">
               <button
@@ -553,18 +602,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 onClick={() => setMode('forgot')}
                 className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600"
               >
-                <ArrowLeft className="w-4 h-4" /> Gửi lại mã
+                <ArrowLeft className="w-4 h-4" /> {t.backBtn}
               </button>
 
               {demoEmailBox && (
-                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 space-y-2">
-                  <div className="text-xs font-extrabold text-blue-900">
-                    📩 Email vừa gửi tới {email}:
+                <div className="bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-2xl p-3 space-y-2">
+                  <div className="text-xs font-extrabold text-blue-900 dark:text-blue-300">
+                    📩 Email tiếng Việt vừa gửi tới {email}:
                   </div>
-                  <div className="bg-white rounded-xl p-2.5 border border-blue-100 flex items-center justify-between gap-2">
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 border border-blue-100 dark:border-slate-700 flex items-center justify-between gap-2">
                     <div>
-                      <div className="text-[10px] text-slate-400">Mã OTP:</div>
-                      <div className="text-lg font-black tracking-widest text-blue-700">
+                      <div className="text-[10px] text-slate-400">Mã xác thực OTP:</div>
+                      <div className="text-lg font-black tracking-widest text-blue-700 dark:text-blue-400">
                         {demoEmailBox.otpCode}
                       </div>
                     </div>
@@ -572,7 +621,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                       <button
                         type="button"
                         onClick={() => setOtpOrToken(demoEmailBox.otpCode)}
-                        className="text-xs font-bold bg-slate-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1"
+                        className="text-xs font-bold bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg flex items-center gap-1"
                       >
                         <Copy className="w-3.5 h-3.5" /> Điền OTP
                       </button>
@@ -589,8 +638,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
               )}
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Mã OTP (6 số) hoặc Token từ Email *
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                  Mã OTP (6 số) / Token *
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -599,21 +648,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     value={otpOrToken}
                     onChange={(e) => setOtpOrToken(e.target.value)}
                     placeholder="Nhập 6 số OTP..."
-                    className="w-full pl-10 pr-3 py-2.5 rounded-2xl border border-slate-200 outline-none text-sm font-bold"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none text-sm font-bold"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Mật khẩu mới *
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-200 mb-1">
+                  {t.passwordLabel} *
                 </label>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="VD: Speak@2026"
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 outline-none text-sm"
+                  placeholder="Speak@2026"
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none text-sm"
                 />
               </div>
 
@@ -622,11 +671,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 disabled={loading}
                 className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg transition"
               >
-                Lưu mật khẩu mới
+                {t.saveNewPassBtn}
               </button>
             </form>
           )}
         </div>
+      </div>
+
+      {/* Bản quyền dưới đáy màn hình đăng nhập */}
+      <div className="text-[11px] font-bold text-blue-900/70 dark:text-slate-400 pb-1">
+        All copyright SpeakEnglishRight
       </div>
     </div>
   );
