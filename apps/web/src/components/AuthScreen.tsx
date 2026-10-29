@@ -238,22 +238,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={onToggleDarkMode}
-          className="px-3 py-2 rounded-xl bg-white/85 dark:bg-slate-900/85 text-slate-800 dark:text-amber-300 border border-slate-200/80 dark:border-slate-700 backdrop-blur-md shadow-sm flex items-center gap-1.5 text-xs font-extrabold"
-          title="Đổi giao diện Sáng / Tối"
-        >
-          {darkMode ? (
-            <>
-              <Sun className="w-4 h-4 text-amber-400" /> Sáng
-            </>
-          ) : (
-            <>
-              <Moon className="w-4 h-4 text-indigo-700" /> Tối
-            </>
-          )}
-        </button>
+        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-1 rounded-xl flex items-center gap-1 border border-slate-200/80 dark:border-slate-700 shadow-sm">
+          <button
+            type="button"
+            onClick={() => darkMode && onToggleDarkMode()}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition ${
+              !darkMode
+                ? 'bg-amber-400 text-slate-950 shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5" /> Sáng
+          </button>
+          <button
+            type="button"
+            onClick={() => !darkMode && onToggleDarkMode()}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold flex items-center gap-1 transition ${
+              darkMode
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Moon className="w-3.5 h-3.5" /> Tối
+          </button>
+        </div>
       </div>
 
       {/* Khung Card Đăng nhập */}
@@ -692,7 +700,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </div>
 
       {/* Footer Perfmonster ở dưới đáy */}
-      <PerfmonsterFooter lang={lang} />
+      <PerfmonsterFooter lang={lang} darkMode={darkMode} />
     </div>
   );
 };

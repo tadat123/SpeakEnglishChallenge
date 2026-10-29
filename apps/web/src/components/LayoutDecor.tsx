@@ -20,8 +20,8 @@ export const ResponsiveBackground: React.FC<ResponsiveBackgroundProps> = ({ dark
               className="w-full h-full object-cover object-bottom"
             />
           </picture>
-          {/* Lớp phủ mờ nhẹ giúp chữ và các khung thẻ luôn nổi bật, dễ đọc */}
-          <div className="absolute inset-0 bg-white/30 backdrop-blur-[1.5px]" />
+          {/* Lớp phủ sáng dịu nhẹ để làm nổi bật nội dung trên nền tranh Shin-chan */}
+          <div className="absolute inset-0 bg-white/20" />
         </>
       ) : (
         /* Nền Tối (Dark Mode) — Sẵn sàng gắn 3 ảnh tối khi bạn làm xong */
@@ -41,6 +41,7 @@ export const ResponsiveBackground: React.FC<ResponsiveBackgroundProps> = ({ dark
 
 interface PerfmonsterFooterProps {
   lang: Lang;
+  darkMode?: boolean;
   onNavigate?: (tab: 'home' | 'challenges' | 'leaderboard' | 'profile') => void;
 }
 
@@ -80,20 +81,38 @@ const FOOTER_TEXT = {
   },
 };
 
-export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNavigate }) => {
+export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
+  lang,
+  darkMode = false,
+  onNavigate,
+}) => {
   const ft = FOOTER_TEXT[lang];
 
   return (
-    <footer className="relative bg-gradient-to-b from-[#1a1c6b] to-[#12144d] text-white overflow-hidden pt-10 sm:pt-14 pb-24 md:pb-8 px-4 sm:px-8 mt-auto border-t border-indigo-900/60">
+    <footer
+      className={`relative overflow-hidden pt-10 sm:pt-12 pb-24 md:pb-8 px-4 sm:px-8 mt-auto border-t transition-colors ${
+        darkMode
+          ? 'bg-gradient-to-b from-[#1a1c6b] to-[#12144d] text-white border-indigo-900/60'
+          : 'bg-gradient-to-b from-white/95 via-sky-50/95 to-blue-100/95 backdrop-blur-md text-slate-800 border-blue-200/80'
+      }`}
+    >
       <div className="max-w-5xl mx-auto relative z-10">
         {/* Khối 5 cột chuẩn thiết kế mẫu */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 pb-14 sm:pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 pb-12 sm:pb-16">
           {/* Cột Thương hiệu bên trái */}
-          <div className="lg:col-span-4 space-y-3">
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+          <div className="lg:col-span-4 space-y-2.5">
+            <h2
+              className={`text-xl sm:text-2xl font-black tracking-tight ${
+                darkMode ? 'text-white' : 'text-blue-900'
+              }`}
+            >
               SpeakRight 2026
             </h2>
-            <p className="text-xs sm:text-sm text-indigo-200/80 leading-relaxed max-w-xs font-medium">
+            <p
+              className={`text-xs sm:text-sm leading-relaxed max-w-xs font-medium ${
+                darkMode ? 'text-indigo-200/80' : 'text-slate-600'
+              }`}
+            >
               {ft.desc}
             </p>
           </div>
@@ -101,14 +120,20 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
           {/* 4 Cột Liên kết bên phải */}
           <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8 text-xs sm:text-sm">
             {/* Cột 1: Product */}
-            <div className="space-y-3">
-              <div className="font-extrabold text-white">{ft.col1Title}</div>
-              <ul className="space-y-2.5 text-indigo-200/75 font-medium">
+            <div className="space-y-2.5">
+              <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
+                {ft.col1Title}
+              </div>
+              <ul
+                className={`space-y-2 font-semibold ${
+                  darkMode ? 'text-indigo-200/75' : 'text-slate-600'
+                }`}
+              >
                 <li>
                   <button
                     type="button"
                     onClick={() => onNavigate?.('home')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col1Links[0]}
                   </button>
@@ -117,7 +142,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('challenges')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col1Links[1]}
                   </button>
@@ -126,7 +151,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('challenges')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col1Links[2]}
                   </button>
@@ -135,7 +160,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('leaderboard')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col1Links[3]}
                   </button>
@@ -144,14 +169,20 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
             </div>
 
             {/* Cột 2: Resources */}
-            <div className="space-y-3">
-              <div className="font-extrabold text-white">{ft.col2Title}</div>
-              <ul className="space-y-2.5 text-indigo-200/75 font-medium">
+            <div className="space-y-2.5">
+              <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
+                {ft.col2Title}
+              </div>
+              <ul
+                className={`space-y-2 font-semibold ${
+                  darkMode ? 'text-indigo-200/75' : 'text-slate-600'
+                }`}
+              >
                 <li>
                   <button
                     type="button"
                     onClick={() => onNavigate?.('home')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col2Links[0]}
                   </button>
@@ -160,7 +191,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('profile')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col2Links[1]}
                   </button>
@@ -169,7 +200,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('profile')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col2Links[2]}
                   </button>
@@ -178,14 +209,20 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
             </div>
 
             {/* Cột 3: Company */}
-            <div className="space-y-3">
-              <div className="font-extrabold text-white">{ft.col3Title}</div>
-              <ul className="space-y-2.5 text-indigo-200/75 font-medium">
+            <div className="space-y-2.5">
+              <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
+                {ft.col3Title}
+              </div>
+              <ul
+                className={`space-y-2 font-semibold ${
+                  darkMode ? 'text-indigo-200/75' : 'text-slate-600'
+                }`}
+              >
                 <li>
                   <button
                     type="button"
                     onClick={() => onNavigate?.('home')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col3Links[0]}
                   </button>
@@ -194,7 +231,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('leaderboard')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col3Links[1]}
                   </button>
@@ -203,7 +240,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('profile')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col3Links[2]}
                   </button>
@@ -212,7 +249,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
                   <button
                     type="button"
                     onClick={() => onNavigate?.('home')}
-                    className="hover:text-white transition text-left"
+                    className="hover:text-blue-600 dark:hover:text-white transition text-left"
                   >
                     {ft.col3Links[3]}
                   </button>
@@ -221,12 +258,20 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
             </div>
 
             {/* Cột 4: Legal */}
-            <div className="space-y-3">
-              <div className="font-extrabold text-white">{ft.col4Title}</div>
-              <ul className="space-y-2.5 text-indigo-200/75 font-medium">
+            <div className="space-y-2.5">
+              <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
+                {ft.col4Title}
+              </div>
+              <ul
+                className={`space-y-2 font-semibold ${
+                  darkMode ? 'text-indigo-200/75' : 'text-slate-600'
+                }`}
+              >
                 {ft.col4Links.map((label, idx) => (
                   <li key={idx}>
-                    <span className="hover:text-white transition cursor-default">{label}</span>
+                    <span className="hover:text-blue-600 dark:hover:text-white transition cursor-default">
+                      {label}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -235,7 +280,11 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
         </div>
 
         {/* Dòng Copyright góc trái dưới đáy */}
-        <div className="text-xs font-semibold text-indigo-200/70">
+        <div
+          className={`text-xs font-bold ${
+            darkMode ? 'text-indigo-200/70' : 'text-slate-500'
+          }`}
+        >
           © 2026 All copyright SpeakEnglishRight
         </div>
       </div>
@@ -255,15 +304,15 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
           shapeRendering="crispEdges"
         >
           {/* Khối gạch nhỏ bên trái */}
-          <rect x="1" y="8" width="2" height="2" fill="#5eead4" />
-          <rect x="0" y="10" width="2" height="1" fill="#2dd4bf" />
-          <rect x="2" y="10" width="2" height="1" fill="#14b8a6" />
+          <rect x="1" y="8" width="2" height="2" fill="#2dd4bf" />
+          <rect x="0" y="10" width="2" height="1" fill="#14b8a6" />
+          <rect x="2" y="10" width="2" height="1" fill="#0d9488" />
 
           {/* Tai trái & Tai phải */}
-          <rect x="6" y="0" width="2" height="3" fill="#5eead4" />
-          <rect x="8" y="0" width="1" height="3" fill="#2dd4bf" />
-          <rect x="13" y="0" width="2" height="3" fill="#5eead4" />
-          <rect x="15" y="0" width="1" height="3" fill="#2dd4bf" />
+          <rect x="6" y="0" width="2" height="3" fill="#2dd4bf" />
+          <rect x="8" y="0" width="1" height="3" fill="#14b8a6" />
+          <rect x="13" y="0" width="2" height="3" fill="#2dd4bf" />
+          <rect x="15" y="0" width="1" height="3" fill="#14b8a6" />
 
           {/* Đầu & Thân Pixel Monster */}
           <rect x="5" y="3" width="11" height="8" fill="#5eead4" />
@@ -273,10 +322,10 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({ lang, onNa
 
           {/* Đôi mắt Pixel trắng + con ngươi xanh đậm */}
           <rect x="6" y="5" width="3" height="3" fill="#ffffff" />
-          <rect x="7" y="6" width="2" height="2" fill="#16195e" />
+          <rect x="7" y="6" width="2" height="2" fill="#1e3a8a" />
 
           <rect x="12" y="5" width="3" height="3" fill="#ffffff" />
-          <rect x="12" y="6" width="2" height="2" fill="#16195e" />
+          <rect x="12" y="6" width="2" height="2" fill="#1e3a8a" />
         </svg>
       </div>
     </footer>

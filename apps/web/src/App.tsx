@@ -52,7 +52,7 @@ export const App: React.FC = () => {
     return saved === 'en' || saved === 'ko' || saved === 'vi' ? saved : 'vi';
   });
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem('sr_theme') === 'dark';
+    return localStorage.getItem('sr_theme_v2') === 'dark';
   });
 
   const t = TRANSLATIONS[lang];
@@ -61,10 +61,10 @@ export const App: React.FC = () => {
     const root = document.documentElement;
     if (darkMode) {
       root.classList.add('dark');
-      localStorage.setItem('sr_theme', 'dark');
+      localStorage.setItem('sr_theme_v2', 'dark');
     } else {
       root.classList.remove('dark');
-      localStorage.setItem('sr_theme', 'light');
+      localStorage.setItem('sr_theme_v2', 'light');
     }
   }, [darkMode]);
 
@@ -469,23 +469,35 @@ export const App: React.FC = () => {
               ))}
             </div>
 
-            <button
-              onClick={() => setDarkMode((prev) => !prev)}
-              title="Đổi giao diện Sáng / Tối"
-              className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1 text-xs font-extrabold"
-            >
-              {darkMode ? (
-                <>
-                  <Sun className="w-4 h-4 text-amber-400" />
-                  <span className="hidden sm:inline">Sáng</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-4 h-4 text-indigo-700" />
-                  <span className="hidden sm:inline">Tối</span>
-                </>
-              )}
-            </button>
+            {/* Thanh chọn chế độ Sáng / Tối trực quan 2 nút */}
+            <div className="bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl flex items-center">
+              <button
+                type="button"
+                onClick={() => setDarkMode(false)}
+                className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
+                  !darkMode
+                    ? 'bg-amber-400 text-slate-950 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Chế độ Sáng"
+              >
+                <Sun className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sáng</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDarkMode(true)}
+                className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
+                  darkMode
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+                title="Chế độ Tối"
+              >
+                <Moon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Tối</span>
+              </button>
+            </div>
 
             <button
               onClick={handleLogout}
@@ -1345,7 +1357,11 @@ export const App: React.FC = () => {
       </main>
 
       {/* ================= FOOTER PERFMONSTER STYLE ================= */}
-      <PerfmonsterFooter lang={lang} onNavigate={(tab) => navigateToTab(tab)} />
+      <PerfmonsterFooter
+        lang={lang}
+        darkMode={darkMode}
+        onNavigate={(tab) => navigateToTab(tab)}
+      />
 
       {/* ================= MODAL KHI ADMIN FORCE LOCK ================= */}
       {forceLockModalMsg && (
