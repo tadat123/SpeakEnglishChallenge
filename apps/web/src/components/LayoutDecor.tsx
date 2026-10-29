@@ -6,16 +6,17 @@ interface ResponsiveBackgroundProps {
 }
 
 export const ResponsiveBackground: React.FC<ResponsiveBackgroundProps> = ({ darkMode }) => {
+  const baseUrl = import.meta.env.BASE_URL || './';
   return (
     <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden select-none">
       {!darkMode ? (
         <>
           {/* 3 ảnh nền Sáng chuẩn kích thước: Desktop (>=1024px), Tablet (768px-1023px), Mobile (<768px) */}
           <picture className="w-full h-full block">
-            <source media="(min-width: 1024px)" srcSet="/backgrounds/bg-desktop-light.jpg" />
-            <source media="(min-width: 768px)" srcSet="/backgrounds/bg-tablet-light.jpg" />
+            <source media="(min-width: 1024px)" srcSet={`${baseUrl}backgrounds/bg-desktop-light.jpg`} />
+            <source media="(min-width: 768px)" srcSet={`${baseUrl}backgrounds/bg-tablet-light.jpg`} />
             <img
-              src="/backgrounds/bg-mobile-light.jpg"
+              src={`${baseUrl}backgrounds/bg-mobile-light.jpg`}
               alt="Speak Right 2026 Background"
               className="w-full h-full object-cover object-bottom"
             />
