@@ -25,7 +25,7 @@ import {
   validatePersonalGmail,
 } from '../utils/validation';
 import { Lang, TRANSLATIONS } from '../utils/i18n';
-import { ResponsiveBackground, PerfmonsterFooter } from './LayoutDecor';
+import { ResponsiveBackground } from './LayoutDecor';
 
 interface AuthScreenProps {
   onAuthSuccess: (token: string, user: any) => void;
@@ -735,9 +735,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Footer Perfmonster ở dưới đáy */}
-      <PerfmonsterFooter lang={lang} darkMode={darkMode} />
     </div>
   );
 };

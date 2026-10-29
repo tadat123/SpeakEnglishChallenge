@@ -1429,6 +1429,8 @@ export const App: React.FC = () => {
                 challenges={challenges}
                 onRefreshGlobal={fetchAllData}
                 onExportCsv={handleExportLeaderboardCsv}
+                lang={lang}
+                darkMode={darkMode}
               />
             )}
           </>

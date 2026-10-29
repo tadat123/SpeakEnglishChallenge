@@ -18,39 +18,263 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
+import { Lang } from '../utils/i18n';
 
 interface AdminDashboardProps {
   token: string;
   challenges: any[];
   onRefreshGlobal: () => void;
   onExportCsv: () => void;
+  lang: Lang;
+  darkMode: boolean;
 }
 
-const QUESTION_TYPES = [
-  {
-    value: 'CHOOSE_AUDIO',
-    label: 'Multiple Choice – Chọn audio phát âm đúng (4 nút Audio A/B/C/D)',
+const ADMIN_I18N = {
+  vi: {
+    headerTitle: 'Quản trị viên (Admin CMS) — Quản lý 30 Ngày & Câu hỏi (Chữ / Audio / Video)',
+    headerSub:
+      'Chọn bất kỳ ngày nào bên dưới để sửa thông tin ngày, thêm/sửa/xóa câu hỏi hoặc khóa an toàn khi đang có người thi.',
+    reseedBtn: 'Reset Seed Gốc',
+    exportBtn: 'Xuất Excel Trao Giải',
+    selectDayTitle: '1. Chọn Ngày Thử Thách Cần Chỉnh Sửa (Day 1 → Day 30):',
+    openStatus: '🔓 Mở',
+    lockedStatus: '🔒 Khóa',
+    dayTitleLabel: 'Tên ngày thi',
+    dayDateLabel: 'Ngày tháng hiển thị',
+    saveDayMetaBtn: 'Lưu tên & ngày',
+    activePlayersLabel: 'người đang làm bài',
+    lockDayBtn: 'Khóa',
+    unlockDayBtn: 'Mở khóa',
+    nowSuffix: 'ngay',
+    liveBannerTitle: '🟢 Đang có nhân viên làm bài trực tuyến trên',
+    liveBannerProtection: 'Đã bật bảo vệ Snapshot đề thi (Sửa câu hỏi không làm lỗi bài đang thi)',
+    questionListTitle: '2. Danh sách câu hỏi của',
+    questionsCountUnit: 'câu',
+    questionListSub: 'Hỗ trợ thêm/sửa câu hỏi Chữ, tải file Âm thanh (.mp3/.wav) và Video (.mp4/.webm)',
+    cloneAllBtn: 'Áp dụng bộ câu này cho cả 30 ngày',
+    addQuestionBtn: 'Thêm Câu Hỏi Mới',
+    questionPrefix: 'Câu',
+    correctAnsBadge: 'Đáp án đúng',
+    mp3Badge: '🎵 File MP3 riêng',
+    videoBadge: '🎬 Có Video',
+    editBtn: 'Sửa',
+    deleteBtnTitle: 'Xóa câu hỏi',
+    lockModalTitle: 'Tùy chọn Khóa',
+    lockModalSubPrefix: 'Hiện có',
+    lockModalSubSuffix: 'nhân viên đang làm bài ngày này',
+    gracefulTitle: '🛡️ Cách 1: Khóa Mềm / Ân hạn (Khuyên dùng)',
+    safeBadge: 'An toàn',
+    gracefulDesc:
+      'Chặn ngay người mới bấm vào thi, nhưng vẫn cho phép những người đang làm dở được hoàn thành nốt và nộp bài bình thường (trong tối đa 15 phút).',
+    forceTitle: '🚨 Cách 2: Khóa Cưỡng Chế Ngay Lập Tức (Force Lock)',
+    forceDesc:
+      'Dừng ngay lập tức mọi phiên đang làm dở. Nhân viên đang làm sẽ nhận thông báo tạm dừng và không bị mất lượt thi chính thức khi mở lại.',
+    modalAddTitle: '➕ Thêm Câu Hỏi Mới vào Day',
+    modalEditTitle: '✏️ Chỉnh sửa Câu',
+    questionTypeLabel: 'Dạng câu hỏi *',
+    promptTextLabel: 'Nội dung câu hỏi (Chữ hiển thị) *',
+    targetWordLabel: 'Từ/Cụm từ phát âm mẫu',
+    statementTextLabel: 'Câu Nhận Định (Dành cho dạng True / False)',
+    promptAudioTitle: 'Âm thanh (Audio) đề bài',
+    showSpeakerLabel: 'Hiện nút Loa',
+    uploadAudioBtn: 'Tải file .MP3/.WAV',
+    uploadingText: 'Đang tải...',
+    testListenBtn: '🔊 Nghe thử',
+    promptVideoTitle: 'Video tình huống (.MP4 / Link)',
+    uploadVideoBtn: 'Tải Video .MP4/.WEBM',
+    removeVideoBtn: 'Xóa Video',
+    optionsSectionLabel: 'Các phương án trả lời (Tích chọn Đáp án đúng & gắn Audio riêng nếu cần):',
+    correctSelectedBadge: '(Đáp án Đúng)',
+    hasOptionSpeaker: 'Có nút Loa',
+    explanationLabel: 'Giải thích chi tiết (Hiển thị sau khi nhân viên nộp bài)',
+    cancelBtn: 'Hủy',
+    saveQuestionBtn: 'Lưu Câu Hỏi',
+    types: [
+      {
+        value: 'CHOOSE_AUDIO',
+        label: 'Multiple Choice – Chọn audio phát âm đúng (4 nút Audio A/B/C/D)',
+      },
+      {
+        value: 'TRUE_FALSE',
+        label: 'True / False – Nghe và xác định nhận định (2 đáp án Đúng/Sai)',
+      },
+      {
+        value: 'LISTEN_AND_CHOOSE',
+        label: 'Nghe audio / Xem video – Chọn từ đúng (4 đáp án A/B/C/D)',
+      },
+      {
+        value: 'VOCAB_MEANING',
+        label: 'Nghĩa của từ / Từ viết tắt (Không bắt buộc có audio)',
+      },
+    ],
   },
-  {
-    value: 'TRUE_FALSE',
-    label: 'True / False – Nghe và xác định nhận định (2 đáp án Đúng/Sai)',
+  en: {
+    headerTitle: 'Admin CMS — Manage 30 Days & Questions (Text / Audio / Video)',
+    headerSub:
+      'Select any day below to edit schedule details, add/edit/delete questions, or safely lock a day while users are taking the quiz.',
+    reseedBtn: 'Reset Default Seed',
+    exportBtn: 'Export Award CSV',
+    selectDayTitle: '1. Select Challenge Day to Edit (Day 1 → Day 30):',
+    openStatus: '🔓 Open',
+    lockedStatus: '🔒 Locked',
+    dayTitleLabel: 'Day Title',
+    dayDateLabel: 'Display Date',
+    saveDayMetaBtn: 'Save Title & Date',
+    activePlayersLabel: 'active players',
+    lockDayBtn: 'Lock',
+    unlockDayBtn: 'Unlock',
+    nowSuffix: 'now',
+    liveBannerTitle: '🟢 Employees currently taking quiz on',
+    liveBannerProtection: 'Snapshot Protection Active (Editing questions will not break active quizzes)',
+    questionListTitle: '2. Question List for',
+    questionsCountUnit: 'questions',
+    questionListSub: 'Add/edit Text questions, upload Audio (.mp3/.wav) and Video (.mp4/.webm)',
+    cloneAllBtn: 'Clone this set to all 30 days',
+    addQuestionBtn: 'Add New Question',
+    questionPrefix: 'Q',
+    correctAnsBadge: 'Correct',
+    mp3Badge: '🎵 Custom MP3',
+    videoBadge: '🎬 Video',
+    editBtn: 'Edit',
+    deleteBtnTitle: 'Delete question',
+    lockModalTitle: 'Lock Options for',
+    lockModalSubPrefix: 'Currently',
+    lockModalSubSuffix: 'employees are taking this quiz',
+    gracefulTitle: '🛡️ Option 1: Graceful Soft Lock (Recommended)',
+    safeBadge: 'Safe',
+    gracefulDesc:
+      'Blocks new entries immediately, while allowing active players up to 15 minutes to finish and submit normally.',
+    forceTitle: '🚨 Option 2: Immediate Force Lock',
+    forceDesc:
+      'Terminates active sessions immediately. Active players receive a pause notice and keep their official attempt when reopened.',
+    modalAddTitle: '➕ Add New Question to Day',
+    modalEditTitle: '✏️ Edit Question',
+    questionTypeLabel: 'Question Type *',
+    promptTextLabel: 'Question Prompt (Displayed Text) *',
+    targetWordLabel: 'Target Word / Phrase (TTS)',
+    statementTextLabel: 'Statement Text (For True / False)',
+    promptAudioTitle: 'Prompt Audio',
+    showSpeakerLabel: 'Show Speaker Button',
+    uploadAudioBtn: 'Upload .MP3/.WAV',
+    uploadingText: 'Uploading...',
+    testListenBtn: '🔊 Test Audio',
+    promptVideoTitle: 'Situation Video (.MP4 / Link)',
+    uploadVideoBtn: 'Upload .MP4/.WEBM',
+    removeVideoBtn: 'Remove Video',
+    optionsSectionLabel: 'Answer Options (Select correct option & attach audio if needed):',
+    correctSelectedBadge: '(Correct)',
+    hasOptionSpeaker: 'Speaker',
+    explanationLabel: 'Detailed Explanation (Shown after submission)',
+    cancelBtn: 'Cancel',
+    saveQuestionBtn: 'Save Question',
+    types: [
+      {
+        value: 'CHOOSE_AUDIO',
+        label: 'Multiple Choice – Choose correct pronunciation audio (4 Audio buttons A/B/C/D)',
+      },
+      {
+        value: 'TRUE_FALSE',
+        label: 'True / False – Listen and verify statement (2 options True/False)',
+      },
+      {
+        value: 'LISTEN_AND_CHOOSE',
+        label: 'Listen Audio / Watch Video – Choose correct word (4 options A/B/C/D)',
+      },
+      {
+        value: 'VOCAB_MEANING',
+        label: 'Vocabulary Meaning / Acronym (Audio optional)',
+      },
+    ],
   },
-  {
-    value: 'LISTEN_AND_CHOOSE',
-    label: 'Nghe audio / Xem video – Chọn từ đúng (4 đáp án A/B/C/D)',
+  ko: {
+    headerTitle: '관리자 CMS — 30일 챌린지 및 문제 관리 (텍스트 / 오디오 / 비디오)',
+    headerSub:
+      '아래에서 날짜를 선택하여 일정을 수정하거나, 문제를 추가/수정/삭제하고, 응시 중인 사용자가 있을 때 안전하게 잠글 수 있습니다.',
+    reseedBtn: '기본 데이터 초기화',
+    exportBtn: '시상용 엑셀(CSV) 내보내기',
+    selectDayTitle: '1. 수정할 챌린지 날짜 선택 (Day 1 → Day 30):',
+    openStatus: '🔓 열림',
+    lockedStatus: '🔒 잠김',
+    dayTitleLabel: '일차 제목',
+    dayDateLabel: '표시 날짜',
+    saveDayMetaBtn: '제목 및 날짜 저장',
+    activePlayersLabel: '명 응시 중',
+    lockDayBtn: '잠금',
+    unlockDayBtn: '잠금 해제',
+    nowSuffix: '즉시',
+    liveBannerTitle: '🟢 현재 실시간 응시 중인 임직원:',
+    liveBannerProtection: '시험지 스냅샷 보호 활성화됨 (문제 수정 시 응시 중인 시험에 영향 없음)',
+    questionListTitle: '2. 문제 목록:',
+    questionsCountUnit: '문항',
+    questionListSub: '텍스트 문제 추가/수정, 오디오(.mp3/.wav) 및 비디오(.mp4/.webm) 업로드 지원',
+    cloneAllBtn: '이 문제 세트를 30일 전체에 복사',
+    addQuestionBtn: '새 문제 추가',
+    questionPrefix: '문항',
+    correctAnsBadge: '정답',
+    mp3Badge: '🎵 MP3 파일',
+    videoBadge: '🎬 비디오 포함',
+    editBtn: '수정',
+    deleteBtnTitle: '문제 삭제',
+    lockModalTitle: '잠금 옵션 선택:',
+    lockModalSubPrefix: '현재',
+    lockModalSubSuffix: '명의 임직원이 응시 중입니다',
+    gracefulTitle: '🛡️ 방법 1: 소프트 잠금 / 유예 시간 부여 (권장)',
+    safeBadge: '안전',
+    gracefulDesc:
+      '신규 진입을 즉시 차단하지만, 현재 풀고 있는 응시자는 최대 15분 동안 정상적으로 제출할 수 있도록 허용합니다.',
+    forceTitle: '🚨 방법 2: 즉시 강제 잠금 (Force Lock)',
+    forceDesc:
+      '진행 중인 모든 세션을 즉시 중단합니다. 응시 중인 임직원은 일시 중지 알림을 받으며 재오픈 시 공식 응시 기회가 유지됩니다.',
+    modalAddTitle: '➕ 새 문제 추가 - Day',
+    modalEditTitle: '✏️ 문제 수정 - 문항',
+    questionTypeLabel: '문제 유형 *',
+    promptTextLabel: '문제 내용 (표시 텍스트) *',
+    targetWordLabel: '발음 단어 / 구문 (TTS)',
+    statementTextLabel: '진술문 (True / False 전용)',
+    promptAudioTitle: '문제 오디오 (Audio)',
+    showSpeakerLabel: '스피커 버튼 표시',
+    uploadAudioBtn: '.MP3/.WAV 업로드',
+    uploadingText: '업로드 중...',
+    testListenBtn: '🔊 미리 듣기',
+    promptVideoTitle: '상황 비디오 (.MP4 / 링크)',
+    uploadVideoBtn: '.MP4/.WEBM 업로드',
+    removeVideoBtn: '비디오 삭제',
+    optionsSectionLabel: '답안 보기 (정답 선택 및 개별 오디오 설정):',
+    correctSelectedBadge: '(정답)',
+    hasOptionSpeaker: '스피커 버튼',
+    explanationLabel: '상세 해설 (제출 후 표시됨)',
+    cancelBtn: '취소',
+    saveQuestionBtn: '문제 저장',
+    types: [
+      {
+        value: 'CHOOSE_AUDIO',
+        label: '객관식 – 올바른 발음 오디오 선택 (4개 오디오 버튼 A/B/C/D)',
+      },
+      {
+        value: 'TRUE_FALSE',
+        label: 'True / False – 오디오를 듣고 진술 확인 (2개 보기 참/거짓)',
+      },
+      {
+        value: 'LISTEN_AND_CHOOSE',
+        label: '오디오 듣기 / 비디오 보기 – 올바른 단어 선택 (4개 보기 A/B/C/D)',
+      },
+      {
+        value: 'VOCAB_MEANING',
+        label: '단어 의미 / 약어 풀이 (오디오 선택 사항)',
+      },
+    ],
   },
-  {
-    value: 'VOCAB_MEANING',
-    label: 'Nghĩa của từ / Từ viết tắt (Không bắt buộc có audio)',
-  },
-];
+};
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   token,
   challenges,
   onRefreshGlobal,
   onExportCsv,
+  lang,
+  darkMode,
 }) => {
+  const at = ADMIN_I18N[lang];
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [dayDetail, setDayDetail] = useState<any | null>(null);
   const [loadingDay, setLoadingDay] = useState<boolean>(false);
@@ -66,6 +290,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+
+  const cardBg = darkMode
+    ? 'bg-slate-900/90 border-slate-800 text-slate-100'
+    : 'bg-white/95 border-blue-100/90 text-slate-800';
+  const subCardBg = darkMode
+    ? 'bg-slate-800/80 border-slate-700 text-slate-100'
+    : 'bg-slate-50/90 border-slate-200 text-slate-800';
+  const inputBg = darkMode
+    ? 'bg-slate-800 border-slate-700 text-white'
+    : 'bg-white border-slate-200 text-slate-900';
+  const textPrimary = darkMode ? 'text-white' : 'text-slate-900';
+  const textSecondary = darkMode ? 'text-slate-400' : 'text-slate-500';
 
   const headers = {
     'Content-Type': 'application/json',
@@ -162,14 +398,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Lỗi tải file');
+        if (!res.ok) throw new Error(data.message || 'Upload error');
         onUploadedUrl(data.url);
-        showMessage(`Đã tải lên file "${file.name}" thành công!`);
+        showMessage(`Uploaded "${file.name}"!`);
         setUploadingField(null);
       };
       reader.readAsDataURL(file);
     } catch (err: any) {
-      showMessage(err.message || 'Lỗi upload file', true);
+      showMessage(err.message || 'Upload error', true);
       setUploadingField(null);
     }
   };
@@ -178,7 +414,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsCreatingNew(true);
     setEditingQuestion({
       questionType: 'LISTEN_AND_CHOOSE',
-      categoryLabel: 'Nghe audio – Chọn từ đúng',
+      categoryLabel: at.types[2].label.split(' (')[0],
       promptText: '',
       statementText: '',
       targetWord: '',
@@ -205,7 +441,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleQuestionTypeChange = (newType: string) => {
     if (!editingQuestion) return;
-    const foundType = QUESTION_TYPES.find((t) => t.value === newType);
+    const foundType = at.types.find((t) => t.value === newType);
     let updatedOptions = [...(editingQuestion.options || [])];
 
     if (newType === 'TRUE_FALSE') {
@@ -260,7 +496,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSaveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingQuestion?.promptText?.trim()) {
-      showMessage('Vui lòng nhập nội dung câu hỏi!', true);
+      showMessage('Please enter question prompt!', true);
       return;
     }
 
@@ -276,7 +512,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
     const data = await res.json();
     if (!res.ok) {
-      showMessage(data.message || 'Lỗi lưu câu hỏi', true);
+      showMessage(data.message || 'Error saving question', true);
       return;
     }
 
@@ -287,7 +523,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteQuestion = async (questionId: string, orderIndex: number) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa Câu ${orderIndex} khỏi Day ${selectedDay}?`)) {
+    if (!window.confirm(`Delete #${orderIndex} from Day ${selectedDay}?`)) {
       return;
     }
     const res = await fetch(`/api/admin/challenges/${selectedDay}/questions/${questionId}`, {
@@ -303,11 +539,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleCloneToAllDays = async () => {
-    if (
-      !window.confirm(
-        `Sao chép toàn bộ ${dayDetail?.questions?.length || 10} câu hỏi của Day ${selectedDay} sang tất cả 29 ngày còn lại?`
-      )
-    ) {
+    if (!window.confirm(`Clone all questions of Day ${selectedDay} to all 30 days?`)) {
       return;
     }
     const res = await fetch(`/api/admin/challenges/${selectedDay}/clone-to-all`, {
@@ -323,11 +555,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleReseed = async () => {
-    if (
-      !window.confirm(
-        'Khôi phục lại toàn bộ 30 ngày về Bộ 10 Câu Hỏi gốc ban đầu?'
-      )
-    ) {
+    if (!window.confirm('Reset all 30 days to the default 10 official questions?')) {
       return;
     }
     const res = await fetch('/api/admin/reseed', {
@@ -366,35 +594,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )}
 
       {/* Header Quản trị tổng quan */}
-      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div
+        className={`rounded-3xl p-4 sm:p-5 border shadow-sm backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${cardBg}`}
+      >
         <div>
-          <h2 className="text-base sm:text-lg font-black text-slate-900">
-            Quản trị viên (Admin CMS) — Quản lý 30 Ngày & Câu hỏi (Chữ / Audio / Video)
-          </h2>
-          <p className="text-xs text-slate-500">
-            Chọn bất kỳ ngày nào bên dưới để sửa thông tin ngày, thêm/sửa/xóa câu hỏi hoặc khóa an toàn khi đang có người thi.
-          </p>
+          <h2 className={`text-base sm:text-lg font-black ${textPrimary}`}>{at.headerTitle}</h2>
+          <p className={`text-xs ${textSecondary}`}>{at.headerSub}</p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           <button
             onClick={handleReseed}
-            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5"
+            className={`px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition ${
+              darkMode
+                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Reset Seed Gốc
+            <RefreshCw className="w-3.5 h-3.5" /> {at.reseedBtn}
           </button>
           <button
             onClick={onExportCsv}
             className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm"
           >
-            <Download className="w-3.5 h-3.5" /> Xuất Excel Trao Giải
+            <Download className="w-3.5 h-3.5" /> {at.exportBtn}
           </button>
         </div>
       </div>
 
       {/* Bộ chọn 30 Ngày (Grid nhỏ gọn) */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-sm">
-        <div className="text-xs font-extrabold text-slate-500 mb-2.5 uppercase tracking-wider">
-          1. Chọn Ngày Thử Thách Cần Chỉnh Sửa (Day 1 → Day 30):
+      <div className={`rounded-3xl p-4 border shadow-sm backdrop-blur-md ${cardBg}`}>
+        <div className={`text-xs font-extrabold mb-2.5 uppercase tracking-wider ${textSecondary}`}>
+          {at.selectDayTitle}
         </div>
         <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
           {challenges.map((c) => {
@@ -408,18 +638,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   isSelected
                     ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-[1.03]'
                     : isUnlocked
-                    ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                    ? darkMode
+                      ? 'bg-emerald-950/60 border-emerald-700 text-emerald-300 hover:bg-emerald-900/70'
+                      : 'bg-emerald-50/80 border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                    : darkMode
+                    ? 'bg-slate-800/80 border-slate-700 text-slate-400 hover:bg-slate-800'
                     : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <div className="text-xs font-black">D{c.dayNumber}</div>
-                <div className="text-[9px] opacity-80">
-                  {isUnlocked ? '🔓 Mở' : '🔒 Khóa'}
+                <div className="text-[9px] opacity-85">
+                  {isUnlocked ? at.openStatus : at.lockedStatus}
                 </div>
                 {c.activePlayersCount > 0 && (
                   <span
                     className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center"
-                    title={`${c.activePlayersCount} người đang làm bài`}
+                    title={`${c.activePlayersCount} ${at.activePlayersLabel}`}
                   >
                     {c.activePlayersCount}
                   </span>
@@ -430,41 +664,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
-      {/* Chi tiết Ngày đang chọn: Cài đặt ngày + Xử lý khóa khi đang có người làm + CRUD Câu hỏi */}
+      {/* Chi tiết Ngày đang chọn */}
       {dayDetail && !loadingDay && (
-        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/80 shadow-sm space-y-5">
+        <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 ${cardBg}`}>
           {/* Phần A: Thông tin Ngày & Trạng thái Mở/Khóa thông minh */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+          <div
+            className={`flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b ${
+              darkMode ? 'border-slate-800' : 'border-slate-100'
+            }`}
+          >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-1">
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                  Tên ngày thi
+                <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                  {at.dayTitleLabel}
                 </label>
                 <input
                   type="text"
                   value={dayTitle}
                   onChange={(e) => setDayTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold"
+                  className={`w-full px-3 py-2 rounded-xl border text-sm font-bold outline-none ${inputBg}`}
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                  Ngày tháng hiển thị
+                <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                  {at.dayDateLabel}
                 </label>
                 <input
                   type="text"
                   value={dayDateLabel}
                   onChange={(e) => setDayDateLabel(e.target.value)}
-                  placeholder="VD: 04/11/2026"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold"
+                  placeholder="04/11/2026"
+                  className={`w-full px-3 py-2 rounded-xl border text-sm font-bold outline-none ${inputBg}`}
                 />
               </div>
               <div className="flex items-end">
                 <button
                   onClick={handleSaveDayMeta}
-                  className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 h-[38px]"
+                  className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 h-[38px]"
                 >
-                  <Save className="w-3.5 h-3.5" /> Lưu tên & ngày
+                  <Save className="w-3.5 h-3.5" /> {at.saveDayMetaBtn}
                 </button>
               </div>
             </div>
@@ -475,11 +713,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className={`px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 border ${
                   activePlayersCount > 0
                     ? 'bg-amber-50 border-amber-300 text-amber-900'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                    : subCardBg
                 }`}
               >
-                <Users className="w-4 h-4 text-blue-600" />
-                <span>{activePlayersCount} người đang làm bài</span>
+                <Users className="w-4 h-4 text-blue-500" />
+                <span>
+                  {activePlayersCount} {at.activePlayersLabel}
+                </span>
               </div>
 
               {dayDetail.isUnlocked ? (
@@ -487,30 +727,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onClick={() => setShowLockConfirmModal(true)}
                   className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm"
                 >
-                  <Lock className="w-4 h-4" /> Khóa {dayDetail.title}
+                  <Lock className="w-4 h-4" /> {at.lockDayBtn} {dayDetail.title}
                 </button>
               ) : (
                 <button
                   onClick={() => handleLockOrUnlockDay(true)}
                   className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm"
                 >
-                  <Unlock className="w-4 h-4" /> Mở khóa {dayDetail.title} ngay
+                  <Unlock className="w-4 h-4" /> {at.unlockDayBtn} {dayDetail.title} {at.nowSuffix}
                 </button>
               )}
             </div>
           </div>
 
-          {/* Nếu đang có người làm bài trên ngày này -> Hiển thị danh sách trực tiếp cho Admin biết */}
+          {/* Nếu đang có người làm bài trên ngày này */}
           {activePlayersCount > 0 && (
-            <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <strong>🟢 Đang có nhân viên làm bài trực tuyến trên {dayDetail.title}:</strong>{' '}
+                <strong>
+                  {at.liveBannerTitle} {dayDetail.title}:
+                </strong>{' '}
                 {dayDetail.activePlayers
                   .map((p: any) => `${p.fullName} (GEN ${p.employeeId} - ${p.elapsedSeconds}s)`)
                   .join(', ')}
               </div>
               <span className="text-[11px] font-bold text-amber-800 shrink-0">
-                Đã bật bảo vệ Snapshot đề thi (Sửa câu hỏi không làm lỗi bài đang thi)
+                {at.liveBannerProtection}
               </span>
             </div>
           )}
@@ -519,27 +761,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <div>
-                <h3 className="text-sm sm:text-base font-black text-slate-900">
-                  2. Danh sách câu hỏi của {dayDetail.title} ({dayDetail.questions?.length || 0}{' '}
-                  câu)
+                <h3 className={`text-sm sm:text-base font-black ${textPrimary}`}>
+                  {at.questionListTitle} {dayDetail.title} ({dayDetail.questions?.length || 0}{' '}
+                  {at.questionsCountUnit})
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Hỗ trợ thêm/sửa câu hỏi Chữ, tải file Âm thanh (.mp3/.wav) và Video (.mp4/.webm)
-                </p>
+                <p className={`text-xs ${textSecondary}`}>{at.questionListSub}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={handleCloneToAllDays}
-                  className="px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs flex items-center gap-1.5"
+                  className={`px-3 py-2 rounded-xl border font-extrabold text-xs flex items-center gap-1.5 ${
+                    darkMode
+                      ? 'border-blue-800 bg-blue-950/60 hover:bg-blue-900/70 text-blue-300'
+                      : 'border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700'
+                  }`}
                 >
-                  <Copy className="w-3.5 h-3.5" /> Áp dụng bộ câu này cho cả 30 ngày
+                  <Copy className="w-3.5 h-3.5" /> {at.cloneAllBtn}
                 </button>
                 <button
                   onClick={openCreateQuestionModal}
                   className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm"
                 >
-                  <Plus className="w-4 h-4" /> Thêm Câu Hỏi Mới
+                  <Plus className="w-4 h-4" /> {at.addQuestionBtn}
                 </button>
               </div>
             </div>
@@ -548,36 +792,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {(dayDetail.questions || []).map((q: any) => (
                 <div
                   key={q.id}
-                  className="p-3.5 sm:p-4 rounded-2xl border border-slate-200 hover:border-blue-300 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className={`p-3.5 sm:p-4 rounded-2xl border hover:border-blue-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${subCardBg}`}
                 >
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[11px] font-black">
-                        Câu {q.orderIndex}
+                        {at.questionPrefix} {q.orderIndex}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[11px] font-bold">
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                          darkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
                         {q.categoryLabel}
                       </span>
                       <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-extrabold">
-                        Đáp án đúng: {q.correctOptionId}
+                        {at.correctAnsBadge}: {q.correctOptionId}
                       </span>
                       {q.promptAudioUrl && (
                         <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 text-[10px] font-bold">
-                          🎵 File MP3 riêng
+                          {at.mp3Badge}
                         </span>
                       )}
                       {q.promptVideoUrl && (
                         <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 text-[10px] font-bold">
-                          🎬 Có Video
+                          {at.videoBadge}
                         </span>
                       )}
                     </div>
 
-                    <div className="text-xs sm:text-sm font-extrabold text-slate-900">
+                    <div className={`text-xs sm:text-sm font-extrabold ${textPrimary}`}>
                       {q.promptText}
                     </div>
                     {q.statementText && (
-                      <div className="text-xs font-bold text-amber-800">📌 {q.statementText}</div>
+                      <div className="text-xs font-bold text-amber-500">📌 {q.statementText}</div>
                     )}
 
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -586,7 +834,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           key={opt.id}
                           className={`text-[11px] px-2.5 py-1 rounded-lg border ${
                             opt.id === q.correctOptionId
-                              ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-extrabold'
+                              ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-extrabold'
+                              : darkMode
+                              ? 'bg-slate-900 border-slate-700 text-slate-300'
                               : 'bg-white border-slate-200 text-slate-600'
                           }`}
                         >
@@ -605,7 +855,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           playPronunciation(q.targetWord || q.promptText, q.promptAudioUrl)
                         }
                         className="p-2 rounded-xl bg-blue-100 text-blue-700 hover:bg-blue-200"
-                        title="Nghe thử Audio câu hỏi"
+                        title={at.testListenBtn}
                       >
                         <Volume2 className="w-4 h-4" />
                       </button>
@@ -613,15 +863,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => openEditQuestionModal(q)}
-                      className="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-blue-500 text-slate-700 hover:text-blue-600 font-bold text-xs flex items-center gap-1"
+                      className={`px-3 py-2 rounded-xl border hover:border-blue-500 font-bold text-xs flex items-center gap-1 ${inputBg}`}
                     >
-                      <Edit3 className="w-3.5 h-3.5" /> Sửa
+                      <Edit3 className="w-3.5 h-3.5" /> {at.editBtn}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteQuestion(q.id, q.orderIndex)}
-                      className="p-2 rounded-xl bg-white border border-slate-200 hover:border-rose-500 text-slate-400 hover:text-rose-600"
-                      title="Xóa câu hỏi"
+                      className={`p-2 rounded-xl border hover:border-rose-500 text-slate-400 hover:text-rose-500 ${inputBg}`}
+                      title={at.deleteBtnTitle}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -636,24 +886,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* ================= MODAL CƠ CHẾ KHÓA NGÀY THI KHI ĐANG CÓ NGƯỜI LÀM ================= */}
       {showLockConfirmModal && dayDetail && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
+          <div className={`w-full max-w-md rounded-3xl p-6 shadow-2xl border space-y-4 ${cardBg}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
                   <ShieldAlert className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
-                    Tùy chọn Khóa {dayDetail.title}
+                  <h3 className={`text-base font-black ${textPrimary}`}>
+                    {at.lockModalTitle} {dayDetail.title}
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Hiện có <strong>{activePlayersCount} nhân viên</strong> đang làm bài ngày này
+                  <p className={`text-xs ${textSecondary}`}>
+                    {at.lockModalSubPrefix} <strong>{activePlayersCount}</strong>{' '}
+                    {at.lockModalSubSuffix}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowLockConfirmModal(false)}
-                className="p-1.5 rounded-full bg-slate-100 text-slate-500"
+                className={`p-1.5 rounded-full ${subCardBg}`}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -663,53 +914,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => handleLockOrUnlockDay(false, 'GRACEFUL')}
-                className="w-full p-4 rounded-2xl border-2 border-blue-600 bg-blue-50/70 hover:bg-blue-100 text-left transition space-y-1"
+                className={`w-full p-4 rounded-2xl border-2 border-blue-600 text-left transition space-y-1 ${
+                  darkMode ? 'bg-blue-950/60 hover:bg-blue-900/70' : 'bg-blue-50/70 hover:bg-blue-100'
+                }`}
               >
-                <div className="font-black text-blue-900 text-sm flex items-center justify-between">
-                  <span>🛡️ Cách 1: Khóa Mềm / Ân hạn (Khuyên dùng)</span>
+                <div className="font-black text-blue-600 text-sm flex items-center justify-between">
+                  <span>{at.gracefulTitle}</span>
                   <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                    An toàn
+                    {at.safeBadge}
                   </span>
                 </div>
-                <p className="text-slate-600 leading-relaxed">
-                  Chặn ngay người mới bấm vào thi, <strong>nhưng vẫn cho phép {activePlayersCount} người đang làm dở</strong> được hoàn thành nốt và nộp bài bình thường (trong tối đa 15 phút).
-                </p>
+                <p className={`leading-relaxed ${textSecondary}`}>{at.gracefulDesc}</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleLockOrUnlockDay(false, 'FORCE')}
-                className="w-full p-4 rounded-2xl border-2 border-rose-200 bg-rose-50/50 hover:bg-rose-100/70 text-left transition space-y-1"
+                className={`w-full p-4 rounded-2xl border-2 border-rose-400 text-left transition space-y-1 ${
+                  darkMode ? 'bg-rose-950/50 hover:bg-rose-900/60' : 'bg-rose-50/60 hover:bg-rose-100/70'
+                }`}
               >
-                <div className="font-black text-rose-900 text-sm">
-                  🚨 Cách 2: Khóa Cưỡng Chế Ngay Lập Tức (Force Lock)
-                </div>
-                <p className="text-slate-600 leading-relaxed">
-                  Dừng ngay lập tức mọi phiên đang làm dở. Nhân viên đang làm sẽ nhận thông báo tạm dừng và <strong>không bị mất lượt thi chính thức</strong> khi mở lại.
-                </p>
+                <div className="font-black text-rose-600 text-sm">{at.forceTitle}</div>
+                <p className={`leading-relaxed ${textSecondary}`}>{at.forceDesc}</p>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ================= MODAL THÊM / SỬA CÂU HỎI (CHỮ, ÂM THANH, VIDEO, ĐÁP ÁN) ================= */}
+      {/* ================= MODAL THÊM / SỬA CÂU HỎI ================= */}
       {editingQuestion && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <form
             onSubmit={handleSaveQuestion}
-            className="bg-white w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto"
+            className={`w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl border space-y-4 my-auto max-h-[92vh] overflow-y-auto ${cardBg}`}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base sm:text-lg font-black text-slate-900">
+            <div
+              className={`flex items-center justify-between pb-3 border-b ${
+                darkMode ? 'border-slate-800' : 'border-slate-100'
+              }`}
+            >
+              <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
                 {isCreatingNew
-                  ? `➕ Thêm Câu Hỏi Mới vào Day ${selectedDay}`
-                  : `✏️ Chỉnh sửa Câu ${editingQuestion.orderIndex} (Day ${selectedDay})`}
+                  ? `${at.modalAddTitle} ${selectedDay}`
+                  : `${at.modalEditTitle} ${editingQuestion.orderIndex} (Day ${selectedDay})`}
               </h3>
               <button
                 type="button"
                 onClick={() => setEditingQuestion(null)}
-                className="p-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
+                className={`p-2 rounded-full ${subCardBg}`}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -717,15 +970,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* 1. Loại câu hỏi */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Dạng câu hỏi *
+              <label className={`block text-xs font-bold mb-1 ${textSecondary}`}>
+                {at.questionTypeLabel}
               </label>
               <select
                 value={editingQuestion.questionType}
                 onChange={(e) => handleQuestionTypeChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold bg-slate-50"
+                className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
               >
-                {QUESTION_TYPES.map((t) => (
+                {at.types.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
                   </option>
@@ -733,11 +986,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </select>
             </div>
 
-            {/* 2. Nội dung câu hỏi (Chữ) & Nhận định True/False */}
+            {/* 2. Nội dung câu hỏi (Chữ) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nội dung câu hỏi (Chữ hiển thị) *
+                <label className={`block text-xs font-bold mb-1 ${textSecondary}`}>
+                  {at.promptTextLabel}
                 </label>
                 <input
                   type="text"
@@ -745,13 +998,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) =>
                     setEditingQuestion({ ...editingQuestion, promptText: e.target.value })
                   }
-                  placeholder="VD: Bạn nghe thấy từ nào trong đoạn âm thanh?"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-sm ${inputBg}`}
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Từ/Cụm từ phát âm mẫu
+                <label className={`block text-xs font-bold mb-1 ${textSecondary}`}>
+                  {at.targetWordLabel}
                 </label>
                 <input
                   type="text"
@@ -759,16 +1011,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) =>
                     setEditingQuestion({ ...editingQuestion, targetWord: e.target.value })
                   }
-                  placeholder="VD: Yield rate / M. E. G."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold"
+                  placeholder="Yield rate / M. E. G."
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold ${inputBg}`}
                 />
               </div>
             </div>
 
             {editingQuestion.questionType === 'TRUE_FALSE' && (
               <div>
-                <label className="block text-xs font-bold text-amber-800 mb-1">
-                  Câu Nhận Định (Dành cho dạng True / False)
+                <label className="block text-xs font-bold text-amber-500 mb-1">
+                  {at.statementTextLabel}
                 </label>
                 <input
                   type="text"
@@ -776,21 +1028,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) =>
                     setEditingQuestion({ ...editingQuestion, statementText: e.target.value })
                   }
-                  placeholder="VD: Nhận định: “Audio vừa nghe là DOE.”"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50/50 text-sm font-bold"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border border-amber-400 text-sm font-bold ${inputBg}`}
                 />
               </div>
             )}
 
             {/* 3. Cài đặt ÂM THANH (Audio) & VIDEO cho Câu hỏi */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl border ${subCardBg}`}>
               {/* Cột Audio Câu hỏi */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-extrabold text-slate-800 flex items-center gap-1">
-                    <Volume2 className="w-4 h-4 text-blue-600" /> Âm thanh (Audio) đề bài
+                  <label className={`text-xs font-extrabold flex items-center gap-1 ${textPrimary}`}>
+                    <Volume2 className="w-4 h-4 text-blue-500" /> {at.promptAudioTitle}
                   </label>
-                  <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1 cursor-pointer">
+                  <label className={`text-[11px] font-bold flex items-center gap-1 cursor-pointer ${textSecondary}`}>
                     <input
                       type="checkbox"
                       checked={Boolean(editingQuestion.hasPromptAudio)}
@@ -801,7 +1052,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         })
                       }
                     />
-                    Hiện nút Loa
+                    {at.showSpeakerLabel}
                   </label>
                 </div>
 
@@ -815,14 +1066,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       hasPromptAudio: true,
                     })
                   }
-                  placeholder="Dán link .mp3 hoặc tải file bên dưới..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                  placeholder=".mp3 URL..."
+                  className={`w-full px-3 py-2 rounded-xl border text-xs ${inputBg}`}
                 />
 
                 <div className="flex items-center gap-2">
                   <label className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1">
                     <Upload className="w-3.5 h-3.5" />
-                    {uploadingField === 'promptAudio' ? 'Đang tải...' : 'Tải file .MP3/.WAV'}
+                    {uploadingField === 'promptAudio' ? at.uploadingText : at.uploadAudioBtn}
                     <input
                       type="file"
                       accept="audio/*"
@@ -853,17 +1104,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         editingQuestion.promptAudioUrl
                       )
                     }
-                    className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700"
+                    className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold ${inputBg}`}
                   >
-                    🔊 Nghe thử
+                    {at.testListenBtn}
                   </button>
                 </div>
               </div>
 
               {/* Cột Video Câu hỏi */}
               <div className="space-y-2">
-                <label className="text-xs font-extrabold text-slate-800 flex items-center gap-1">
-                  <Video className="w-4 h-4 text-purple-600" /> Video tình huống (.MP4 / Link)
+                <label className={`text-xs font-extrabold flex items-center gap-1 ${textPrimary}`}>
+                  <Video className="w-4 h-4 text-purple-500" /> {at.promptVideoTitle}
                 </label>
 
                 <input
@@ -875,14 +1126,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       promptVideoUrl: e.target.value,
                     })
                   }
-                  placeholder="Dán link Video .mp4 hoặc tải file..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white"
+                  placeholder=".mp4 URL..."
+                  className={`w-full px-3 py-2 rounded-xl border text-xs ${inputBg}`}
                 />
 
                 <div className="flex items-center gap-2">
                   <label className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1">
                     <Upload className="w-3.5 h-3.5" />
-                    {uploadingField === 'promptVideo' ? 'Đang tải...' : 'Tải Video .MP4/.WEBM'}
+                    {uploadingField === 'promptVideo' ? at.uploadingText : at.uploadVideoBtn}
                     <input
                       type="file"
                       accept="video/mp4,video/webm"
@@ -909,9 +1160,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       onClick={() =>
                         setEditingQuestion({ ...editingQuestion, promptVideoUrl: '' })
                       }
-                      className="text-xs text-rose-600 font-bold"
+                      className="text-xs text-rose-500 font-bold"
                     >
-                      Xóa Video
+                      {at.removeVideoBtn}
                     </button>
                   )}
                 </div>
@@ -920,7 +1171,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Xem trước Video nếu có */}
             {editingQuestion.promptVideoUrl && (
-              <div className="rounded-2xl overflow-hidden bg-slate-900 max-h-48 flex justify-center">
+              <div className="rounded-2xl overflow-hidden bg-slate-950 max-h-48 flex justify-center">
                 <video
                   src={editingQuestion.promptVideoUrl}
                   controls
@@ -931,8 +1182,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* 4. Danh sách Đáp án & Chọn đáp án đúng */}
             <div className="space-y-2.5">
-              <label className="block text-xs font-extrabold text-slate-800">
-                Các phương án trả lời (Tích chọn Đáp án đúng & gắn Audio riêng nếu cần):
+              <label className={`block text-xs font-extrabold ${textPrimary}`}>
+                {at.optionsSectionLabel}
               </label>
 
               {(editingQuestion.options || []).map((opt: any, idx: number) => {
@@ -940,11 +1191,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 return (
                   <div
                     key={opt.id}
-                    className={`p-3 rounded-2xl border ${
+                    className={`p-3 rounded-2xl border space-y-2 ${
                       isCorrect
-                        ? 'bg-emerald-50/70 border-emerald-400'
-                        : 'bg-white border-slate-200'
-                    } space-y-2`}
+                        ? darkMode
+                          ? 'bg-emerald-950/50 border-emerald-500'
+                          : 'bg-emerald-50/70 border-emerald-400'
+                        : subCardBg
+                    }`}
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -958,11 +1211,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className={`px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 ${
                           isCorrect
                             ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            : darkMode
+                            ? 'bg-slate-700 text-slate-300'
+                            : 'bg-slate-200 text-slate-700'
                         }`}
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        {opt.id} {isCorrect ? '(Đáp án Đúng)' : ''}
+                        {opt.id} {isCorrect ? at.correctSelectedBadge : ''}
                       </button>
 
                       <input
@@ -973,11 +1228,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           newOpts[idx] = { ...newOpts[idx], text: e.target.value };
                           setEditingQuestion({ ...editingQuestion, options: newOpts });
                         }}
-                        placeholder={`Nội dung đáp án ${opt.id}...`}
-                        className="flex-1 min-w-[160px] px-3 py-1.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold bg-white"
+                        placeholder={`${opt.id}...`}
+                        className={`flex-1 min-w-[160px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
                       />
 
-                      <label className="text-[11px] font-bold text-blue-700 flex items-center gap-1 cursor-pointer">
+                      <label className="text-[11px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={Boolean(opt.hasOptionAudio)}
@@ -990,7 +1245,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             setEditingQuestion({ ...editingQuestion, options: newOpts });
                           }}
                         />
-                        Có nút Loa {opt.id}
+                        {at.hasOptionSpeaker} {opt.id}
                       </label>
                     </div>
 
@@ -1004,8 +1259,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             newOpts[idx] = { ...newOpts[idx], spokenText: e.target.value };
                             setEditingQuestion({ ...editingQuestion, options: newOpts });
                           }}
-                          placeholder="Từ phát âm mẫu (VD: approval)"
-                          className="sm:col-span-4 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                          placeholder="TTS (e.g. approval)"
+                          className={`sm:col-span-4 px-2.5 py-1.5 rounded-lg border text-xs ${inputBg}`}
                         />
                         <input
                           type="text"
@@ -1015,12 +1270,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             newOpts[idx] = { ...newOpts[idx], audioUrl: e.target.value };
                             setEditingQuestion({ ...editingQuestion, options: newOpts });
                           }}
-                          placeholder="Hoặc link file .mp3 của đáp án này"
-                          className="sm:col-span-5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                          placeholder=".mp3 URL"
+                          className={`sm:col-span-5 px-2.5 py-1.5 rounded-lg border text-xs ${inputBg}`}
                         />
                         <div className="sm:col-span-3 flex items-center gap-1">
                           <label className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold cursor-pointer">
-                            {uploadingField === `opt-${opt.id}` ? '...' : 'Tải MP3'}
+                            {uploadingField === `opt-${opt.id}` ? '...' : 'MP3'}
                             <input
                               type="file"
                               accept="audio/*"
@@ -1052,7 +1307,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 opt.audioUrl
                               )
                             }
-                            className="p-1.5 rounded-lg bg-slate-100 text-slate-700"
+                            className={`p-1.5 rounded-lg border ${inputBg}`}
                           >
                             🔊
                           </button>
@@ -1066,8 +1321,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* 5. Giải thích đáp án */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Giải thích chi tiết (Hiển thị sau khi nhân viên nộp bài)
+              <label className={`block text-xs font-bold mb-1 ${textSecondary}`}>
+                {at.explanationLabel}
               </label>
               <textarea
                 rows={2}
@@ -1075,24 +1330,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onChange={(e) =>
                   setEditingQuestion({ ...editingQuestion, explanation: e.target.value })
                 }
-                placeholder="VD: Đáp án A đúng vì trọng âm rơi vào âm tiết thứ 2..."
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm"
+                className={`w-full px-3.5 py-2 rounded-xl border text-xs sm:text-sm ${inputBg}`}
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div
+              className={`flex items-center justify-end gap-2 pt-3 border-t ${
+                darkMode ? 'border-slate-800' : 'border-slate-100'
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => setEditingQuestion(null)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs"
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
               >
-                Hủy
+                {at.cancelBtn}
               </button>
               <button
                 type="submit"
                 className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm shadow-md flex items-center gap-1.5"
               >
-                <Save className="w-4 h-4" /> Lưu Câu Hỏi
+                <Save className="w-4 h-4" /> {at.saveQuestionBtn}
               </button>
             </div>
           </form>
