@@ -26,6 +26,7 @@ import {
 import { AuthScreen } from './components/AuthScreen';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ResponsiveBackground, PerfmonsterFooter } from './components/LayoutDecor';
 import { playPronunciation } from './utils/audio';
 import { Lang, TRANSLATIONS } from './utils/i18n';
 
@@ -393,9 +394,11 @@ export const App: React.FC = () => {
   const myRankNumber = leaderboardData?.myRank?.rank ?? profileData?.user?.rank ?? 12;
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="min-h-screen text-slate-800 dark:text-slate-100 flex flex-col relative transition-colors">
+      <ResponsiveBackground darkMode={darkMode} />
+
       {/* ================= TOP HEADER (3 HÀNG THEO ĐÚNG YÊU CẦU + ĐA NGÔN NGỮ + SÁNG/TỐI) ================= */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-3 sm:px-6 py-2">
+      <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-3 sm:px-6 py-2">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
           {/* Cột Trái: 3 Hàng (SPEAK RIGHT 2026 / Nguyễn Thị Thảo / GEN 20261234) */}
           <div
@@ -467,11 +470,21 @@ export const App: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setDarkMode(!darkMode)}
+              onClick={() => setDarkMode((prev) => !prev)}
               title="Đổi giao diện Sáng / Tối"
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1 text-xs font-extrabold"
             >
-              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {darkMode ? (
+                <>
+                  <Sun className="w-4 h-4 text-amber-400" />
+                  <span className="hidden sm:inline">Sáng</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 text-indigo-700" />
+                  <span className="hidden sm:inline">Tối</span>
+                </>
+              )}
             </button>
 
             <button
@@ -1331,34 +1344,8 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* ================= FOOTER (ALL COPYRIGHT SPEAKENGLISHRIGHT — KHÔNG BỊ KHOẢNG TRẮNG DƯ) ================= */}
-      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 pt-4 pb-20 md:pb-5 px-4">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-black">
-              🎙️
-            </div>
-            <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
-              All copyright SpeakEnglishRight
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400">
-            <button onClick={() => navigateToTab('home')} className="hover:text-blue-600">
-              {t.home}
-            </button>
-            <button onClick={() => navigateToTab('challenges')} className="hover:text-blue-600">
-              {t.challenges}
-            </button>
-            <button onClick={() => navigateToTab('leaderboard')} className="hover:text-blue-600">
-              {t.leaderboard}
-            </button>
-            <button onClick={() => navigateToTab('profile')} className="hover:text-blue-600">
-              {t.profile}
-            </button>
-          </div>
-        </div>
-      </footer>
+      {/* ================= FOOTER PERFMONSTER STYLE ================= */}
+      <PerfmonsterFooter lang={lang} onNavigate={(tab) => navigateToTab(tab)} />
 
       {/* ================= MODAL KHI ADMIN FORCE LOCK ================= */}
       {forceLockModalMsg && (

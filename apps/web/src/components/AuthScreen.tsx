@@ -25,6 +25,7 @@ import {
   validatePersonalGmail,
 } from '../utils/validation';
 import { Lang, TRANSLATIONS } from '../utils/i18n';
+import { ResponsiveBackground, PerfmonsterFooter } from './LayoutDecor';
 
 interface AuthScreenProps {
   onAuthSuccess: (token: string, user: any) => void;
@@ -215,19 +216,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-b from-blue-600 via-blue-500 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col justify-between items-center p-3 sm:p-6">
+    <div className="min-h-screen flex flex-col justify-between relative">
+      <ResponsiveBackground darkMode={darkMode} />
+
       {/* Thanh chọn Ngôn ngữ (VI / EN / KO) & Sáng/Tối ở góc trên */}
-      <div className="w-full max-w-md flex items-center justify-end gap-2 pt-1">
-        <div className="bg-white/20 dark:bg-slate-800/80 backdrop-blur-md p-1 rounded-xl flex items-center gap-1 border border-white/20">
+      <div className="w-full max-w-5xl mx-auto flex items-center justify-end gap-2 p-3 sm:px-6">
+        <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md p-1 rounded-xl flex items-center gap-1 border border-slate-200/80 dark:border-slate-700 shadow-sm">
           {(['vi', 'en', 'ko'] as Lang[]).map((l) => (
             <button
               key={l}
               type="button"
               onClick={() => onChangeLang(l)}
-              className={`px-2 py-1 rounded-lg text-[11px] font-extrabold uppercase transition ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold uppercase transition ${
                 lang === l
-                  ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-white/90 hover:text-white'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-700 dark:text-slate-300 hover:text-blue-600'
               }`}
             >
               {l === 'vi' ? '🇻🇳 VI' : l === 'en' ? '🇬🇧 EN' : '🇰🇷 KO'}
@@ -238,15 +241,24 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         <button
           type="button"
           onClick={onToggleDarkMode}
-          className="p-2 rounded-xl bg-white/20 dark:bg-slate-800/80 text-white border border-white/20 backdrop-blur-md"
+          className="px-3 py-2 rounded-xl bg-white/85 dark:bg-slate-900/85 text-slate-800 dark:text-amber-300 border border-slate-200/80 dark:border-slate-700 backdrop-blur-md shadow-sm flex items-center gap-1.5 text-xs font-extrabold"
           title="Đổi giao diện Sáng / Tối"
         >
-          {darkMode ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4" />}
+          {darkMode ? (
+            <>
+              <Sun className="w-4 h-4 text-amber-400" /> Sáng
+            </>
+          ) : (
+            <>
+              <Moon className="w-4 h-4 text-indigo-700" /> Tối
+            </>
+          )}
         </button>
       </div>
 
       {/* Khung Card Đăng nhập */}
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-white/60 dark:border-slate-800 my-auto">
+      <div className="w-full max-w-md mx-auto px-3 py-6 my-auto">
+        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden border border-white/80 dark:border-slate-800">
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-5 sm:p-6 text-center">
           <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-extrabold mb-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -677,11 +689,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           )}
         </div>
       </div>
-
-      {/* Bản quyền dưới đáy màn hình đăng nhập */}
-      <div className="text-[11px] font-bold text-blue-900/70 dark:text-slate-400 pb-1">
-        All copyright SpeakEnglishRight
       </div>
+
+      {/* Footer Perfmonster ở dưới đáy */}
+      <PerfmonsterFooter lang={lang} />
     </div>
   );
 };
