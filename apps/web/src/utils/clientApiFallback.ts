@@ -1134,6 +1134,7 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
 
 export function installClientApiFallback() {
   const originalFetch = window.fetch.bind(window);
+  const configuredApiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const urlStr =
@@ -1148,12 +1149,26 @@ export function installClientApiFallback() {
       return originalFetch(input, init);
     }
 
-    // Nếu đang chạy trên GitHub Pages (*.github.io) thì xử lý trực tiếp bằng Client Store để siêu mượt, không báo lỗi 404 console
-    if (window.location.hostname.endsWith('github.io')) {
+    // 1. Nếu đã cấu hình VITE_API_URL (Backend thật trên Render / Railway / VPS có DB + Redis + Gmail SMTP)
+    // thì tự động định tuyến mọi request /api/... sang máy chủ Backend thật trước!
+    if (configuredApiBase && urlStr.startsWith('/api/')) {
+      try {
+        const targetUrl = `${configuredApiBase}${urlStr}`;
+        const response = await originalFetch(targetUrl, init);
+        if (response.status < 502) {
+          return response;
+        }
+      } catch {
+        // Nếu máy chủ Backend thật đang khởi động (Cold Start) hoặc mất kết nối -> tự động dự phòng sang Client Store
+      }
+    }
+
+    // 2. Nếu đang chạy trên GitHub Pages (*.github.io) và CHƯA gắn VITE_API_URL -> xử lý bằng Client Store
+    if (window.location.hostname.endsWith('github.io') && !configuredApiBase) {
       return handleClientApi(urlStr, init);
     }
 
-    // Ở môi trường khác (Localhost / VPS), thử gọi Backend thật trước, nếu Backend tắt hoặc trả về HTML/404 thì tự động chuyển sang Client Store
+    // 3. Ở môi trường khác (Localhost / VPS), gọi Backend thật trước, nếu tắt thì dự phòng sang Client Store
     try {
       const response = await originalFetch(input, init);
       const contentType = response.headers.get('content-type') || '';
