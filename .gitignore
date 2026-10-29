@@ -4,6 +4,7 @@ dist/
 .env.local
 *.log
 .DS_Store
+apps/api/data/uploads/
 
 # Các file tài liệu & ảnh thiết kế nội bộ không đẩy lên Git
 abcqwe.png

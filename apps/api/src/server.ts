@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -14,11 +16,16 @@ import {
 } from './utils/validators.js';
 import { sendPasswordResetEmail } from './services/mailer.js';
 
+const UPLOADS_DIR = path.resolve(process.cwd(), 'data', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
 const app = Fastify({
   logger: true,
+  bodyLimit: 30 * 1024 * 1024, // Cho phép tải lên file Audio/Video tối đa 30MB
 });
 
-// Cho phép request có header Content-Type: application/json nhưng body rỗng không bị lỗi FST_ERR_CTP_EMPTY_JSON_BODY
 app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
   try {
     const str = (body as string)?.trim();
@@ -40,11 +47,10 @@ await app.register(jwt, {
 });
 
 await app.register(rateLimit, {
-  max: 150,
+  max: 250,
   timeWindow: '1 minute',
 });
 
-// Decorator xác thực JWT
 app.decorate('authenticate', async (request: any, reply: any) => {
   try {
     await request.jwtVerify();
@@ -53,7 +59,38 @@ app.decorate('authenticate', async (request: any, reply: any) => {
   }
 });
 
-// Health Check
+app.decorate('requireAdmin', async (request: any, reply: any) => {
+  try {
+    await request.jwtVerify();
+    if (request.user?.role !== 'ADMIN') {
+      return reply.status(403).send({ message: 'Chỉ Quản trị viên (Admin) mới có quyền thực hiện thao tác này.' });
+    }
+  } catch (err) {
+    return reply.status(401).send({ message: 'Vui lòng đăng nhập quyền Admin.' });
+  }
+});
+
+// Phục vụ file Audio (.mp3, .wav) & Video (.mp4, .webm) do Admin tải lên
+app.get('/api/uploads/:filename', async (request: any, reply) => {
+  const filename = path.basename(request.params.filename);
+  const filePath = path.join(UPLOADS_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    return reply.status(404).send({ message: 'Không tìm thấy file media.' });
+  }
+  const ext = path.extname(filename).toLowerCase();
+  const mimeMap: Record<string, string> = {
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+  };
+  reply.header('Content-Type', mimeMap[ext] || 'application/octet-stream');
+  reply.header('Cache-Control', 'public, max-age=86400');
+  return reply.send(fs.createReadStream(filePath));
+});
+
 app.get('/api/health', async () => {
   return {
     status: 'ok',
@@ -65,7 +102,6 @@ app.get('/api/health', async () => {
 
 // ==================== 1. AUTHENTICATION & PASSWORD RECOVERY ====================
 
-// Đăng ký tài khoản (Kiểm tra Số GEN 8 số, Mật khẩu mạnh, Chặn @samsung.com)
 app.post('/api/auth/register', async (request, reply) => {
   const parsed = registerSchema.safeParse(request.body);
   if (!parsed.success) {
@@ -75,13 +111,10 @@ app.post('/api/auth/register', async (request, reply) => {
 
   const { employeeId, fullName, email, phone, department, password } = parsed.data;
 
-  const existingByGen = store.findUserByIdentifier(employeeId);
-  if (existingByGen) {
+  if (store.findUserByIdentifier(employeeId)) {
     return reply.status(409).send({ message: `Số GEN ${employeeId} đã được đăng ký trên hệ thống!` });
   }
-
-  const existingByEmail = store.findUserByIdentifier(email);
-  if (existingByEmail) {
+  if (store.findUserByIdentifier(email)) {
     return reply.status(409).send({ message: `Địa chỉ Gmail ${email} đã được sử dụng!` });
   }
 
@@ -124,7 +157,6 @@ app.post('/api/auth/register', async (request, reply) => {
   };
 });
 
-// Đăng nhập bằng Số GEN (8 số) hoặc Gmail cá nhân
 app.post('/api/auth/login', async (request, reply) => {
   const parsed = loginSchema.safeParse(request.body);
   if (!parsed.success) {
@@ -132,8 +164,6 @@ app.post('/api/auth/login', async (request, reply) => {
   }
 
   const { identifier, password } = parsed.data;
-
-  // Chặn nếu người dùng cố tình nhập @samsung.com
   if (identifier.toLowerCase().includes('@samsung.com')) {
     return reply.status(400).send({
       message:
@@ -173,7 +203,6 @@ app.post('/api/auth/login', async (request, reply) => {
   };
 });
 
-// Yêu cầu lấy lại mật khẩu (Gửi cả mã OTP 6 số + Nút bấm Magic Link trong Email)
 app.post('/api/auth/forgot-password', async (request, reply) => {
   const parsed = forgotPasswordSchema.safeParse(request.body);
   if (!parsed.success) {
@@ -195,10 +224,9 @@ app.post('/api/auth/forgot-password', async (request, reply) => {
     });
   }
 
-  // Tạo mã OTP 6 chữ số và Magic Token
   const otpCode = String(Math.floor(100000 + Math.random() * 900000));
   const resetToken = crypto.randomBytes(24).toString('hex');
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 phút
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   user.resetOtpCode = otpCode;
   user.resetToken = resetToken;
@@ -221,7 +249,6 @@ app.post('/api/auth/forgot-password', async (request, reply) => {
       ? `Đã gửi mã xác thực OTP và link khôi phục mật khẩu tới ${user.email}`
       : `Đã tạo mã xác thực OTP & Link khôi phục cho ${user.email} (Chế độ xem trước Email trực tiếp)`,
     sentViaSmtp: mailResult.sentViaSmtp,
-    // Trả về bản xem trước email khi chạy Demo/Local chưa cấu hình SMTP để test ngay lập tức
     demoEmailPreview: !mailResult.sentViaSmtp
       ? {
           otpCode,
@@ -233,7 +260,6 @@ app.post('/api/auth/forgot-password', async (request, reply) => {
   };
 });
 
-// Đặt lại mật khẩu mới bằng Mã OTP 6 số HOẶC Magic Link Token từ Email
 app.post('/api/auth/reset-password', async (request, reply) => {
   const parsed = resetPasswordSchema.safeParse(request.body);
   if (!parsed.success) {
@@ -269,18 +295,17 @@ app.post('/api/auth/reset-password', async (request, reply) => {
   };
 });
 
-// ==================== 2. DAILY CHALLENGES (30 DAYS) ====================
+// ==================== 2. DAILY CHALLENGES & CONCURRENCY LOCK PROTECTION ====================
 
-// Lấy danh sách 30 ngày thử thách kèm trạng thái của user
 app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (request: any) => {
   const userId = request.user.sub;
   const challenges = store.getChallenges();
   const attempts = store.getUserAttempts(userId);
-  const now = Date.now();
+  const activeCounts = store.getAllActiveSessionCounts();
 
   return challenges.map((c) => {
     const attempt = attempts.find((a) => a.dayNumber === c.dayNumber);
-    const isUnlocked = c.dayNumber === 1 || new Date(c.unlockDate).getTime() <= now;
+    const isUnlocked = store.isDayUnlocked(c);
 
     let stars = 0;
     if (attempt) {
@@ -296,7 +321,11 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
       dateLabel: c.dateLabel,
       unlockDate: c.unlockDate,
       isPublished: c.isPublished,
-      status: attempt ? 'COMPLETED' : isUnlocked ? 'OPEN' : 'LOCKED',
+      questionCount: c.questions.length,
+      activePlayersCount: activeCounts[c.dayNumber] || 0,
+      // Lưu ý: Nếu Admin khóa ngày (isUnlocked = false), trạng thái chuyển về LOCKED kể cả trước đó mở
+      status: !isUnlocked ? 'LOCKED' : attempt ? 'COMPLETED' : 'OPEN',
+      isCompletedByMe: Boolean(attempt),
       stars,
       score: attempt?.score ?? null,
       timeSpentMs: attempt?.timeSpentMs ?? null,
@@ -304,7 +333,7 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
   });
 });
 
-// Bắt đầu làm bài Day X -> Lưu startedAt trên Server & Trả đề thi (ẨN correctOptionId chống gian lận)
+// Bắt đầu làm bài Day X -> Chặn nếu ngày đã khóa, tạo Snapshot đề thi cho phiên làm bài
 app.post(
   '/api/challenges/:dayNumber/start',
   { preHandler: [(app as any).authenticate] },
@@ -317,10 +346,18 @@ app.post(
       return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách này.' });
     }
 
-    const startedAt = store.startQuizSession(userId, dayNumber);
+    if (!store.isDayUnlocked(challenge)) {
+      return reply.status(403).send({
+        message: `${challenge.title} hiện đang khóa! Vui lòng quay lại khi thử thách được mở.`,
+      });
+    }
 
-    // Strip correctOptionId & explanation before sending to Frontend
-    const sanitizedQuestions = challenge.questions.map((q) => ({
+    const session = store.startQuizSession(userId, dayNumber);
+    if (!session) {
+      return reply.status(400).send({ message: 'Không thể khởi tạo phiên làm bài.' });
+    }
+
+    const sanitizedQuestions = session.questionsSnapshot.map((q) => ({
       id: q.id,
       orderIndex: q.orderIndex,
       questionType: q.questionType,
@@ -331,6 +368,7 @@ app.post(
       hasPromptAudio: q.hasPromptAudio,
       audioNote: q.audioNote,
       promptAudioUrl: q.promptAudioUrl,
+      promptVideoUrl: q.promptVideoUrl,
       options: q.options,
       points: q.points,
     }));
@@ -339,13 +377,61 @@ app.post(
       dayNumber: challenge.dayNumber,
       title: challenge.title,
       dateLabel: challenge.dateLabel,
-      startedAt,
+      startedAt: session.startedAt,
       questions: sanitizedQuestions,
     };
   }
 );
 
-// Nộp bài & Chấm điểm Server-side (Chống gian lận thời gian + Đáp án)
+// API kiểm tra trạng thái phiên làm bài theo thời gian thực (Phát hiện nếu Admin khóa ngày khi đang có người làm)
+app.get(
+  '/api/challenges/:dayNumber/session-status',
+  { preHandler: [(app as any).authenticate] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const userId = request.user.sub;
+    const challenge = store.getChallengeByDay(dayNumber);
+    if (!challenge) {
+      return reply.status(404).send({ status: 'NOT_FOUND' });
+    }
+
+    const session = store.getActiveSession(userId, dayNumber);
+    const isUnlocked = store.isDayUnlocked(challenge);
+
+    // Trường hợp 1: Admin thực hiện Khóa Cưỡng Chế (Force Lock) thu hồi ngay lập tức
+    if (store.isSessionForceLocked(dayNumber, session?.startedAt)) {
+      return {
+        status: 'FORCE_LOCKED',
+        message:
+          '🔒 Ban tổ chức vừa khóa khẩn cấp thử thách này để cập nhật nội dung. Lượt làm hiện tại chưa bị tính, bạn có thể làm lại sau khi mở khóa!',
+      };
+    }
+
+    // Trường hợp 2: Admin Khóa Mềm (Graceful Lock) trong khi nhân viên này ĐANG làm bài dở
+    if (!isUnlocked && session) {
+      return {
+        status: 'GRACE_PERIOD',
+        message:
+          '⚠️ Ban tổ chức vừa đóng cổng nhận người mới cho ngày này. Vì bạn đã vào thi trước khi khóa, bạn vẫn được phép hoàn thành và nộp bài bình thường!',
+      };
+    }
+
+    // Trường hợp 3: Ngày bị khóa và người dùng không có phiên hợp lệ
+    if (!isUnlocked && !session) {
+      return {
+        status: 'FORCE_LOCKED',
+        message: '🔒 Ngày thử thách này hiện đã bị khóa.',
+      };
+    }
+
+    return {
+      status: 'ACTIVE',
+      message: null,
+    };
+  }
+);
+
+// Nộp bài & Chấm điểm dựa trên Snapshot đề thi lúc bắt đầu (Chống lỗi khi Admin sửa câu hỏi hoặc khóa ngày giữa chừng)
 app.post(
   '/api/challenges/:dayNumber/submit',
   { preHandler: [(app as any).authenticate] },
@@ -362,14 +448,37 @@ app.post(
       return reply.status(404).send({ message: 'Không tìm thấy thử thách.' });
     }
 
-    const sessionStart = store.getQuizSessionStart(userId, dayNumber);
-    const serverElapsedMs = sessionStart ? Math.max(3000, Date.now() - sessionStart) : body.clientTimeMs || 60000;
+    const session = store.getActiveSession(userId, dayNumber);
+    const isUnlocked = store.isDayUnlocked(challenge);
+
+    // Nếu Admin đã Force Lock ngày này -> từ chối nộp bài và không tính lượt
+    if (store.isSessionForceLocked(dayNumber, session?.startedAt)) {
+      return reply.status(423).send({
+        code: 'FORCE_LOCKED',
+        message:
+          '🔒 Ban tổ chức vừa khóa khẩn cấp ngày thi này để cập nhật đề. Lượt làm của bạn chưa bị tính, vui lòng quay lại sau!',
+      });
+    }
+
+    // Nếu ngày đã bị khóa VÀ người dùng không có phiên làm bài bắt đầu từ trước khi khóa -> chặn
+    if (!isUnlocked && !session) {
+      return reply.status(403).send({
+        code: 'DAY_LOCKED',
+        message: 'Thử thách này đã đóng trước khi bạn bắt đầu làm bài.',
+      });
+    }
+
+    // Chấm điểm dựa trên Snapshot bộ câu hỏi lúc user bắt đầu làm bài (đảm bảo công bằng nếu Admin vừa sửa câu hỏi)
+    const questionsToGrade = session?.questionsSnapshot || challenge.questions;
+    const serverElapsedMs = session
+      ? Math.max(2000, Date.now() - session.startedAt)
+      : body.clientTimeMs || 60000;
 
     let score = 0;
     let correctCount = 0;
     let wrongCount = 0;
 
-    const detailedReview = challenge.questions.map((q) => {
+    const detailedReview = questionsToGrade.map((q) => {
       const selectedOptionId = body.answers?.[q.id] || null;
       const isCorrect = selectedOptionId === q.correctOptionId;
       if (isCorrect) {
@@ -387,6 +496,8 @@ app.post(
         orderIndex: q.orderIndex,
         promptText: q.promptText,
         targetWord: q.targetWord,
+        promptAudioUrl: q.promptAudioUrl,
+        promptVideoUrl: q.promptVideoUrl,
         options: q.options,
         selectedOptionId,
         selectedOptionText: selectedOption?.text || 'Chưa chọn',
@@ -407,18 +518,21 @@ app.post(
       wrongCount,
       timeSpentMs: serverElapsedMs,
       answersDetail: body.answers || {},
-      startedAt: new Date(sessionStart || Date.now() - serverElapsedMs).toISOString(),
+      startedAt: new Date(session?.startedAt || Date.now() - serverElapsedMs).toISOString(),
       completedAt: new Date().toISOString(),
     });
+
+    store.completeActiveSession(userId, dayNumber);
 
     return {
       dayNumber,
       score,
-      totalPoints: challenge.questions.length * 10,
+      totalPoints: questionsToGrade.length * 10,
       correctCount,
       wrongCount,
       timeSpentMs: serverElapsedMs,
       isFirstOfficialAttempt,
+      submittedDuringGracePeriod: !isUnlocked && Boolean(session),
       detailedReview,
     };
   }
@@ -429,7 +543,7 @@ app.post(
 app.get('/api/leaderboard', { preHandler: [(app as any).authenticate] }, async (request: any) => {
   const userId = request.user.sub;
   const currentUser = store.findUserById(userId);
-  const scope = (request.query?.scope as string) || 'company'; // 'company' | 'department'
+  const scope = (request.query?.scope as string) || 'company';
 
   const list =
     scope === 'department' && currentUser?.department
@@ -476,31 +590,210 @@ app.get('/api/profile/me', { preHandler: [(app as any).authenticate] }, async (r
   };
 });
 
-// ==================== 4. ADMIN CMS ====================
+// ==================== 4. FULL ADMIN CMS CRUD API (NGÀY THI, CÂU HỎI CHỮ/ÂM THANH/VIDEO, UPLOAD & CONCURRENCY LOCK) ====================
 
-app.put(
-  '/api/admin/challenges/:dayNumber/unlock',
-  { preHandler: [(app as any).authenticate] },
+// Lấy chi tiết 1 ngày thi (bao gồm toàn bộ câu hỏi kèm đáp án đúng + danh sách người đang làm bài trực tuyến)
+app.get(
+  '/api/admin/challenges/:dayNumber',
+  { preHandler: [(app as any).requireAdmin] },
   async (request: any, reply) => {
     const dayNumber = Number(request.params.dayNumber);
-    const { unlockNow } = request.body as { unlockNow: boolean };
     const challenge = store.getChallengeByDay(dayNumber);
     if (!challenge) {
       return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
     }
 
-    challenge.unlockDate = unlockNow
-      ? new Date(Date.now() - 60000).toISOString()
-      : new Date(Date.now() + 86400000 * dayNumber).toISOString();
-    store.save();
+    const activePlayers = store.getActiveSessionsForDay(dayNumber).map((s) => ({
+      userId: s.userId,
+      employeeId: s.employeeId,
+      fullName: s.fullName,
+      startedAt: new Date(s.startedAt).toISOString(),
+      elapsedSeconds: Math.floor((Date.now() - s.startedAt) / 1000),
+    }));
 
-    return { message: `Đã cập nhật trạng thái mở khóa cho Day ${dayNumber}`, challenge };
+    return {
+      ...challenge,
+      isUnlocked: store.isDayUnlocked(challenge),
+      activePlayers,
+    };
+  }
+);
+
+// Cập nhật thông tin ngày thi (Tên ngày, Ngày tháng, Mở/Khóa với 2 chế độ: GRACEFUL hoặc FORCE)
+app.put(
+  '/api/admin/challenges/:dayNumber/unlock',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const body = request.body as {
+      title?: string;
+      dateLabel?: string;
+      unlockNow?: boolean;
+      lockMode?: 'GRACEFUL' | 'FORCE';
+    };
+
+    const result = store.updateChallengeDay(dayNumber, body);
+    if (!result.challenge) {
+      return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
+    }
+
+    let msg = `Đã cập nhật ${result.challenge.title} (${result.challenge.dateLabel})`;
+    if (body.unlockNow === false) {
+      if (result.lockModeUsed === 'FORCE') {
+        msg = `🔒 Đã KHÓA CƯỠNG CHẾ ${result.challenge.title} (Đã dừng ${result.activePlayersAffected} phiên đang làm dở).`;
+      } else {
+        msg = `🛡️ Đã KHÓA MỀM ${result.challenge.title}: Chặn người mới vào, nhưng vẫn cho phép ${result.activePlayersAffected} người đang làm dở được nộp bài nốt!`;
+      }
+    } else if (body.unlockNow === true) {
+      msg = `🔓 Đã MỞ KHÓA ${result.challenge.title} cho nhân viên vào làm bài!`;
+    }
+
+    return {
+      message: msg,
+      challenge: result.challenge,
+      activePlayersAffected: result.activePlayersAffected,
+    };
+  }
+);
+
+// Thêm câu hỏi mới vào Day X (Hỗ trợ Chữ, Audio, Video, 2 hoặc 4 đáp án)
+app.post(
+  '/api/admin/challenges/:dayNumber/questions',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const body = request.body as any;
+
+    if (!body.promptText?.trim()) {
+      return reply.status(400).send({ message: 'Vui lòng nhập nội dung câu hỏi (promptText).' });
+    }
+
+    const created = store.addQuestionToDay(dayNumber, {
+      questionType: body.questionType || 'LISTEN_AND_CHOOSE',
+      categoryLabel: body.categoryLabel || 'Câu hỏi tùy chỉnh',
+      promptText: body.promptText.trim(),
+      statementText: body.statementText?.trim() || undefined,
+      targetWord: body.targetWord?.trim() || '',
+      hasPromptAudio: Boolean(body.hasPromptAudio),
+      audioNote: body.audioNote || '',
+      promptAudioUrl: body.promptAudioUrl?.trim() || undefined,
+      promptVideoUrl: body.promptVideoUrl?.trim() || undefined,
+      options: Array.isArray(body.options) ? body.options : [],
+      correctOptionId: body.correctOptionId || 'A',
+      explanation: body.explanation?.trim() || '',
+      points: Number(body.points) || 10,
+    });
+
+    if (!created) {
+      return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
+    }
+
+    return {
+      message: `Đã thêm Câu ${created.orderIndex} vào Day ${dayNumber} thành công!`,
+      question: created,
+    };
+  }
+);
+
+// Sửa câu hỏi trong Day X (Sửa chữ, âm thanh, video, đáp án, giải thích)
+app.put(
+  '/api/admin/challenges/:dayNumber/questions/:questionId',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const questionId = request.params.questionId;
+    const body = request.body as any;
+
+    const updated = store.updateQuestionInDay(dayNumber, questionId, {
+      questionType: body.questionType,
+      categoryLabel: body.categoryLabel,
+      promptText: body.promptText,
+      statementText: body.statementText,
+      targetWord: body.targetWord,
+      hasPromptAudio: body.hasPromptAudio,
+      audioNote: body.audioNote,
+      promptAudioUrl: body.promptAudioUrl,
+      promptVideoUrl: body.promptVideoUrl,
+      options: body.options,
+      correctOptionId: body.correctOptionId,
+      explanation: body.explanation,
+      points: Number(body.points) || 10,
+    });
+
+    if (!updated) {
+      return reply.status(404).send({ message: 'Không tìm thấy câu hỏi cần sửa.' });
+    }
+
+    return {
+      message: `Đã lưu thay đổi cho Câu ${updated.orderIndex} (Day ${dayNumber})!`,
+      question: updated,
+    };
+  }
+);
+
+// Xóa câu hỏi khỏi Day X
+app.delete(
+  '/api/admin/challenges/:dayNumber/questions/:questionId',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const questionId = request.params.questionId;
+
+    const ok = store.deleteQuestionFromDay(dayNumber, questionId);
+    if (!ok) {
+      return reply.status(404).send({ message: 'Không tìm thấy câu hỏi cần xóa.' });
+    }
+
+    return {
+      message: `Đã xóa câu hỏi và cập nhật lại thứ tự câu trong Day ${dayNumber}.`,
+    };
+  }
+);
+
+// Sao chép bộ câu hỏi của Day X sang toàn bộ 30 ngày
+app.post(
+  '/api/admin/challenges/:dayNumber/clone-to-all',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const count = store.copyQuestionsToAllDays(dayNumber);
+    return {
+      message: `Đã đồng bộ bộ câu hỏi của Day ${dayNumber} sang ${count} ngày còn lại!`,
+    };
+  }
+);
+
+// Upload file Audio (.mp3, .wav) hoặc Video (.mp4, .webm) trực tiếp từ máy tính Admin
+app.post(
+  '/api/admin/upload-media',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const { filename, base64Data } = request.body as {
+      filename: string;
+      base64Data: string;
+    };
+
+    if (!filename || !base64Data) {
+      return reply.status(400).send({ message: 'Thiếu dữ liệu file tải lên.' });
+    }
+
+    const ext = path.extname(filename).toLowerCase() || '.mp3';
+    const safeName = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+    const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+    const buffer = Buffer.from(cleanBase64, 'base64');
+
+    fs.writeFileSync(path.join(UPLOADS_DIR, safeName), buffer);
+
+    return {
+      message: 'Tải file media lên thành công!',
+      url: `/api/uploads/${safeName}`,
+    };
   }
 );
 
 app.post(
   '/api/admin/reseed',
-  { preHandler: [(app as any).authenticate] },
+  { preHandler: [(app as any).requireAdmin] },
   async () => {
     store.resetAndReseed();
     return {

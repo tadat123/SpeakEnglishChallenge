@@ -23,7 +23,8 @@ export interface QuestionItem {
   targetWord: string;      // Từ/cụm từ phát âm của câu hỏi
   hasPromptAudio: boolean; // Câu hỏi có nút Loa lớn ở đề bài hay không
   audioNote: string;       // Ghi chú chuẩn bị file audio cho Admin
-  promptAudioUrl?: string; // Link CDN file MP3 của câu hỏi
+  promptAudioUrl?: string; // Link CDN / Upload file MP3 của câu hỏi
+  promptVideoUrl?: string; // Link Video MP4 / YouTube tình huống hội thoại của câu hỏi
   options: QuestionOption[];
   correctOptionId: 'A' | 'B' | 'C' | 'D';
   explanation: string;

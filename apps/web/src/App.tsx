@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { InstallPwaModal } from './components/InstallPwaModal';
+import { AdminDashboard } from './components/AdminDashboard';
 import { playPronunciation } from './utils/audio';
 
 type TabType = 'home' | 'challenges' | 'leaderboard' | 'profile' | 'admin';
@@ -67,7 +68,8 @@ export const App: React.FC = () => {
   const [showDetailedReview, setShowDetailedReview] = useState(false);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [autoNextOnSelect, setAutoNextOnSelect] = useState<boolean>(true);
-  const [adminToast, setAdminToast] = useState<string>('');
+  const [gracePeriodNotice, setGracePeriodNotice] = useState<string | null>(null);
+  const [forceLockModalMsg, setForceLockModalMsg] = useState<string | null>(null);
 
   const getHeaders = (withJson = false): Record<string, string> => {
     const h: Record<string, string> = {
@@ -139,13 +141,41 @@ export const App: React.FC = () => {
   }, [token]);
 
   useEffect(() => {
-    if (!activeQuiz) return;
+    if (!activeQuiz) {
+      setGracePeriodNotice(null);
+      return;
+    }
     const timer = setInterval(() => {
       setActiveQuiz((prev) =>
         prev ? { ...prev, elapsedSeconds: prev.elapsedSeconds + 1 } : null
       );
     }, 1000);
-    return () => clearInterval(timer);
+
+    // Kiểm tra định kỳ xem Admin có khóa ngày thi khi người dùng đang làm bài hay không
+    const lockCheckTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/challenges/${activeQuiz.dayNumber}/session-status`, {
+          headers: getHeaders(),
+        });
+        if (!res.ok) return;
+        const statusData = await res.json();
+        if (statusData.status === 'GRACE_PERIOD') {
+          setGracePeriodNotice(statusData.message);
+        } else if (statusData.status === 'FORCE_LOCKED') {
+          setActiveQuiz(null);
+          setGracePeriodNotice(null);
+          setForceLockModalMsg(statusData.message);
+          fetchAllData();
+        }
+      } catch (e) {
+        // Ignore transient network errors
+      }
+    }, 4000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(lockCheckTimer);
+    };
   }, [activeQuiz?.dayNumber]);
 
   const handleAuthSuccess = (newToken: string, newUser: any) => {
@@ -255,9 +285,18 @@ export const App: React.FC = () => {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        if (res.status === 423 || data.code === 'FORCE_LOCKED') {
+          setActiveQuiz(null);
+          setForceLockModalMsg(data.message);
+          fetchAllData();
+          return;
+        }
+        throw new Error(data.message);
+      }
 
       setActiveQuiz(null);
+      setGracePeriodNotice(null);
       setQuizResult(data);
       window.location.hash = `#result/${data.dayNumber}`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -429,6 +468,13 @@ export const App: React.FC = () => {
         {/* ---------- A. MÀN HÌNH LÀM BÀI (QUIZ PLAY 10 CÂU — TỐI GIẢN THAO TÁC) ---------- */}
         {activeQuiz ? (
           <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-lg border border-slate-200/80 p-4 sm:p-6">
+            {/* Thông báo khi Admin vừa Khóa Mềm (Graceful Lock) trong lúc nhân viên đang thi */}
+            {gracePeriodNotice && (
+              <div className="mb-3 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs font-extrabold flex items-center gap-2">
+                <span>{gracePeriodNotice}</span>
+              </div>
+            )}
+
             {/* Thanh đầu: Nút thoát + Tên ngày + Đồng hồ */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <button
@@ -530,6 +576,18 @@ export const App: React.FC = () => {
                     {q.statementText && (
                       <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs sm:text-sm font-extrabold">
                         📌 {q.statementText}
+                      </div>
+                    )}
+
+                    {/* Hiển thị Video tình huống nếu câu hỏi có Video */}
+                    {q.promptVideoUrl && (
+                      <div className="mt-3 rounded-2xl overflow-hidden bg-slate-950 border border-blue-200 flex justify-center">
+                        <video
+                          src={q.promptVideoUrl}
+                          controls
+                          playsInline
+                          className="max-h-56 w-full object-contain"
+                        />
                       </div>
                     )}
                   </div>
@@ -1253,73 +1311,40 @@ export const App: React.FC = () => {
 
             {/* ================= 5. TAB QUẢN TRỊ (ADMIN CMS) ================= */}
             {activeTab === 'admin' && (
-              <div className="space-y-4">
-                {adminToast && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold">
-                    ✅ {adminToast}
-                  </div>
-                )}
-
-                <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-black text-slate-900">
-                      Quản trị viên (Admin CMS)
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Mở khóa nhanh ngày thi, nạp lại Seed Data 10 câu hỏi hoặc xuất Excel trao giải
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleAdminReseed}
-                      className="px-3.5 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs flex items-center gap-1.5"
-                    >
-                      <RefreshCw className="w-4 h-4" /> Nạp lại Seed 10 Câu Hỏi
-                    </button>
-                    <button
-                      onClick={handleExportLeaderboardCsv}
-                      className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5"
-                    >
-                      <Download className="w-4 h-4" /> Xuất Excel Trao Giải
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm">
-                  <h3 className="text-sm font-black text-slate-900 mb-3">
-                    Mở / Khóa Nhanh 30 Ngày
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {challenges.map((c) => (
-                      <div
-                        key={c.dayNumber}
-                        className="p-2.5 rounded-xl border border-slate-200 flex items-center justify-between"
-                      >
-                        <div>
-                          <div className="text-xs font-extrabold text-slate-900">{c.title}</div>
-                          <div className="text-[10px] text-slate-400">{c.status}</div>
-                        </div>
-                        <button
-                          onClick={() =>
-                            handleAdminToggleUnlock(c.dayNumber, c.status === 'LOCKED')
-                          }
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold ${
-                            c.status === 'LOCKED'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {c.status === 'LOCKED' ? 'Mở' : 'Khóa'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <AdminDashboard
+                token={token}
+                challenges={challenges}
+                onRefreshGlobal={fetchAllData}
+                onExportCsv={handleExportLeaderboardCsv}
+              />
             )}
           </>
         )}
       </main>
+
+      {/* ================= MODAL THÔNG BÁO KHI ADMIN KHÓA KHẨN CẤP (FORCE LOCK) LÚC ĐANG THI ================= */}
+      {forceLockModalMsg && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900">Thông báo từ Ban Tổ Chức</h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-semibold">
+              {forceLockModalMsg}
+            </p>
+            <button
+              onClick={() => {
+                setForceLockModalMsg(null);
+                navigateToTab('home');
+              }}
+              className="w-full py-3 rounded-2xl bg-blue-600 text-white font-extrabold text-sm"
+            >
+              Về Trang chủ
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ================= MODAL NGÀY CHƯA MỞ KHÓA ================= */}
       {lockedModalDay && (
