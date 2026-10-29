@@ -426,9 +426,11 @@ export const App: React.FC = () => {
             onClick={() => navigateToTab('home')}
             className="flex items-center gap-2.5 cursor-pointer min-w-0"
           >
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
-              🎙️
-            </div>
+            <img
+              src={`${import.meta.env.BASE_URL || '/'}logo.png`}
+              alt="Speak Right 2026"
+              className="w-11 h-11 sm:w-12 sm:h-12 object-contain drop-shadow-sm shrink-0"
+            />
             <div className="leading-tight min-w-0">
               <div
                 className={`text-xs sm:text-sm font-black truncate ${

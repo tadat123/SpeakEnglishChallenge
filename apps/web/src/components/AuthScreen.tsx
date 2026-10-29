@@ -288,12 +288,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-sky-100'
           }`}
         >
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-5 sm:p-6 text-center">
-            <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-extrabold mb-2">
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-4 sm:p-5 text-center">
+            <img
+              src={`${import.meta.env.BASE_URL || '/'}logo.png`}
+              alt="Speak Right 2026 Logo"
+              className="w-24 h-24 sm:w-28 sm:h-28 mx-auto object-contain drop-shadow-lg -mt-1 mb-1"
+            />
+            <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-extrabold mb-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               30 DAYS PRONUNCIATION
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">SPEAK RIGHT 2026</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">SPEAK RIGHT 2026</h1>
           </div>
 
           <div className="p-5 sm:p-6">

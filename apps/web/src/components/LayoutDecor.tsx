@@ -12,29 +12,33 @@ export const ResponsiveBackground: React.FC<ResponsiveBackgroundProps> = ({ dark
       {!darkMode ? (
         <>
           {/* 3 ảnh nền Sáng chuẩn kích thước: Desktop (>=1024px), Tablet (768px-1023px), Mobile (<768px) */}
-          <picture className="w-full h-full block">
+          <picture key="light-bg" className="w-full h-full block">
             <source media="(min-width: 1024px)" srcSet={`${baseUrl}backgrounds/bg-desktop-light.jpg`} />
             <source media="(min-width: 768px)" srcSet={`${baseUrl}backgrounds/bg-tablet-light.jpg`} />
             <img
               src={`${baseUrl}backgrounds/bg-mobile-light.jpg`}
-              alt="Speak Right 2026 Background"
+              alt="Speak Right 2026 Light Background"
               className="w-full h-full object-cover object-bottom"
             />
           </picture>
-          {/* Lớp phủ sáng dịu nhẹ để làm nổi bật nội dung trên nền tranh Shin-chan */}
-          <div className="absolute inset-0 bg-white/15" />
+          {/* Lớp phủ sáng dịu nhẹ */}
+          <div className="absolute inset-0 bg-white/10" />
         </>
       ) : (
-        /* Nền Tối (Dark Mode) — Sẵn sàng gắn 3 ảnh tối khi bạn làm xong */
-        <div className="w-full h-full bg-gradient-to-b from-[#0b1120] via-[#0f172a] to-[#1e1b4b]">
-          <div
-            className="absolute inset-0 opacity-20"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 20% 20%, #3b82f6 0%, transparent 40%), radial-gradient(circle at 80% 70%, #6366f1 0%, transparent 45%)',
-            }}
-          />
-        </div>
+        <>
+          {/* 3 ảnh nền Đêm (Dark Mode) chuẩn kích thước: Desktop (>=1024px), Tablet (768px-1023px), Mobile (<768px) */}
+          <picture key="dark-bg" className="w-full h-full block">
+            <source media="(min-width: 1024px)" srcSet={`${baseUrl}backgrounds/bg-desktop-dark.jpg`} />
+            <source media="(min-width: 768px)" srcSet={`${baseUrl}backgrounds/bg-tablet-dark.jpg`} />
+            <img
+              src={`${baseUrl}backgrounds/bg-mobile-dark.jpg`}
+              alt="Speak Right 2026 Dark Background"
+              className="w-full h-full object-cover object-bottom"
+            />
+          </picture>
+          {/* Lớp phủ đêm dịu nhẹ */}
+          <div className="absolute inset-0 bg-slate-950/20" />
+        </>
       )}
     </div>
   );
@@ -82,12 +86,13 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
   onNavigate,
 }) => {
   const ft = FOOTER_TEXT[lang];
+  const baseUrl = import.meta.env.BASE_URL || './';
 
   return (
     <footer
       className={`relative overflow-hidden pt-10 sm:pt-12 pb-24 md:pb-8 px-4 sm:px-8 mt-auto border-t transition-colors ${
         darkMode
-          ? 'bg-gradient-to-b from-[#1a1c6b]/90 to-[#12144d]/95 backdrop-blur-md text-white border-indigo-900/60'
+          ? 'bg-gradient-to-b from-[#1a1c6b]/85 to-[#12144d]/90 backdrop-blur-md text-white border-indigo-900/60'
           : 'bg-gradient-to-b from-white/80 via-sky-50/85 to-blue-100/85 backdrop-blur-md text-slate-800 border-white/70'
       }`}
     >
@@ -96,13 +101,20 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 pb-12 sm:pb-16">
           {/* Cột Thương hiệu bên trái */}
           <div className="lg:col-span-5 space-y-2.5">
-            <h2
-              className={`text-xl sm:text-2xl font-black tracking-tight ${
-                darkMode ? 'text-white' : 'text-blue-900'
-              }`}
-            >
-              SpeakRight 2026
-            </h2>
+            <div className="flex items-center gap-3">
+              <img
+                src={`${baseUrl}logo.png`}
+                alt="SpeakRight 2026 Logo"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow-sm shrink-0"
+              />
+              <h2
+                className={`text-xl sm:text-2xl font-black tracking-tight ${
+                  darkMode ? 'text-white' : 'text-blue-900'
+                }`}
+              >
+                SpeakRight 2026
+              </h2>
+            </div>
             <p
               className={`text-xs sm:text-sm leading-relaxed max-w-sm font-medium ${
                 darkMode ? 'text-indigo-200/80' : 'text-slate-600'
