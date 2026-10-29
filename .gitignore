@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+
+# Các file tài liệu & ảnh thiết kế nội bộ không đẩy lên Git
+abcqwe.png
+ffa06c9e-83d7-478d-8e55-22b85caf5907.jpg
+cursor_master_prompt_speak_right_2026.md

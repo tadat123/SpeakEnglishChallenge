@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id               String    @id @default(uuid())
+  employeeId       String    @unique // Số GEN 8 chữ số (VD: "24081999")
+  fullName         String
+  email            String    @unique // Gmail cá nhân (Chặn *@samsung.com)
+  phone            String?
+  department       String?
+  avatarUrl        String?
+  passwordHash     String
+  role             Role      @default(USER)
+  totalScore       Int       @default(0)
+  totalTimeMs      Int       @default(0) // Tổng thời gian làm bài (mili-giây)
+  completedDays    Int       @default(0)
+  resetOtpCode     String?   // Mã OTP 6 số lấy lại mật khẩu
+  resetToken       String?   // Token Magic Link trong email
+  resetExpiresAt   DateTime? // Thời hạn OTP / Magic Link (15 phút)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  attempts         ChallengeAttempt[]
+
+  @@index([totalScore(sort: Desc), totalTimeMs(sort: Asc)])
+  @@index([department])
+}
+
+model DailyChallenge {
+  id          Int                @id @default(autoincrement())
+  dayNumber   Int                @unique // 1 -> 30
+  title       String             // Ví dụ: "Day 1"
+  unlockDate  DateTime           // Ngày mở khóa thử thách (00:00:00)
+  isPublished Boolean            @default(true)
+  questions   Question[]
+  attempts    ChallengeAttempt[]
+
+  @@index([unlockDate])
+}
+
+model Question {
+  id               String         @id @default(uuid())
+  challengeId      Int
+  challenge        DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  orderIndex       Int            // Thứ tự câu 1 -> 10
+  promptText       String         // Ví dụ: Choose the correct pronunciation of "equipment".
+  targetWord       String?        // Từ vựng phát âm mẫu (VD: "equipment")
+  promptAudioUrl   String?        // Link CDN Cloudflare R2 file MP3 của câu hỏi
+  options          Json           // Array: [{ id: "A", text: "/ɪˈkwɪpmənt/", spokenText: "equipment", audioUrl: "..." }, ...]
+  correctOptionId  String         // "A" | "B" | "C" | "D"
+  explanation      String?        // Giải thích chi tiết sau khi nộp bài
+  points           Int            @default(10)
+
+  @@index([challengeId, orderIndex])
+}
+
+model ChallengeAttempt {
+  id            String         @id @default(uuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId   Int
+  challenge     DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  score         Int            // Ví dụ: 80
+  correctCount  Int            // Ví dụ: 8
+  wrongCount    Int            // Ví dụ: 2
+  timeSpentMs   Int            // Thời gian hoàn thành thực tế (ms)
+  answersDetail Json           // Lưu lựa chọn của user cho 10 câu
+  startedAt     DateTime
+  completedAt   DateTime       @default(now())
+
+  @@unique([userId, challengeId]) // Đảm bảo mỗi user chỉ tính điểm chính thức 1 lần/ngày
+  @@index([challengeId, score(sort: Desc), timeSpentMs(sort: Asc)])
+}

@@ -1,0 +1,18 @@
+{
+  "name": "speak-right-2026",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SPEAK RIGHT DAILY CHALLENGE 2026 - Mobile-First PWA & High-Concurrency Platform",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build:api": "npm --prefix apps/api run build",
+    "build:web": "npm --prefix apps/web run build",
+    "db:push": "npm --prefix apps/api run db:push",
+    "db:seed": "npm --prefix apps/api run db:seed"
+  }
+}
