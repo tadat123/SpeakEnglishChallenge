@@ -412,15 +412,15 @@ export const App: React.FC = () => {
     >
       <ResponsiveBackground darkMode={darkMode} />
 
-      {/* ================= TOP HEADER (SÁNG TRẮNG TRONG CHẾ ĐỘ SÁNG, TỐI TRONG CHẾ ĐỘ TỐI) ================= */}
-      <header
-        className={`sticky top-0 z-30 backdrop-blur-md border-b px-3 sm:px-6 py-2 transition-colors ${
-          darkMode
-            ? 'bg-slate-900/95 border-slate-800 text-white'
-            : 'bg-white/95 border-blue-100 text-slate-900 shadow-sm'
-        }`}
-      >
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+      {/* ================= TOP HEADER TRONG SUỐT NHẸ (GLASSMORPHISM) KHÔNG BỊ ĐẶC 2 BÊN DESKTOP ================= */}
+      <header className="sticky top-0 z-30 px-2 sm:px-6 pt-2 pb-1">
+        <div
+          className={`max-w-5xl mx-auto flex items-center justify-between gap-2 rounded-2xl px-3 sm:px-5 py-2 backdrop-blur-md border transition-colors ${
+            darkMode
+              ? 'bg-slate-900/60 border-slate-700/60 text-white shadow-lg shadow-black/20'
+              : 'bg-white/60 border-white/70 text-slate-900 shadow-sm'
+          }`}
+        >
           {/* Cột Trái: 3 Hàng (SPEAK RIGHT 2026 / Nguyễn Thị Thảo / GEN 20261234) */}
           <div
             onClick={() => navigateToTab('home')}
@@ -449,7 +449,7 @@ export const App: React.FC = () => {
           {/* Menu ngang cho Tablet & Desktop */}
           <nav
             className={`hidden md:flex items-center gap-1 p-1 rounded-2xl ${
-              darkMode ? 'bg-slate-800' : 'bg-slate-100'
+              darkMode ? 'bg-slate-800/70' : 'bg-white/60'
             }`}
           >
             {[
@@ -471,8 +471,8 @@ export const App: React.FC = () => {
                     isActive
                       ? 'bg-blue-600 text-white shadow-sm'
                       : darkMode
-                      ? 'text-slate-300 hover:text-white'
-                      : 'text-slate-600 hover:text-blue-600'
+                      ? 'text-slate-200 hover:text-white'
+                      : 'text-slate-700 hover:text-blue-600'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -486,7 +486,7 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-1.5 shrink-0">
             <div
               className={`p-0.5 rounded-xl flex items-center ${
-                darkMode ? 'bg-slate-800' : 'bg-slate-100'
+                darkMode ? 'bg-slate-800/70' : 'bg-white/60'
               }`}
             >
               {(['vi', 'en', 'ko'] as Lang[]).map((l) => (
@@ -497,8 +497,8 @@ export const App: React.FC = () => {
                     lang === l
                       ? 'bg-blue-600 text-white shadow-sm'
                       : darkMode
-                      ? 'text-slate-400 hover:text-white'
-                      : 'text-slate-600 hover:text-blue-600'
+                      ? 'text-slate-300 hover:text-white'
+                      : 'text-slate-700 hover:text-blue-600'
                   }`}
                 >
                   {l}
@@ -509,7 +509,7 @@ export const App: React.FC = () => {
             {/* Thanh chọn chế độ Sáng / Tối trực quan 2 nút */}
             <div
               className={`p-0.5 rounded-xl flex items-center ${
-                darkMode ? 'bg-slate-800' : 'bg-slate-100'
+                darkMode ? 'bg-slate-800/70' : 'bg-white/60'
               }`}
             >
               <button
@@ -518,7 +518,7 @@ export const App: React.FC = () => {
                 className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
                   !darkMode
                     ? 'bg-amber-400 text-slate-950 shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-300 hover:text-white'
                 }`}
                 title="Chế độ Sáng"
               >
@@ -531,7 +531,7 @@ export const App: React.FC = () => {
                 className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
                   darkMode
                     ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-700 hover:text-slate-900'
                 }`}
                 title="Chế độ Tối"
               >
@@ -545,8 +545,8 @@ export const App: React.FC = () => {
               title={t.logout}
               className={`p-2 rounded-xl transition ${
                 darkMode
-                  ? 'bg-slate-800 text-slate-400 hover:text-red-400'
-                  : 'bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600'
+                  ? 'bg-slate-800/70 text-slate-300 hover:text-red-400'
+                  : 'bg-white/60 text-slate-700 hover:bg-red-50 hover:text-red-600'
               }`}
             >
               <LogOut className="w-4 h-4" />
@@ -1507,8 +1507,8 @@ export const App: React.FC = () => {
       <nav
         className={`md:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-md border-t px-2 py-1 pb-safe transition-colors ${
           darkMode
-            ? 'bg-slate-900/95 border-slate-800 text-white'
-            : 'bg-white/95 border-blue-100 text-slate-800 shadow-lg'
+            ? 'bg-slate-900/75 border-slate-700/70 text-white'
+            : 'bg-white/75 border-white/80 text-slate-800 shadow-lg'
         }`}
       >
         <div
