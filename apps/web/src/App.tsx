@@ -24,7 +24,6 @@ import {
   Moon,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
-import { InstallPwaModal } from './components/InstallPwaModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ResponsiveBackground, PerfmonsterFooter } from './components/LayoutDecor';
 import { playPronunciation } from './utils/audio';
@@ -559,8 +558,6 @@ export const App: React.FC = () => {
 
       {/* ================= NỘI DUNG CHÍNH ================= */}
       <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 pb-6">
-        <InstallPwaModal />
-
         {/* ---------- A. MÀN HÌNH LÀM BÀI ---------- */}
         {activeQuiz ? (
           <div className={`max-w-2xl mx-auto rounded-3xl shadow-xl border p-4 sm:p-6 backdrop-blur-md ${cardBg}`}>

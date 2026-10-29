@@ -11343,5 +11343,207 @@
       ]
     }
   ],
-  "attempts": []
+  "attempts": [],
+  "pwaSubscriptions": [
+    {
+      "id": "pwa-seed-u-thao",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20261234",
+      "keys": {
+        "p256dh": "seed_p256dh_20261234",
+        "auth": "seed_auth_20261234"
+      },
+      "userId": "u-thao",
+      "employeeId": "20261234",
+      "fullName": "Nguyễn Thị Thảo",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "iPhone iOS 17.5 Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.194Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-1",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260001",
+      "keys": {
+        "p256dh": "seed_p256dh_20260001",
+        "auth": "seed_auth_20260001"
+      },
+      "userId": "u-1",
+      "employeeId": "20260001",
+      "fullName": "Nguyễn Minh Anh",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "Android 14 Chrome Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-2",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260002",
+      "keys": {
+        "p256dh": "seed_p256dh_20260002",
+        "auth": "seed_auth_20260002"
+      },
+      "userId": "u-2",
+      "employeeId": "20260002",
+      "fullName": "Trần Quốc Huy",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "iPhone iOS 17.5 Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-3",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260003",
+      "keys": {
+        "p256dh": "seed_p256dh_20260003",
+        "auth": "seed_auth_20260003"
+      },
+      "userId": "u-3",
+      "employeeId": "20260003",
+      "fullName": "Lê Thu Hương",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "Android 14 Chrome Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-4",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260004",
+      "keys": {
+        "p256dh": "seed_p256dh_20260004",
+        "auth": "seed_auth_20260004"
+      },
+      "userId": "u-4",
+      "employeeId": "20260004",
+      "fullName": "Phạm Hoàng Nam",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "iPhone iOS 17.5 Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-5",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260005",
+      "keys": {
+        "p256dh": "seed_p256dh_20260005",
+        "auth": "seed_auth_20260005"
+      },
+      "userId": "u-5",
+      "employeeId": "20260005",
+      "fullName": "Đỗ Mai Linh",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "Android 14 Chrome Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-6",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260006",
+      "keys": {
+        "p256dh": "seed_p256dh_20260006",
+        "auth": "seed_auth_20260006"
+      },
+      "userId": "u-6",
+      "employeeId": "20260006",
+      "fullName": "Vũ Đức Thắng",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "iPhone iOS 17.5 Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-7",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260007",
+      "keys": {
+        "p256dh": "seed_p256dh_20260007",
+        "auth": "seed_auth_20260007"
+      },
+      "userId": "u-7",
+      "employeeId": "20260007",
+      "fullName": "Hoàng Bích Ngọc",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "Android 14 Chrome Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-8",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260008",
+      "keys": {
+        "p256dh": "seed_p256dh_20260008",
+        "auth": "seed_auth_20260008"
+      },
+      "userId": "u-8",
+      "employeeId": "20260008",
+      "fullName": "Bùi Tiến Dũng",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "iPhone iOS 17.5 Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-9",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260009",
+      "keys": {
+        "p256dh": "seed_p256dh_20260009",
+        "auth": "seed_auth_20260009"
+      },
+      "userId": "u-9",
+      "employeeId": "20260009",
+      "fullName": "Đặng Khánh Vy",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "Android 14 Chrome Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    },
+    {
+      "id": "pwa-seed-u-10",
+      "endpoint": "https://pwa-device.speakright.local/endpoint/20260010",
+      "keys": {
+        "p256dh": "seed_p256dh_20260010",
+        "auth": "seed_auth_20260010"
+      },
+      "userId": "u-10",
+      "employeeId": "20260010",
+      "fullName": "Ngô Quang Hải",
+      "isPwaInstalled": true,
+      "isSimulated": true,
+      "userAgent": "iPhone iOS 17.5 Standalone PWA",
+      "createdAt": "2026-10-27T16:44:37.195Z",
+      "updatedAt": "2026-10-29T16:44:37.195Z",
+      "lastNotifiedAt": null
+    }
+  ],
+  "pushCampaigns": [],
+  "inAppNotifications": [],
+  "pushConfig": {
+    "spreadWindowSeconds": 18,
+    "minIntervalMs": 1200,
+    "maxIntervalMs": 5000,
+    "autoRemindUnstudied": true,
+    "lastTop1UserId": "u-1",
+    "notifiedUnlockedDays": [
+      1
+    ],
+    "notifiedUnstudiedKeys": []
+  }
 }

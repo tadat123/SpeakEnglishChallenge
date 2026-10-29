@@ -3,16 +3,14 @@
   "short_name": "SpeakRight 2026",
   "description": "Thử thách 30 ngày luyện phát âm chuẩn tiếng Anh dành cho nhân viên",
   "start_url": "./",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#eff6ff",
   "theme_color": "#1d4ed8",
-  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "./logo.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
