@@ -492,6 +492,32 @@ class DataStore {
     return cloned;
   }
 
+  // ==================== CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP) ====================
+
+  /** Thử thách của ngày hôm nay: đã mở khóa và chưa kết thúc (00:00 hôm sau) */
+  public getTodayChallenge(): DailyChallengeItem | undefined {
+    const open = this.data.challenges
+      .filter((c) => this.isDayUnlocked(c) && !this.isDayEnded(c))
+      .sort((a, b) => b.dayNumber - a.dayNumber);
+    return open[0];
+  }
+
+  /** Đề thi cho khách: xáo trộn đáp án nhưng KHÔNG tạo phiên thi & KHÔNG lưu điểm */
+  public buildGuestQuestions(dayNumber: number, guestSeed: string): QuestionItem[] {
+    const challenge = this.getChallengeByDay(dayNumber);
+    if (!challenge) return [];
+    const now = Date.now();
+    const rawQuestions: QuestionItem[] = JSON.parse(JSON.stringify(challenge.questions));
+    return rawQuestions.map((q) => ({
+      ...q,
+      options: this.shuffleOptionsForUser(
+        q.options,
+        q.questionType,
+        `guest-${guestSeed}-day${dayNumber}-${q.id}-${now}`
+      ),
+    }));
+  }
+
   // ==================== QUẢN LÝ PHIÊN THI ĐANG DIỄN RA & CHỐNG XUNG ĐỘT KHI KHÓA ====================
 
   public startQuizSession(userId: string, dayNumber: number): ActiveQuizSession | null {

@@ -16,6 +16,7 @@ import {
   Save,
   X,
   ShieldAlert,
+  ShieldCheck,
   BellRing,
   Send,
   Smartphone,
@@ -305,6 +306,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [eveningTop1Hour, setEveningTop1Hour] = useState<number>(19);
   const [nightUnstudiedHour, setNightUnstudiedHour] = useState<number>(23);
 
+  // Giám sát An ninh Bảo mật (SQL Injection, Chống F12, Chống DDoS)
+  const [securityStats, setSecurityStats] = useState<any | null>(null);
+
   const cardBg = darkMode
     ? 'bg-slate-900/90 border-slate-800 text-slate-100'
     : 'bg-white/95 border-blue-100/90 text-slate-800';
@@ -377,11 +381,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const fetchSecurityStats = async () => {
+    try {
+      const res = await fetch('/api/admin/security/stats', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSecurityStats(data);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleUnbanIp = async (ip: string) => {
+    try {
+      const res = await fetch('/api/admin/security/unban', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ip }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showMessage(data.message);
+        fetchSecurityStats();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     fetchPushStatus(true);
+    fetchSecurityStats();
     const interval = setInterval(() => {
       fetchPushStatus(false);
-    }, 1200);
+      fetchSecurityStats();
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1378,6 +1415,194 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* ================= 4. LÁ CHẮN AN NINH & PHÒNG THỦ TẤN CÔNG (SQL INJECTION, CHỐNG F12, CHỐNG DDOS) ================= */}
+      <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 ${cardBg}`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-800">
+          <div>
+            <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
+              <ShieldCheck className="w-5 h-5 text-emerald-500" />
+              4. Lá Chắn An Ninh & Phòng Thủ Tấn Công Cao Cấp (SQL Injection, Chống F12, Chống DDoS)
+            </h3>
+            <p className={`text-xs mt-0.5 ${textSecondary}`}>
+              Bảo vệ đa lớp: WAF đệ quy chống SQLi, chặn phím F12 & DevTools chống lộ đề thi / gian lận, và cơ chế IP Jail tự động triệt tiêu DDoS.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              Hệ thống bảo vệ đang BẬT
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Cột chức năng an ninh trọng điểm */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          {/* Cột 1: Chống SQL Injection */}
+          <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-600 text-white">
+                  Lớp WAF • Mức Tối Đa
+                </span>
+                <span className="text-xs font-black text-indigo-500">24/7 Active</span>
+              </div>
+              <h4 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
+                🛡️ Chống SQL Injection
+              </h4>
+              <p className={`text-xs leading-relaxed ${textSecondary}`}>
+                Bộ lọc WAF quét sâu đệ quy mọi URL, Query, Route Params, Headers và Body JSON.
+              </p>
+              <ul className="text-[11px] space-y-1 font-bold text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Chặn <code>UNION SELECT</code> & DDL (<code>DROP</code>, <code>ALTER</code>)
+                </li>
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Chặn Tautology (<code>' OR '1'='1</code>, <code>admin'--</code>)
+                </li>
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Chặn Time-based Blind (<code>pg_sleep</code>, <code>benchmark</code>)
+                </li>
+                <li className="flex items-center gap-1 text-rose-500">
+                  ⚡ Phát hiện SQLi phạt 3 strikes = Khóa IP lập tức
+                </li>
+              </ul>
+            </div>
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-500">
+              Trạng thái: <strong>Tự động phân tích & từ chối HTTP 403</strong>
+            </div>
+          </div>
+
+          {/* Cột 2: Không cho F12 & Chống Gian Lận */}
+          <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
+                  Phía Client • Toàn Cục
+                </span>
+                <span className="text-xs font-black text-rose-500">Anti-Cheat</span>
+              </div>
+              <h4 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
+                🚫 Chống F12 & DevTools
+              </h4>
+              <p className={`text-xs leading-relaxed ${textSecondary}`}>
+                Chống người thi xem đáp án ẩn, soi mã nguồn hoặc gian lận điểm số.
+              </p>
+              <ul className="text-[11px] space-y-1 font-bold text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Chặn phím <code>F12</code>, <code>Ctrl+Shift+I/J/C</code>, <code>Ctrl+U</code>
+                </li>
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Vô hiệu hóa chuột phải (Context Menu)
+                </li>
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Bẫy phát hiện mở DevTools (Window Metrics & Console Trap)
+                </li>
+                <li className="flex items-center gap-1 text-amber-500">
+                  ⚠️ Hiển thị màn hình chắn cảnh báo khi phát hiện mở DevTools
+                </li>
+              </ul>
+            </div>
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-500">
+              Trạng thái: <strong>Vô hiệu hóa Console & Tắt Source Maps</strong>
+            </div>
+          </div>
+
+          {/* Cột 3: Chống DDoS & Bot Scanners */}
+          <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
+                  Tầng Mạng • IP Jail
+                </span>
+                <span className="text-xs font-black text-amber-500">DDoS Defense</span>
+              </div>
+              <h4 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
+                ⚡ Chống DDoS & Bot Scanners
+              </h4>
+              <p className={`text-xs leading-relaxed ${textSecondary}`}>
+                Tự động ngăn chặn lũ lụt request, tấn công Slowloris và cạn kiệt tài nguyên.
+              </p>
+              <ul className="text-[11px] space-y-1 font-bold text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Rate-limit phân tầng (Auth: 8-10 req/10p, API: 120 req/p)
+                </li>
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Chặn đứng Bot dò quét <code>.env</code>, <code>.git</code>, <code>wp-admin</code>
+                </li>
+                <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  ✓ Chặn Burst Flood (&gt;35 req/giây từ 1 IP)
+                </li>
+                <li className="flex items-center gap-1 text-indigo-500">
+                  🛡️ Timeouts chống Slowloris (10s) & Body Limit nghiêm ngặt
+                </li>
+              </ul>
+            </div>
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-500">
+              Trạng thái: <strong>Tự động giam IP vi phạm (30 phút)</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Danh sách IP đang bị khóa (IP Threat Jail) */}
+        <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className={`text-xs sm:text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
+                🔒 Danh sách IP Đang Bị Khóa Tạm Thời (IP Jail)
+              </h4>
+              <p className={`text-[11px] ${textSecondary}`}>
+                Các IP cố tình tấn công SQL Injection, quét file hệ thống hoặc vi phạm tần suất sẽ bị ngắt kết nối ngay từ tầng tiếp nhận để tiết kiệm 100% tài nguyên server.
+              </p>
+            </div>
+            <span
+              className={`px-2.5 py-1 rounded-xl text-xs font-black ${
+                (securityStats?.threatStats?.totalBannedCount || 0) > 0
+                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              }`}
+            >
+              {securityStats?.threatStats?.totalBannedCount || 0} IP đang bị giam
+            </span>
+          </div>
+
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {(!securityStats?.threatStats?.bannedIps || securityStats.threatStats.bannedIps.length === 0) ? (
+              <p className="text-xs text-center py-4 text-emerald-600 dark:text-emerald-400 font-bold">
+                🎉 Không có địa chỉ IP nào đang bị cấm. Hệ thống đang vận hành an toàn và ổn định!
+              </p>
+            ) : (
+              securityStats.threatStats.bannedIps.map((item: any) => (
+                <div
+                  key={item.ip}
+                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+                    darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-rose-500 flex items-center gap-1.5">
+                      <span>IP: {item.ip}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold">
+                        Còn lại {item.remainingSeconds}s
+                      </span>
+                    </div>
+                    <div className={`text-[10px] truncate ${textSecondary}`}>
+                      Lý do: {item.reason}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUnbanIp(item.ip)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-xs font-extrabold transition shrink-0"
+                  >
+                    Gỡ cấm
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ================= MODAL CƠ CHẾ KHÓA NGÀY THI KHI ĐANG CÓ NGƯỜI LÀM ================= */}
       {showLockConfirmModal && dayDetail && (

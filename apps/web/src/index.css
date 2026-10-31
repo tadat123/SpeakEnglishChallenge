@@ -24,3 +24,11 @@
 .pt-safe {
   padding-top: max(0.75rem, env(safe-area-inset-top));
 }
+
+/* Chống sao chép & kéo thả dữ liệu đề thi trái phép */
+.no-select {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+

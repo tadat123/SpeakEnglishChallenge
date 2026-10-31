@@ -5,10 +5,17 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
+import helmet from '@fastify/helmet';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { store } from './services/store.js';
 import { pushService } from './services/pushNotification.js';
+import {
+  ddosAndBotProtection,
+  ipThreatManager,
+  sanitizePrototypePollution,
+} from './middlewares/ddosProtection.js';
+import { sqlInjectionGuard } from './middlewares/sqlInjectionGuard.js';
 import {
   registerSchema,
   loginSchema,
@@ -24,33 +31,73 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 
 const app = Fastify({
   logger: true,
-  bodyLimit: 30 * 1024 * 1024, // Cho phép tải lên file Audio/Video tối đa 30MB
+  bodyLimit: 1024 * 1024, // 1MB default body limit cho toàn bộ các API thông thường (Chống DDoS cạn kiệt RAM)
+  connectionTimeout: 10000, // 10s timeout chống Slowloris
+  keepAliveTimeout: 5000,
 });
+app.server.headersTimeout = 6000;
 
 app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
   try {
     const str = (body as string)?.trim();
     const json = str ? JSON.parse(str) : {};
-    done(null, json);
+    // Chống Prototype Pollution
+    const sanitized = sanitizePrototypePollution(json);
+    done(null, sanitized);
   } catch (err: any) {
     err.statusCode = 400;
     done(err, undefined);
   }
 });
 
+// Helmet: Bảo mật toàn diện HTTP Security Headers
+await app.register(helmet, {
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  frameguard: { action: 'deny' }, // Chống Clickjacking
+  noSniff: true, // Chống MIME Sniffing
+  xssFilter: true, // Bật X-XSS-Protection
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+});
+
 await app.register(cors, {
   origin: true,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  maxAge: 86400,
 });
 
 await app.register(jwt, {
   secret: process.env.JWT_SECRET || 'speak-right-2026-super-secret-jwt-key',
 });
 
+// Rate Limit toàn cục: Chống Flood / Brute-force
 await app.register(rateLimit, {
-  max: 250,
+  global: true,
+  max: 120, // Tối đa 120 reqs / phút / IP
   timeWindow: '1 minute',
+  errorResponseBuilder: (request, context) => {
+    const ip = request.ip || request.headers['x-forwarded-for']?.toString() || 'unknown';
+    ipThreatManager.recordStrike(ip, 1, 'RATE_LIMIT_EXCEEDED');
+    return {
+      statusCode: 429,
+      error: 'TOO_MANY_REQUESTS',
+      message: `Quá giới hạn tần suất yêu cầu (${context.max} lượt / ${context.after}). Vui lòng chậm lại!`,
+      retryAfter: context.ttl,
+    };
+  },
 });
+
+// Tầng 1: DDoS & Bot Scanner Defense & IP Jail (Chạy ngay tại onRequest)
+app.addHook('onRequest', ddosAndBotProtection);
+
+// Tầng 2: WAF SQL Injection Guard (Chạy tại preHandler trước mọi endpoint)
+app.addHook('preHandler', sqlInjectionGuard);
 
 app.decorate('authenticate', async (request: any, reply: any) => {
   try {
@@ -103,7 +150,17 @@ app.get('/api/health', async () => {
 
 // ==================== 1. AUTHENTICATION & PASSWORD RECOVERY ====================
 
-app.post('/api/auth/register', async (request, reply) => {
+app.post(
+  '/api/auth/register',
+  {
+    config: {
+      rateLimit: {
+        max: 8,
+        timeWindow: '10 minutes',
+      },
+    },
+  },
+  async (request, reply) => {
   const parsed = registerSchema.safeParse(request.body);
   if (!parsed.success) {
     const firstError = parsed.error.issues[0]?.message || 'Dữ liệu đăng ký không hợp lệ';
@@ -158,7 +215,17 @@ app.post('/api/auth/register', async (request, reply) => {
   };
 });
 
-app.post('/api/auth/login', async (request, reply) => {
+app.post(
+  '/api/auth/login',
+  {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '5 minutes',
+      },
+    },
+  },
+  async (request, reply) => {
   const parsed = loginSchema.safeParse(request.body);
   if (!parsed.success) {
     return reply.status(400).send({ message: parsed.error.issues[0]?.message });
@@ -204,7 +271,17 @@ app.post('/api/auth/login', async (request, reply) => {
   };
 });
 
-app.post('/api/auth/forgot-password', async (request, reply) => {
+app.post(
+  '/api/auth/forgot-password',
+  {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes',
+      },
+    },
+  },
+  async (request, reply) => {
   const parsed = forgotPasswordSchema.safeParse(request.body);
   if (!parsed.success) {
     return reply.status(400).send({ message: parsed.error.issues[0]?.message });
@@ -261,7 +338,17 @@ app.post('/api/auth/forgot-password', async (request, reply) => {
   };
 });
 
-app.post('/api/auth/reset-password', async (request, reply) => {
+app.post(
+  '/api/auth/reset-password',
+  {
+    config: {
+      rateLimit: {
+        max: 8,
+        timeWindow: '15 minutes',
+      },
+    },
+  },
+  async (request, reply) => {
   const parsed = resetPasswordSchema.safeParse(request.body);
   if (!parsed.success) {
     return reply.status(400).send({ message: parsed.error.issues[0]?.message });
@@ -297,6 +384,79 @@ app.post('/api/auth/reset-password', async (request, reply) => {
 });
 
 // ==================== 2. DAILY CHALLENGES & CONCURRENCY LOCK PROTECTION ====================
+
+// ---------- CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP) ----------
+// Khách chỉ được: (1) xem & làm bài của NGÀY HÔM NAY (không lưu điểm), (2) xem bảng xếp hạng.
+// Các bài ngày trước, lộ trình 30 ngày, hồ sơ... bắt buộc đăng nhập.
+
+app.get('/api/public/today', async () => {
+  const c = store.getTodayChallenge();
+  if (!c) return { challenge: null };
+  return {
+    challenge: {
+      id: c.id,
+      dayNumber: c.dayNumber,
+      title: c.title,
+      dateLabel: c.dateLabel,
+      unlockDate: c.unlockDate,
+      endsAt: store.getDayEndDate(c),
+      resultsRevealed: false,
+      questionCount: c.questions.length,
+      status: 'OPEN',
+      isCompletedByMe: false,
+      stars: 0,
+      score: null,
+      timeSpentMs: null,
+    },
+  };
+});
+
+app.post('/api/public/challenges/:dayNumber/start', async (request: any, reply) => {
+  const dayNumber = Number(request.params.dayNumber);
+  const today = store.getTodayChallenge();
+  if (!today || today.dayNumber !== dayNumber) {
+    return reply.status(403).send({
+      code: 'LOGIN_REQUIRED',
+      message: 'Khách chỉ được làm bài của ngày hôm nay. Vui lòng đăng nhập để làm các bài khác.',
+    });
+  }
+
+  const guestSeed = String(request.body?.guestId || crypto.randomUUID());
+  const questions = store.buildGuestQuestions(dayNumber, guestSeed).map((q) => ({
+    id: q.id,
+    orderIndex: q.orderIndex,
+    questionType: q.questionType,
+    categoryLabel: q.categoryLabel,
+    promptText: q.promptText,
+    statementText: q.statementText,
+    targetWord: q.targetWord,
+    hasPromptAudio: q.hasPromptAudio,
+    audioNote: q.audioNote,
+    promptAudioUrl: q.promptAudioUrl,
+    promptVideoUrl: q.promptVideoUrl,
+    options: q.options,
+    points: q.points,
+  }));
+
+  return {
+    dayNumber: today.dayNumber,
+    title: today.title,
+    dateLabel: today.dateLabel,
+    startedAt: Date.now(),
+    isGuest: true,
+    questions,
+  };
+});
+
+app.get('/api/public/leaderboard', async () => {
+  const list = store.getLeaderboard();
+  return {
+    scope: 'company',
+    department: '',
+    topList: list.slice(0, 50),
+    myRank: null,
+  };
+});
 
 app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (request: any) => {
   const userId = request.user.sub;
@@ -794,7 +954,10 @@ app.post(
 // Upload file Audio (.mp3, .wav) hoặc Video (.mp4, .webm) trực tiếp từ máy tính Admin
 app.post(
   '/api/admin/upload-media',
-  { preHandler: [(app as any).requireAdmin] },
+  {
+    bodyLimit: 35 * 1024 * 1024, // 35MB riêng cho upload media
+    preHandler: [(app as any).requireAdmin],
+  },
   async (request: any, reply) => {
     const { filename, base64Data } = request.body as {
       filename: string;
@@ -1076,6 +1239,38 @@ app.post(
     }
 
     return reply.status(400).send({ message: 'Loại thông báo Push không hợp lệ.' });
+  }
+);
+
+// ==================== 5. BẢO MẬT HỆ THỐNG: THỐNG KÊ MỐI ĐE DỌA & QUẢN TRỊ IP BANNED ====================
+
+app.get(
+  '/api/admin/security/stats',
+  { preHandler: [(app as any).requireAdmin] },
+  async () => {
+    return {
+      timestamp: new Date().toISOString(),
+      threatStats: ipThreatManager.getStats(),
+      serverSecurity: {
+        sqlInjectionProtection: 'ACTIVE (Deep Recursive WAF + Auto-ban on SQLi)',
+        antiF12AndDevTools: 'ACTIVE (Keyboard, ContextMenu, Metrics & Debugger Traps)',
+        ddosDefense: 'ACTIVE (IP Jail, Burst Limiter, Tiered Rate-Limit, Slowloris Timeouts)',
+        securityHeaders: 'ACTIVE (Helmet HSTS, NoSniff, X-Frame DENY)',
+      },
+    };
+  }
+);
+
+app.post(
+  '/api/admin/security/unban',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const { ip } = (request.body || {}) as { ip?: string };
+    if (!ip) {
+      return reply.status(400).send({ message: 'Vui lòng cung cấp địa chỉ IP cần gỡ cấm.' });
+    }
+    ipThreatManager.unbanIp(ip);
+    return { message: `Đã mở khóa IP ${ip} thành công!` };
   }
 );
 

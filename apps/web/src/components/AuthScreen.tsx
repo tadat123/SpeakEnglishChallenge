@@ -33,6 +33,14 @@ interface AuthScreenProps {
   onChangeLang: (l: Lang) => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  /** Cho phép quay lại Trang chủ khi mở từ trong app */
+  onClose?: () => void;
+  /** Cho phép vào làm bài hôm nay / xem bảng xếp hạng mà không cần đăng nhập */
+  onGuestMode?: (target: 'home' | 'leaderboard') => void;
+  /** Chế độ mở mặc định (Đăng nhập hoặc Tạo tài khoản) */
+  initialMode?: 'login' | 'register';
+  /** Thông báo hiển thị phía trên form (VD: bài làm của khách đang chờ được lưu) */
+  guestNotice?: string | null;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({
@@ -41,9 +49,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   onChangeLang,
   darkMode,
   onToggleDarkMode,
+  onClose,
+  onGuestMode,
+  initialMode = 'login',
+  guestNotice,
 }) => {
   const t = TRANSLATIONS[lang];
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -226,13 +238,31 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     <div className="min-h-screen flex flex-col justify-between relative">
       <ResponsiveBackground darkMode={darkMode} />
 
-      {/* Thanh chọn Ngôn ngữ (VI / EN / KO) & Sáng/Tối ở góc trên */}
-      <div className="w-full max-w-5xl mx-auto flex items-center justify-end gap-2 p-3 sm:px-6">
-        <div
-          className={`backdrop-blur-md p-1 rounded-xl flex items-center gap-1 border shadow-sm ${
-            darkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-white/95 border-sky-200'
-          }`}
-        >
+      {/* Thanh chọn Ngôn ngữ (VI / EN / KO) & Sáng/Tối ở góc trên + Nút quay lại nếu mở từ trang chủ */}
+      <div className="w-full max-w-5xl mx-auto flex items-center justify-between gap-2 p-3 sm:px-6">
+        <div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className={`backdrop-blur-md px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 shadow-sm transition ${
+                darkMode
+                  ? 'bg-slate-900/90 border-slate-700 text-slate-200 hover:text-white'
+                  : 'bg-white/95 border-sky-200 text-slate-800 hover:text-blue-600'
+              }`}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{lang === 'en' ? 'Back to Home' : lang === 'ko' ? '홈으로 돌아가기' : 'Quay lại Trang chủ'}</span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div
+            className={`backdrop-blur-md p-1 rounded-xl flex items-center gap-1 border shadow-sm ${
+              darkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-white/95 border-sky-200'
+            }`}
+          >
           {(['vi', 'en', 'ko'] as Lang[]).map((l) => (
             <button
               key={l}
@@ -280,6 +310,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </button>
         </div>
       </div>
+    </div>
 
       {/* Khung Card Đăng nhập */}
       <div className="w-full max-w-md mx-auto px-3 py-6 my-auto">
@@ -302,6 +333,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
 
           <div className="p-5 sm:p-6">
+            {guestNotice && (
+              <div
+                className={`mb-4 p-3 rounded-2xl border text-xs font-bold leading-relaxed ${
+                  darkMode
+                    ? 'bg-amber-950/50 border-amber-700/60 text-amber-100'
+                    : 'bg-amber-50 border-amber-300 text-amber-950'
+                }`}
+              >
+                {guestNotice}
+              </div>
+            )}
             {(mode === 'login' || mode === 'register') && (
               <div
                 className={`grid grid-cols-2 p-1 rounded-2xl mb-4 ${
@@ -736,6 +778,53 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   {t.saveNewPassBtn}
                 </button>
               </form>
+            )}
+
+            {/* Chế độ Khách: làm bài hôm nay & xem bảng xếp hạng không cần đăng nhập */}
+            {onGuestMode && (mode === 'login' || mode === 'register') && (
+              <div
+                className={`mt-5 pt-4 border-t ${
+                  darkMode ? 'border-slate-700/70' : 'border-slate-200/80'
+                }`}
+              >
+                <div
+                  className={`text-center text-[11px] font-bold mb-2.5 ${
+                    darkMode ? 'text-slate-300' : 'text-slate-600'
+                  }`}
+                >
+                  {lang === 'en'
+                    ? 'Or try without an account (score will NOT be saved)'
+                    : lang === 'ko'
+                    ? '또는 로그인 없이 체험하기 (점수는 저장되지 않음)'
+                    : 'Hoặc dùng thử không cần tài khoản (điểm sẽ KHÔNG được lưu)'}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onGuestMode('home')}
+                    className="py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs shadow-sm transition"
+                  >
+                    🎯{' '}
+                    {lang === 'en'
+                      ? "Try today's challenge"
+                      : lang === 'ko'
+                      ? '오늘의 챌린지 체험'
+                      : 'Làm thử bài hôm nay'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onGuestMode('leaderboard')}
+                    className={`py-2.5 rounded-2xl font-extrabold text-xs border transition ${
+                      darkMode
+                        ? 'border-slate-600 text-slate-100 hover:bg-slate-800'
+                        : 'border-slate-300 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    🏆{' '}
+                    {lang === 'en' ? 'View leaderboard' : lang === 'ko' ? '랭킹 보기' : 'Xem bảng xếp hạng'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

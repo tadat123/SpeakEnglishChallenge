@@ -46,6 +46,41 @@ import {
 type TabType = 'home' | 'challenges' | 'leaderboard' | 'profile' | 'admin';
 
 const VALID_TABS: TabType[] = ['home', 'challenges', 'leaderboard', 'profile', 'admin'];
+/** Các tab khách (chưa đăng nhập) được phép xem */
+const GUEST_TABS: TabType[] = ['home', 'leaderboard'];
+const GUEST_MODE_KEY = 'sr_guest_mode';
+const GUEST_PENDING_KEY = 'sr_guest_pending_submission';
+
+interface GuestPendingSubmission {
+  dayNumber: number;
+  title: string;
+  dateLabel: string;
+  answers: Record<string, 'A' | 'B' | 'C' | 'D'>;
+  clientTimeMs: number;
+  q11Pronunciation: any;
+  /** Hạn cuối để lưu (00:00 ngày hôm sau) */
+  expiresAt: number;
+}
+
+function getNextMidnightMs(): number {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime();
+}
+
+function readGuestPending(): GuestPendingSubmission | null {
+  try {
+    const raw = localStorage.getItem(GUEST_PENDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GuestPendingSubmission;
+    if (!parsed || Date.now() >= parsed.expiresAt) {
+      localStorage.removeItem(GUEST_PENDING_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 function getTabFromHash(): TabType {
   const hash = window.location.hash.replace('#', '').split('/')[0] as TabType;
@@ -68,6 +103,8 @@ export const App: React.FC = () => {
   });
 
   const t = TRANSLATIONS[lang];
+  /** Chọn nhanh chuỗi theo ngôn ngữ đang dùng (VI / EN / KO) */
+  const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -110,6 +147,18 @@ export const App: React.FC = () => {
   const [showDetailedReview, setShowDetailedReview] = useState(false);
   const [adminPreviewResult, setAdminPreviewResult] = useState(false);
   const [showEventsPopup, setShowEventsPopup] = useState(false);
+  // ===== CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP): chỉ làm bài hôm nay + xem bảng xếp hạng, KHÔNG lưu điểm =====
+  const [guestMode, setGuestMode] = useState<boolean>(
+    () => sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
+  );
+  const [authView, setAuthView] = useState<{
+    mode: 'login' | 'register';
+    notice?: string | null;
+  } | null>(null);
+  const [loginPromptMsg, setLoginPromptMsg] = useState<string | null>(null);
+  const [guestSubmittedDay, setGuestSubmittedDay] = useState<any | null>(null);
+  const [pendingSaveNotice, setPendingSaveNotice] = useState<string | null>(null);
+  const isGuest = !token || !user;
   const [q11Data, setQ11Data] = useState<Q11SubmissionData | null>(null);
   const [midnightCountdown, setMidnightCountdown] = useState<string>('00:00:00');
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
@@ -174,6 +223,17 @@ export const App: React.FC = () => {
   };
 
   const navigateToTab = (tab: TabType) => {
+    // Khách chỉ được vào Trang chủ (bài hôm nay) & Bảng xếp hạng
+    if (isGuest && !GUEST_TABS.includes(tab)) {
+      setLoginPromptMsg(
+        L(
+          'Tính năng này chỉ dành cho tài khoản đã đăng nhập. Đăng nhập hoặc tạo tài khoản để xem lộ trình 30 ngày, làm bù bài các ngày trước và theo dõi điểm của bạn.',
+          'This feature requires an account. Log in or sign up to see the 30-day journey, catch up on previous days and track your score.',
+          '로그인한 계정만 이용할 수 있습니다. 로그인 또는 회원가입 후 30일 여정, 지난 챌린지, 내 점수를 확인하세요.'
+        )
+      );
+      return;
+    }
     setActiveQuiz(null);
     setQuizResult(null);
     setShowDetailedReview(false);
@@ -199,7 +259,23 @@ export const App: React.FC = () => {
   }, []);
 
   const fetchAllData = async () => {
-    if (!token) return;
+    if (!token) {
+      // Chế độ khách mặc định (vào web lần đầu chưa đăng nhập): tải bài hôm nay + bảng xếp hạng công khai
+      try {
+        const [todayRes, lbRes] = await Promise.all([
+          fetch('/api/public/today'),
+          fetch('/api/public/leaderboard'),
+        ]);
+        if (todayRes.ok) {
+          const data = await todayRes.json();
+          setChallenges(data.challenge ? [data.challenge] : []);
+        }
+        if (lbRes.ok) setLeaderboardData(await lbRes.json());
+      } catch (e) {
+        console.error('Lỗi tải dữ liệu khách:', e);
+      }
+      return;
+    }
     try {
       const [chalRes, lbRes, profRes] = await Promise.all([
         fetch('/api/challenges', { headers: getHeaders() }),
@@ -228,10 +304,16 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (token) {
-      fetchAllData();
-    }
+    fetchAllData();
   }, [token]);
+
+  // Khách mở thẳng link #challenges / #profile / #admin -> đưa về Trang chủ
+  useEffect(() => {
+    if (isGuest && !GUEST_TABS.includes(activeTab)) {
+      setActiveTab('home');
+      window.location.hash = '#home';
+    }
+  }, [isGuest, activeTab]);
 
   // Đăng ký Service Worker PWA & Nhận thông báo đẩy theo nhịp chia đều (Staggered Push Queue)
   useEffect(() => {
@@ -269,7 +351,7 @@ export const App: React.FC = () => {
       if (!pwaEnabled && !token) return;
 
       try {
-        const uidParam = user?.id ? `&userId=${encodeURIComponent(user.id)}` : '';
+        const uidParam = user?.id ? `&userId=${encodeURIComponent(user?.id)}` : '';
         const res = await fetch(`/api/push/poll?since=${lastPollTime}${uidParam}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
@@ -325,6 +407,8 @@ export const App: React.FC = () => {
     }, 1000);
 
     const lockCheckTimer = setInterval(async () => {
+      // Khách không có phiên thi trên máy chủ -> bỏ qua kiểm tra khóa phiên
+      if (!token) return;
       try {
         const res = await fetch(`/api/challenges/${activeQuiz.dayNumber}/session-status`, {
           headers: getHeaders(),
@@ -350,19 +434,57 @@ export const App: React.FC = () => {
     };
   }, [activeQuiz?.dayNumber]);
 
-  const handleAuthSuccess = (newToken: string, newUser: any) => {
+  const handleAuthSuccess = async (newToken: string, newUser: any) => {
     localStorage.setItem('sr_token', newToken);
     localStorage.setItem('sr_user', JSON.stringify(newUser));
+    sessionStorage.removeItem(GUEST_MODE_KEY);
+    setGuestMode(false);
     setToken(newToken);
     setUser(newUser);
+    setAuthView(null);
+
+    // Tự động nộp bài và lưu điểm nếu khách đã làm bài hôm nay trước khi đăng nhập
+    const pending = readGuestPending();
+    if (pending) {
+      try {
+        const res = await fetch(`/api/challenges/${pending.dayNumber}/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${newToken}`,
+          },
+          body: JSON.stringify({
+            answers: pending.answers,
+            clientTimeMs: pending.clientTimeMs,
+            q11Pronunciation: pending.q11Pronunciation,
+          }),
+        });
+        if (res.ok) {
+          localStorage.removeItem(GUEST_PENDING_KEY);
+          setPendingSaveNotice(
+            L(
+              `🎉 Đã lưu kết quả bài làm ${pending.title} vào tài khoản của bạn thành công!`,
+              `🎉 Successfully saved your ${pending.title} score to your account!`,
+              `🎉 ${pending.title} 결과가 계정에 성공적으로 저장되었습니다!`
+            )
+          );
+        }
+      } catch (e) {
+        console.error('Lỗi tự động lưu điểm khách:', e);
+      }
+    }
+
     navigateToTab('home');
   };
 
   const handleLogout = () => {
     localStorage.removeItem('sr_token');
     localStorage.removeItem('sr_user');
+    sessionStorage.removeItem(GUEST_MODE_KEY);
     setToken(null);
     setUser(null);
+    setGuestMode(false);
+    setAuthView(null);
     setActiveQuiz(null);
     setQuizResult(null);
     window.location.hash = '';
@@ -378,6 +500,58 @@ export const App: React.FC = () => {
 
   const handleStartDay = async (dayItem: any) => {
     if (!dayItem) return;
+
+    // Chế độ Khách: chỉ được làm bài của NGÀY HÔM NAY (không làm được các ngày trước chưa hoàn thành)
+    if (isGuest) {
+      if (todayChallenge && dayItem.dayNumber !== todayChallenge.dayNumber) {
+        setLoginPromptMsg(
+          L(
+            'Khách chỉ được làm thử bài thi của ngày hôm nay. Vui lòng đăng nhập hoặc tạo tài khoản để làm các ngày khác!',
+            "Guests can only take today's challenge. Please log in or register to take challenges from other days!",
+            '게스트는 오늘의 챌린지만 참여할 수 있습니다. 다른 날짜의 챌린지는 로그인 후 이용해 주세요!'
+          )
+        );
+        return;
+      }
+
+      try {
+        const guestId = localStorage.getItem('sr_guest_id') || `g-${Date.now()}`;
+        localStorage.setItem('sr_guest_id', guestId);
+        const res = await fetch(`/api/public/challenges/${dayItem.dayNumber}/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guestId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message);
+
+        setQuizResult(null);
+        setShowDetailedReview(false);
+        setAdminPreviewResult(false);
+        setQ11Data(null);
+        setActiveQuiz({
+          dayNumber: data.dayNumber,
+          title: data.title,
+          dateLabel: data.dateLabel,
+          questions: data.questions,
+          currentIndex: 0,
+          answers: {},
+          elapsedSeconds: 0,
+        });
+        window.location.hash = `#quiz/${data.dayNumber}`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        const firstQ = data.questions?.[0];
+        if (firstQ?.hasPromptAudio && firstQ?.targetWord) {
+          setTimeout(() => handleSpeak(`prompt-${firstQ.id}`, firstQ.targetWord), 350);
+        }
+        return;
+      } catch (err: any) {
+        alert(err.message || 'Không thể bắt đầu thử thách');
+        return;
+      }
+    }
+
     if (dayItem.status === 'LOCKED') {
       setLockedModalDay(dayItem);
       return;
@@ -447,6 +621,88 @@ export const App: React.FC = () => {
 
   const handleSubmitQuiz = async () => {
     if (!activeQuiz) return;
+
+    // Chế độ Khách: không lưu vào DB, tính điểm tạm thời và lưu Pending để bảo khách đăng nhập tạo tài khoản
+    if (isGuest) {
+      const questionsToGrade = activeQuiz.questions;
+      let score = 0;
+      let correctCount = 0;
+      let wrongCount = 0;
+
+      const detailedReview = questionsToGrade.map((q: any) => {
+        const selectedOptionId = activeQuiz.answers?.[q.id] || null;
+        const isCorrect = selectedOptionId === q.correctOptionId;
+        if (isCorrect) {
+          score += q.points;
+          correctCount += 1;
+        } else {
+          wrongCount += 1;
+        }
+        const correctOption = q.options.find((o: any) => o.id === q.correctOptionId);
+        const selectedOption = q.options.find((o: any) => o.id === selectedOptionId);
+        return {
+          questionId: q.id,
+          orderIndex: q.orderIndex,
+          promptText: q.promptText,
+          targetWord: q.targetWord,
+          promptAudioUrl: q.promptAudioUrl,
+          promptVideoUrl: q.promptVideoUrl,
+          options: q.options,
+          selectedOptionId,
+          selectedOptionText: selectedOption?.text || 'Chưa chọn',
+          correctOptionId: q.correctOptionId,
+          correctOptionText: correctOption?.text || '',
+          isCorrect,
+          explanation: q.explanation,
+        };
+      });
+
+      const clientTimeMs = activeQuiz.elapsedSeconds * 1000;
+      const pending: GuestPendingSubmission = {
+        dayNumber: activeQuiz.dayNumber,
+        title: activeQuiz.title,
+        dateLabel: activeQuiz.dateLabel,
+        answers: activeQuiz.answers,
+        clientTimeMs,
+        q11Pronunciation: q11Data,
+        expiresAt: getNextMidnightMs(),
+      };
+      localStorage.setItem(GUEST_PENDING_KEY, JSON.stringify(pending));
+
+      setActiveQuiz(null);
+      setGracePeriodNotice(null);
+      setGuestSubmittedDay({
+        dayNumber: activeQuiz.dayNumber,
+        score,
+        totalPoints: questionsToGrade.length * 10,
+        correctCount,
+        wrongCount,
+      });
+
+      setQuizResult({
+        dayNumber: activeQuiz.dayNumber,
+        score,
+        totalPoints: questionsToGrade.length * 10,
+        correctCount,
+        wrongCount,
+        timeSpentMs: clientTimeMs,
+        isGuest: true,
+        resultsRevealed: false,
+        endsAt: new Date(getNextMidnightMs()).toISOString(),
+        detailedReview,
+        q11Pronunciation: q11Data,
+      });
+
+      window.location.hash = `#result/${activeQuiz.dayNumber}`;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      confetti({
+        particleCount: 80,
+        spread: 65,
+        origin: { y: 0.6 },
+      });
+      return;
+    }
+
     try {
       const res = await fetch(`/api/challenges/${activeQuiz.dayNumber}/submit`, {
         method: 'POST',
@@ -525,7 +781,7 @@ export const App: React.FC = () => {
     return `${m}:${s}`;
   };
 
-  if (!token || !user) {
+  if (authView && (!token || !user)) {
     return (
       <AuthScreen
         onAuthSuccess={handleAuthSuccess}
@@ -533,6 +789,13 @@ export const App: React.FC = () => {
         onChangeLang={handleChangeLang}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
+        initialMode={authView.mode}
+        guestNotice={authView.notice}
+        onClose={() => setAuthView(null)}
+        onGuestMode={(target) => {
+          setAuthView(null);
+          navigateToTab(target);
+        }}
       />
     );
   }
@@ -541,8 +804,8 @@ export const App: React.FC = () => {
     challenges.find((c) => c.status === 'OPEN') ||
     challenges.find((c) => c.status === 'COMPLETED') ||
     challenges[0];
-  const completedCount = profileData?.user?.completedDays ?? user.completedDays ?? 0;
-  const myTotalScore = profileData?.user?.totalScore ?? user.totalScore ?? 0;
+  const completedCount = profileData?.user?.completedDays ?? user?.completedDays ?? 0;
+  const myTotalScore = profileData?.user?.totalScore ?? user?.totalScore ?? 0;
   const myRankNumber = leaderboardData?.myRank?.rank ?? profileData?.user?.rank ?? 12;
 
   return (
@@ -581,10 +844,12 @@ export const App: React.FC = () => {
                 SPEAK RIGHT 2026
               </div>
               <div className={`text-xs sm:text-sm font-extrabold truncate ${textPrimary}`}>
-                {user.fullName}
+                {isGuest ? L('Khách (Chưa đăng nhập)', 'Guest (Not logged in)', '게스트 (로그인 안 됨)') : user?.fullName}
               </div>
               <div className={`text-[11px] font-bold truncate ${textSecondary}`}>
-                GEN {user.employeeId}
+                {isGuest
+                  ? L('Chỉ làm bài hôm nay • Chưa lưu điểm', "Today's challenge only • Score not saved", '오늘 챌린지만 가능 • 미저장')
+                  : `GEN ${user?.employeeId}`}
               </div>
             </div>
           </div>
@@ -596,12 +861,12 @@ export const App: React.FC = () => {
             }`}
           >
             {[
-              { id: 'home', label: t.home, icon: Home },
-              { id: 'challenges', label: t.challenges, icon: Calendar },
-              { id: 'leaderboard', label: t.leaderboard, icon: Trophy },
-              { id: 'profile', label: t.profile, icon: User },
-              ...(user.role === 'ADMIN'
-                ? [{ id: 'admin', label: t.admin, icon: ShieldCheck }]
+              { id: 'home', label: t.home, icon: Home, locked: false },
+              { id: 'challenges', label: t.challenges, icon: Calendar, locked: isGuest },
+              { id: 'leaderboard', label: t.leaderboard, icon: Trophy, locked: false },
+              { id: 'profile', label: t.profile, icon: User, locked: isGuest },
+              ...(user?.role === 'ADMIN'
+                ? [{ id: 'admin', label: t.admin, icon: ShieldCheck, locked: false }]
                 : []),
             ].map((item) => {
               const Icon = item.icon;
@@ -619,7 +884,8 @@ export const App: React.FC = () => {
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.locked && <Lock className="w-3 h-3 text-amber-400" />}
                 </button>
               );
             })}
@@ -683,17 +949,27 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            <button
-              onClick={handleLogout}
-              title={t.logout}
-              className={`p-2 rounded-xl transition ${
-                darkMode
-                  ? 'bg-slate-800/70 text-slate-300 hover:text-red-400'
-                  : 'bg-white/60 text-slate-700 hover:bg-red-50 hover:text-red-600'
-              }`}
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            {isGuest ? (
+              <button
+                type="button"
+                onClick={() => setAuthView({ mode: 'login' })}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-sm flex items-center gap-1 transition"
+              >
+                <span>{L('Đăng nhập', 'Log in', '로그인')}</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleLogout}
+                title={t.logout}
+                className={`p-2 rounded-xl transition ${
+                  darkMode
+                    ? 'bg-slate-800/70 text-slate-300 hover:text-red-400'
+                    : 'bg-white/60 text-slate-700 hover:bg-red-50 hover:text-red-600'
+                }`}
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -708,6 +984,56 @@ export const App: React.FC = () => {
           onStartDailyChallenge={() => handleStartDay(todayChallenge)}
         />
         <InstallPwaModal lang={lang} darkMode={darkMode} />
+
+        {/* Thông báo tự động lưu điểm bài làm của khách sau khi đăng nhập */}
+        {pendingSaveNotice && (
+          <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-emerald-600 text-white shadow-xl flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2.5 text-xs sm:text-sm font-extrabold">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <span>{pendingSaveNotice}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPendingSaveNotice(null)}
+              className="p-1 rounded-lg bg-white/20 hover:bg-white/30 text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Banner chế độ Khách nhắc nhở */}
+        {isGuest && !activeQuiz && (
+          <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/90 via-orange-500/90 to-amber-600/90 text-slate-950 font-bold shadow-lg border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+              <span className="text-xl shrink-0">⚠️</span>
+              <div className="text-xs sm:text-sm leading-snug">
+                <span className="font-black">{L('Chế độ Khách:', 'Guest Mode:', '게스트 모드:')}</span>{' '}
+                {L(
+                  'Bạn chỉ làm được bài thi của ngày hôm nay và điểm số sẽ KHÔNG được lưu trên hệ thống nếu chưa đăng nhập.',
+                  "You can only take today's challenge and your score will NOT be saved without an account.",
+                  '오늘의 챌린지만 가능하며 로그인하지 않으면 점수가 저장되지 않습니다.'
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setAuthView({ mode: 'login' })}
+                className="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white text-xs font-black shadow-sm transition"
+              >
+                {L('Đăng nhập', 'Log in', '로그인')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthView({ mode: 'register' })}
+                className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100 text-slate-950 text-xs font-black shadow-sm transition"
+              >
+                {L('Tạo tài khoản', 'Sign up', '가입')}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Banner Thông Báo Đẩy PWA Thời Gian Thực (Nhận từ Staggered Push Queue) */}
         {livePushAlert && (
@@ -1114,6 +1440,61 @@ export const App: React.FC = () => {
                   </div>
                 )}
 
+                {isGuest && (
+                  <div className="my-5 p-4 sm:p-5 rounded-3xl border text-center space-y-3 bg-gradient-to-br from-amber-500/20 via-orange-500/15 to-blue-500/15 border-amber-400">
+                    <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xl shadow">
+                      ⭐
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-amber-700 dark:text-amber-300">
+                        {L('Bạn đang ở Chế độ Khách (Chưa lưu điểm)', 'You are in Guest Mode (Score not saved)', '게스트 모드 (미저장)')}
+                      </h3>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
+                        {L(
+                          'Bài làm của bạn đã được ghi nhận tạm thời. Để lưu điểm vào hệ thống, tính vào tiến độ 30 ngày và tham gia Bảng xếp hạng Samsung, vui lòng đăng nhập hoặc tạo tài khoản ngay!',
+                          'Your submission was temporarily recorded. To save your score, count towards 30 days and join the Samsung leaderboard, please log in or create an account!',
+                          '제출이 임시 기록되었습니다. 30일 진행도 및 랭킹에 반영하려면 지금 로그인하거나 가입하세요!'
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthView({
+                            mode: 'register',
+                            notice: L(
+                              '✨ Đăng ký tài khoản nhanh (Số GEN + Gmail) để lưu kết quả bài thi hôm nay!',
+                              "✨ Register now (GEN ID + Gmail) to save today's score!",
+                              '✨ 오늘 점수를 저장하려면 사번과 이메일로 가입하세요!'
+                            ),
+                          });
+                        }}
+                        className="py-3 px-4 rounded-2xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs sm:text-sm shadow-md transition"
+                      >
+                        🚀 {L('Tạo tài khoản để lưu điểm', 'Register to save score', '가입하고 점수 저장')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthView({
+                            mode: 'login',
+                            notice: L(
+                              'Đăng nhập bằng Số GEN (8 số) để lưu kết quả bài làm vào tài khoản của bạn.',
+                              'Log in with GEN ID to save your score to your account.',
+                              '계정에 점수를 저장하려면 사번으로 로그인하세요.'
+                            ),
+                          });
+                        }}
+                        className="py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md transition"
+                      >
+                        🔑 {L('Đã có tài khoản? Đăng nhập', 'Already have account? Log in', '로그인')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row gap-2.5">
                   <button
                     onClick={() => navigateToTab('home')}
@@ -1121,7 +1502,7 @@ export const App: React.FC = () => {
                   >
                     {t.backToHome}
                   </button>
-                  {user.role === 'ADMIN' && (
+                  {user?.role === 'ADMIN' && (
                     <button
                       onClick={() => setAdminPreviewResult(true)}
                       className={`px-4 py-3.5 rounded-2xl font-bold text-xs border ${subCardBg}`}
@@ -1283,6 +1664,8 @@ export const App: React.FC = () => {
                           ? todayChallenge.resultsRevealed
                             ? `${t.retryTodayBtn} ${todayChallenge.title} (${todayChallenge.score}/100${t.pointsSuffix})`
                             : `${t.retryTodayBtn} ${todayChallenge.title} (⏳ Chờ 00:00 công bố)`
+                          : isGuest && guestSubmittedDay?.dayNumber === todayChallenge?.dayNumber
+                          ? `Đã làm thử ${todayChallenge?.title || 'Day 1'} • Đăng nhập để lưu điểm`
                           : `${t.startTodayBtn} (${todayChallenge?.title || 'Day 1'})`}
                       </button>
                     </div>
@@ -1294,7 +1677,7 @@ export const App: React.FC = () => {
                       className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
                     >
                       <div className="text-lg sm:text-2xl font-black text-amber-300">
-                        {completedCount}/30 {t.daysUnit}
+                        {isGuest ? '0/30' : `${completedCount}/30`} {t.daysUnit}
                       </div>
                       <div className="text-[11px] text-blue-100 font-semibold">
                         {t.completedDaysLabel}
@@ -1306,7 +1689,7 @@ export const App: React.FC = () => {
                       className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
                     >
                       <div className="text-lg sm:text-2xl font-black text-white">
-                        {myTotalScore.toLocaleString()} {t.pointsSuffix}
+                        {isGuest ? '0' : myTotalScore.toLocaleString()} {t.pointsSuffix}
                       </div>
                       <div className="text-[11px] text-blue-100 font-semibold">
                         {t.totalScoreLabel}
@@ -1318,7 +1701,7 @@ export const App: React.FC = () => {
                       className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
                     >
                       <div className="text-lg sm:text-2xl font-black text-emerald-300">
-                        #{myRankNumber}
+                        {isGuest ? '--' : `#${myRankNumber}`}
                       </div>
                       <div className="text-[11px] text-blue-100 font-semibold">{t.rankLabel}</div>
                     </div>
@@ -1467,7 +1850,7 @@ export const App: React.FC = () => {
                           #{myRankNumber}
                         </span>
                         <span className="text-xs font-extrabold">
-                          {user.fullName} ({t.youBadge})
+                          {user?.fullName} ({t.youBadge})
                         </span>
                       </div>
                       <span className="text-xs font-black text-blue-600">
@@ -1596,7 +1979,7 @@ export const App: React.FC = () => {
                   }`}
                 >
                   {(leaderboardData.topList || []).map((item: any) => {
-                    const isMe = item.id === user.id;
+                    const isMe = item.id === user?.id;
                     return (
                       <div
                         key={item.id}
@@ -1663,12 +2046,42 @@ export const App: React.FC = () => {
                         #{leaderboardData.myRank.rank}
                       </span>
                       <span className="text-xs sm:text-sm font-extrabold">
-                        {user.fullName} ({t.youBadge})
+                        {user?.fullName} ({t.youBadge})
                       </span>
                     </div>
                     <span className="text-sm sm:text-base font-black text-amber-300">
                       {leaderboardData.myRank.totalScore.toLocaleString()} {t.pointsSuffix}
                     </span>
+                  </div>
+                )}
+
+                {isGuest && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="text-xs sm:text-sm font-bold leading-relaxed">
+                      💡 <strong>{L('Bạn đang xem Bảng xếp hạng ở Chế độ Khách.', 'You are viewing Leaderboard in Guest Mode.', '게스트 모드로 랭킹을 보고 있습니다.')}</strong>
+                      <br className="hidden sm:inline" />{' '}
+                      {L(
+                        'Đăng nhập bằng Số GEN hoặc Tạo tài khoản để lưu điểm và vinh danh thứ hạng của bạn!',
+                        'Log in with GEN ID or create an account to save score and rank on the leaderboard!',
+                        '사번으로 로그인하거나 가입하여 점수를 저장하고 순위를 올려보세요!'
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAuthView({ mode: 'login' })}
+                        className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-sm transition"
+                      >
+                        {L('Đăng nhập ngay', 'Log in now', '지금 로그인')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuthView({ mode: 'register' })}
+                        className="px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white font-extrabold text-xs transition"
+                      >
+                        {L('Tạo tài khoản', 'Sign up', '가입')}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1680,16 +2093,16 @@ export const App: React.FC = () => {
                 <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md ${cardBg}`}>
                   <div className="flex items-center gap-4">
                     <img
-                      src={user.avatarUrl}
-                      alt={user.fullName}
+                      src={user?.avatarUrl}
+                      alt={user?.fullName}
                       className="w-16 h-16 rounded-full bg-blue-50 border-2 border-blue-100"
                     />
                     <div>
-                      <h2 className={`text-lg font-black ${textPrimary}`}>{user.fullName}</h2>
+                      <h2 className={`text-lg font-black ${textPrimary}`}>{user?.fullName}</h2>
                       <p className={`text-xs ${textSecondary}`}>
-                        GEN <strong>{user.employeeId}</strong>
+                        GEN <strong>{user?.employeeId}</strong>
                       </p>
-                      <p className="text-xs text-blue-600 font-semibold">{user.email}</p>
+                      <p className="text-xs text-blue-600 font-semibold">{user?.email}</p>
                     </div>
                   </div>
 
@@ -1849,7 +2262,7 @@ export const App: React.FC = () => {
               >
                 {t.understoodBtn}
               </button>
-              {user.role === 'ADMIN' && (
+              {user?.role === 'ADMIN' && (
                 <button
                   onClick={() => handleAdminToggleUnlock(lockedModalDay.dayNumber, true)}
                   className="w-full py-2.5 rounded-2xl bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center gap-1"
@@ -1857,6 +2270,54 @@ export const App: React.FC = () => {
                   <Unlock className="w-3.5 h-3.5" /> Mở khóa ngay {lockedModalDay.title} (Admin)
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL THÔNG BÁO YÊU CẦU ĐĂNG NHẬP (CHO KHÁCH) ================= */}
+      {loginPromptMsg && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className={`w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl space-y-4 border ${cardBg}`}>
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h3 className={`text-base font-black ${textPrimary}`}>
+              {L('Yêu cầu Đăng nhập', 'Login Required', '로그인 필요')}
+            </h3>
+            <p className="text-xs sm:text-sm leading-relaxed font-semibold">
+              {loginPromptMsg}
+            </p>
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginPromptMsg(null);
+                  setAuthView({ mode: 'login' });
+                }}
+                className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-md"
+              >
+                {L('Đăng nhập ngay', 'Log in now', '지금 로그인')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginPromptMsg(null);
+                  setAuthView({ mode: 'register' });
+                }}
+                className="w-full py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-sm"
+              >
+                {L('Tạo tài khoản mới (Lưu điểm)', 'Register account (Save score)', '새 계정 만들기')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginPromptMsg(null)}
+                className={`w-full py-2 rounded-xl text-xs font-bold ${
+                  darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {L('Để sau (Tiếp tục chế độ khách)', 'Later (Continue as guest)', '나중에')}
+              </button>
             </div>
           </div>
         </div>
@@ -1872,16 +2333,22 @@ export const App: React.FC = () => {
       >
         <div
           className={`grid ${
-            user.role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'
+            user?.role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'
           } gap-1 max-w-md mx-auto`}
         >
           {[
-            { id: 'home', label: t.home, icon: Home },
-            { id: 'challenges', label: t.challenges, icon: Calendar },
-            { id: 'leaderboard', label: t.leaderboard, icon: Trophy },
-            { id: 'profile', label: t.profile, icon: User },
-            ...(user.role === 'ADMIN'
-              ? [{ id: 'admin', label: t.admin, icon: ShieldCheck }]
+            { id: 'home', label: t.home, icon: Home, locked: false },
+            { id: 'challenges', label: t.challenges, icon: Calendar, locked: isGuest },
+            { id: 'leaderboard', label: t.leaderboard, icon: Trophy, locked: false },
+            {
+              id: 'profile',
+              label: isGuest ? L('Đăng nhập', 'Log in', '로그인') : t.profile,
+              icon: User,
+              locked: false,
+              onClick: isGuest ? () => setAuthView({ mode: 'login' }) : undefined,
+            },
+            ...(user?.role === 'ADMIN'
+              ? [{ id: 'admin', label: t.admin, icon: ShieldCheck, locked: false }]
               : []),
           ].map((item) => {
             const Icon = item.icon;
@@ -1889,8 +2356,8 @@ export const App: React.FC = () => {
             return (
               <button
                 key={item.id}
-                onClick={() => navigateToTab(item.id as TabType)}
-                className={`flex flex-col items-center justify-center py-1.5 rounded-2xl transition ${
+                onClick={item.onClick || (() => navigateToTab(item.id as TabType))}
+                className={`flex flex-col items-center justify-center py-1.5 rounded-2xl transition relative ${
                   isActive
                     ? 'text-blue-600 font-extrabold'
                     : darkMode
@@ -1898,7 +2365,12 @@ export const App: React.FC = () => {
                     : 'text-slate-500 font-medium'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <div className="relative">
+                  <Icon className="w-5 h-5" />
+                  {item.locked && (
+                    <Lock className="w-2.5 h-2.5 text-amber-500 absolute -top-1 -right-1" />
+                  )}
+                </div>
                 <span className="text-[10px] mt-0.5 truncate">{item.label}</span>
               </button>
             );

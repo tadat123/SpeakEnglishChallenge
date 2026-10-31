@@ -1262,6 +1262,111 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     });
   }
 
+  // ---------- CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP): chỉ bài hôm nay + bảng xếp hạng ----------
+  const getDayEndMs = (c: DailyChallengeItem) => {
+    const d = new Date(c.unlockDate);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0).getTime();
+  };
+  const getTodayChallenge = () =>
+    db.challenges
+      .filter((c) => isDayUnlocked(c) && Date.now() < getDayEndMs(c))
+      .sort((a, b) => b.dayNumber - a.dayNumber)[0];
+
+  if (path === '/api/public/today' && method === 'GET') {
+    const c = getTodayChallenge();
+    if (!c) return jsonResponse({ challenge: null });
+    return jsonResponse({
+      challenge: {
+        id: c.id,
+        dayNumber: c.dayNumber,
+        title: c.title,
+        dateLabel: c.dateLabel,
+        unlockDate: c.unlockDate,
+        endsAt: new Date(getDayEndMs(c)).toISOString(),
+        resultsRevealed: false,
+        questionCount: c.questions.length,
+        status: 'OPEN',
+        isCompletedByMe: false,
+        stars: 0,
+        score: null,
+        timeSpentMs: null,
+      },
+    });
+  }
+
+  const guestStartMatch = path.match(/^\/api\/public\/challenges\/(\d+)\/start$/);
+  if (guestStartMatch && method === 'POST') {
+    const dayNumber = Number(guestStartMatch[1]);
+    const today = getTodayChallenge();
+    if (!today || today.dayNumber !== dayNumber) {
+      return jsonResponse(
+        {
+          code: 'LOGIN_REQUIRED',
+          message: 'Khách chỉ được làm bài của ngày hôm nay. Vui lòng đăng nhập để làm các bài khác.',
+        },
+        403
+      );
+    }
+    const startedAt = Date.now();
+    const guestSeed = String(body.guestId || Math.random());
+    const rawQuestions: QuestionItem[] = JSON.parse(JSON.stringify(today.questions));
+    const questions = rawQuestions.map((q) => {
+      const opts = [...q.options];
+      const seedStr = `guest-${guestSeed}-d${dayNumber}-${q.id}-${startedAt}`;
+      let hash = 2166136261;
+      for (let i = 0; i < seedStr.length; i++) {
+        hash ^= seedStr.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      let state = (hash >>> 0) || 123456789;
+      const nextRand = () => {
+        state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+        return state / 4294967296;
+      };
+      for (let i = opts.length - 1; i > 0; i--) {
+        const j = Math.floor(nextRand() * (i + 1));
+        const tmp = opts[i];
+        opts[i] = opts[j];
+        opts[j] = tmp;
+      }
+      return {
+        id: q.id,
+        orderIndex: q.orderIndex,
+        questionType: q.questionType,
+        categoryLabel: q.categoryLabel,
+        promptText: q.promptText,
+        statementText: q.statementText,
+        targetWord: q.targetWord,
+        hasPromptAudio: q.hasPromptAudio,
+        audioNote: q.audioNote,
+        promptAudioUrl: q.promptAudioUrl,
+        promptVideoUrl: q.promptVideoUrl,
+        options:
+          q.questionType === 'CHOOSE_AUDIO'
+            ? opts.map((o, idx) => ({ ...o, text: `Mẫu phát âm ${idx + 1}` }))
+            : opts,
+        points: q.points,
+      };
+    });
+    return jsonResponse({
+      dayNumber: today.dayNumber,
+      title: today.title,
+      dateLabel: today.dateLabel,
+      startedAt,
+      isGuest: true,
+      questions,
+    });
+  }
+
+  if (path === '/api/public/leaderboard' && method === 'GET') {
+    return jsonResponse({
+      scope: 'company',
+      department: '',
+      topList: getLeaderboard(db).slice(0, 50),
+      myRank: null,
+    });
+  }
+
   // Xác thực người dùng cho các API bên dưới
   const currentUser = decodeUserFromHeaders(init?.headers, db);
   if (!currentUser) {
@@ -1911,6 +2016,27 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       });
     }
     return jsonResponse({ message: 'Loại thông báo không hợp lệ.' }, 400);
+  }
+
+  // 21. GET /api/admin/security/stats & POST /api/admin/security/unban
+  if (path === '/api/admin/security/stats' && method === 'GET') {
+    return jsonResponse({
+      timestamp: new Date().toISOString(),
+      threatStats: {
+        totalBannedCount: 0,
+        bannedIps: [],
+      },
+      serverSecurity: {
+        sqlInjectionProtection: 'ACTIVE (Deep Recursive WAF + Auto-ban on SQLi)',
+        antiF12AndDevTools: 'ACTIVE (Keyboard, ContextMenu, Metrics & Debugger Traps)',
+        ddosDefense: 'ACTIVE (IP Jail, Burst Limiter, Tiered Rate-Limit, Slowloris Timeouts)',
+        securityHeaders: 'ACTIVE (Helmet HSTS, NoSniff, X-Frame DENY)',
+      },
+    });
+  }
+
+  if (path === '/api/admin/security/unban' && method === 'POST') {
+    return jsonResponse({ message: `Đã mở khóa IP ${body.ip || 'được chọn'} thành công!` });
   }
 
   return jsonResponse({ message: 'API route not found' }, 404);
