@@ -23,6 +23,50 @@ export interface UserRecord {
   createdAt: string;
 }
 
+export interface UserDeviceRecord {
+  id: string;
+  userId: string;
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  deviceName: string;
+  browser: string;
+  os: string;
+  ip?: string;
+  userAgent: string;
+  isCurrent?: boolean;
+  isPwaInstalled?: boolean;
+  createdAt: string;
+  lastActiveAt: string;
+}
+
+export function parseDeviceFromUserAgent(ua = ''): {
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  browser: string;
+  os: string;
+} {
+  let deviceType: 'mobile' | 'tablet' | 'desktop' = 'desktop';
+  if (/ipad|tablet/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) {
+    deviceType = 'tablet';
+  } else if (/iphone|mobile|android/i.test(ua)) {
+    deviceType = 'mobile';
+  }
+
+  let browser = 'Trình duyệt Web';
+  if (/samsungbrowser/i.test(ua)) browser = 'Samsung Internet';
+  else if (/edg/i.test(ua)) browser = 'Microsoft Edge';
+  else if (/chrome|crios/i.test(ua)) browser = 'Google Chrome';
+  else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Apple Safari';
+  else if (/firefox|fxios/i.test(ua)) browser = 'Mozilla Firefox';
+
+  let os = 'Thiết bị';
+  if (/windows/i.test(ua)) os = 'Windows PC';
+  else if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad|ios/i.test(ua)) os = 'Apple iOS';
+  else if (/mac os/i.test(ua)) os = 'Apple macOS';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  return { deviceType, browser, os };
+}
+
 export interface AttemptRecord {
   id: string;
   userId: string;
@@ -127,6 +171,7 @@ interface DatabaseShape {
   users: UserRecord[];
   challenges: DailyChallengeItem[];
   attempts: AttemptRecord[];
+  devices?: UserDeviceRecord[];
   pwaSubscriptions?: PwaPushSubscriptionRecord[];
   pushCampaigns?: PushCampaignRecord[];
   inAppNotifications?: InAppNotificationRecord[];
@@ -1004,6 +1049,281 @@ class DataStore {
       // Gửi cho tất cả PWA (userId === null) hoặc gửi đích danh cho tài khoản chưa học (n.userId === userId)
       return n.userId === null || (userId && n.userId === userId);
     });
+  }
+
+  // ==================== QUẢN LÝ THIẾT BỊ ĐÃ ĐĂNG NHẬP (USER DEVICES) ====================
+
+  public getUserDevices(userId: string, currentUa = ''): UserDeviceRecord[] {
+    if (!this.data.devices) {
+      this.data.devices = [];
+    }
+    const userDevices = this.data.devices.filter((d) => d.userId === userId);
+    if (userDevices.length === 0) {
+      const parsed = parseDeviceFromUserAgent(currentUa);
+      const defaultDevice: UserDeviceRecord = {
+        id: `dev-${userId}-main`,
+        userId,
+        deviceType: parsed.deviceType,
+        deviceName: `${parsed.browser} trên ${parsed.os}`,
+        browser: parsed.browser,
+        os: parsed.os,
+        userAgent: currentUa || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        isCurrent: true,
+        isPwaInstalled: true,
+        createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+        lastActiveAt: new Date().toISOString(),
+      };
+      this.data.devices.push(defaultDevice);
+      this.save();
+      return [defaultDevice];
+    }
+
+    return userDevices.map((d) => ({
+      ...d,
+      isCurrent: Boolean(currentUa && d.userAgent === currentUa),
+    }));
+  }
+
+  public recordUserDevice(userId: string, userAgent = '', ip = ''): UserDeviceRecord {
+    if (!this.data.devices) {
+      this.data.devices = [];
+    }
+    const parsed = parseDeviceFromUserAgent(userAgent);
+    const existing = this.data.devices.find(
+      (d) =>
+        d.userId === userId &&
+        (d.userAgent === userAgent ||
+          (d.browser === parsed.browser && d.os === parsed.os))
+    );
+    const now = new Date().toISOString();
+    if (existing) {
+      existing.lastActiveAt = now;
+      if (ip) existing.ip = ip;
+      this.save();
+      return existing;
+    }
+
+    const newDevice: UserDeviceRecord = {
+      id: `dev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      userId,
+      deviceType: parsed.deviceType,
+      deviceName: `${parsed.browser} trên ${parsed.os}`,
+      browser: parsed.browser,
+      os: parsed.os,
+      ip,
+      userAgent,
+      isCurrent: true,
+      isPwaInstalled: /standalone|pwa/i.test(userAgent),
+      createdAt: now,
+      lastActiveAt: now,
+    };
+    this.data.devices.push(newDevice);
+    this.save();
+    return newDevice;
+  }
+
+  public removeUserDevice(userId: string, deviceId: string): boolean {
+    if (!this.data.devices) return false;
+    const initialLen = this.data.devices.length;
+    this.data.devices = this.data.devices.filter(
+      (d) => !(d.userId === userId && d.id === deviceId)
+    );
+    if (this.data.devices.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  // ==================== ADMIN: DASHBOARD THỐNG KÊ TỶ LỆ HOÀN THÀNH ====================
+
+  public getDashboardStats(dayFilter?: number) {
+    const totalUsers =
+      this.data.users.filter((u) => u.role === 'USER').length || this.data.users.length;
+    const usersList = this.data.users.filter((u) => u.role === 'USER');
+    const completedUsersCount = usersList.filter((u) => u.completedDays >= 1).length;
+    const overallCompletionRate =
+      totalUsers > 0 ? Math.round((completedUsersCount / totalUsers) * 100) : 0;
+
+    const totalScoreSum = usersList.reduce((acc, u) => acc + (u.totalScore || 0), 0);
+    const avgScore = totalUsers > 0 ? Math.round(totalScoreSum / totalUsers) : 0;
+
+    const challenges = this.data.challenges;
+    const todayChallenge = this.getTodayChallenge() || challenges[0];
+
+    const allDaysStats = challenges.map((c) => {
+      const attemptsForDay = this.data.attempts.filter((a) => a.dayNumber === c.dayNumber);
+      const uniqueCompletedUserIds = new Set(attemptsForDay.map((a) => a.userId));
+      const participantsCount = uniqueCompletedUserIds.size;
+      const completionRate =
+        totalUsers > 0 ? Math.round((participantsCount / totalUsers) * 100) : 0;
+
+      const totalScore = attemptsForDay.reduce((acc, a) => acc + a.score, 0);
+      const averageScore =
+        attemptsForDay.length > 0 ? Math.round(totalScore / attemptsForDay.length) : 0;
+      const passCount = attemptsForDay.filter((a) => a.score >= 60).length;
+      const perfectCount = attemptsForDay.filter((a) => a.score === 100).length;
+      const totalTime = attemptsForDay.reduce((acc, a) => acc + (a.timeSpentMs || 0), 0);
+      const averageTimeSec =
+        attemptsForDay.length > 0
+          ? Math.round(totalTime / attemptsForDay.length / 1000)
+          : 0;
+
+      return {
+        dayNumber: c.dayNumber,
+        title: c.title,
+        dateLabel: c.dateLabel,
+        isUnlocked: this.isDayUnlocked(c),
+        isEnded: this.isDayEnded(c),
+        participantsCount,
+        completionRate,
+        averageScore,
+        passCount,
+        perfectCount,
+        averageTimeSec,
+      };
+    });
+
+    const targetDayNumber = dayFilter || todayChallenge?.dayNumber || 1;
+    const selectedDayStat =
+      allDaysStats.find((d) => d.dayNumber === targetDayNumber) || allDaysStats[0];
+
+    return {
+      totalUsers,
+      completedUsersCount,
+      overallCompletionRate,
+      avgScore,
+      totalAttempts: this.data.attempts.length,
+      todayChallenge: {
+        dayNumber: todayChallenge?.dayNumber || 1,
+        title: todayChallenge?.title || 'Day 1',
+        dateLabel: todayChallenge?.dateLabel || '',
+      },
+      selectedDayStat,
+      allDaysStats,
+    };
+  }
+
+  // ==================== ADMIN: QUẢN LÝ NGƯỜI DÙNG & TÌM KIẾM ====================
+
+  public getAdminUsers(search = '', department = '') {
+    let users = this.data.users.map((u) => {
+      const userAttempts = this.data.attempts.filter((a) => a.userId === u.id);
+      const lastAttempt = userAttempts.sort(
+        (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+      )[0];
+      const devices = this.getUserDevices(u.id);
+
+      return {
+        id: u.id,
+        employeeId: u.employeeId,
+        fullName: u.fullName,
+        email: u.email,
+        phone: u.phone,
+        department: u.department || 'General',
+        avatarUrl: u.avatarUrl,
+        role: u.role,
+        totalScore: u.totalScore || 0,
+        completedDays: u.completedDays || 0,
+        createdAt: u.createdAt,
+        lastActiveAt: lastAttempt?.completedAt || u.createdAt,
+        deviceCount: devices.length,
+        primaryDevice: devices[0]?.deviceName || 'Thiết bị di động',
+      };
+    });
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      users = users.filter(
+        (u) =>
+          u.employeeId.includes(q) ||
+          u.fullName.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q)
+      );
+    }
+
+    if (department && department !== 'ALL') {
+      users = users.filter((u) => u.department === department);
+    }
+
+    users.sort((a, b) => b.totalScore - a.totalScore || b.completedDays - a.completedDays);
+    return users.map((u, idx) => ({ ...u, rank: idx + 1 }));
+  }
+
+  public getAdminUserDetails(userId: string) {
+    const user = this.findUserById(userId);
+    if (!user) return null;
+    const attempts = this.data.attempts
+      .filter((a) => a.userId === userId)
+      .sort((a, b) => a.dayNumber - b.dayNumber);
+    const devices = this.getUserDevices(userId);
+    return {
+      user: {
+        id: user.id,
+        employeeId: user.employeeId,
+        fullName: user.fullName,
+        email: user.email,
+        department: user.department,
+        role: user.role,
+        totalScore: user.totalScore,
+        completedDays: user.completedDays,
+        createdAt: user.createdAt,
+      },
+      attempts,
+      devices,
+    };
+  }
+
+  // ==================== ADMIN: GỬI THÔNG BÁO CÁ NHÂN HÓA ====================
+
+  public sendPersonalizedNotification(payload: {
+    targetType: 'all' | 'department' | 'user';
+    targetValue?: string;
+    title: string;
+    body: string;
+    targetUrl?: string;
+    type?: string;
+  }): { sentCount: number; success: boolean } {
+    let targets: UserRecord[] = [];
+    if (payload.targetType === 'user' && payload.targetValue) {
+      const u = this.findUserById(payload.targetValue);
+      if (u) targets = [u];
+    } else if (payload.targetType === 'department' && payload.targetValue) {
+      targets = this.data.users.filter((u) => u.department === payload.targetValue);
+    } else {
+      targets = this.data.users;
+    }
+
+    if (targets.length === 0) return { sentCount: 0, success: false };
+
+    const campaignId = `camp-custom-${Date.now()}`;
+    const targetUrl = payload.targetUrl || '#challenges';
+    const notifType = (payload.type || 'PERSONALIZED') as any;
+
+    targets.forEach((user) => {
+      const personalizedTitle = payload.title
+        .replace(/\{name\}/gi, user.fullName)
+        .replace(/\{gen\}/gi, user.employeeId)
+        .replace(/\{score\}/gi, String(user.totalScore || 0));
+
+      const personalizedBody = payload.body
+        .replace(/\{name\}/gi, user.fullName)
+        .replace(/\{gen\}/gi, user.employeeId)
+        .replace(/\{score\}/gi, String(user.totalScore || 0));
+
+      this.addInAppNotification({
+        id: `inapp-${Date.now()}-${user.id}`,
+        campaignId,
+        type: notifType,
+        userId: user.id,
+        title: personalizedTitle,
+        body: personalizedBody,
+        targetUrl,
+        deliveredAt: new Date().toISOString(),
+      });
+    });
+
+    return { sentCount: targets.length, success: true };
   }
 }
 

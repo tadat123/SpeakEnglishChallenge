@@ -168,6 +168,16 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ lang, darkMode
                 </div>
                 <p className="leading-relaxed">1. {pt.androidStep1}</p>
                 <p className="leading-relaxed font-semibold">2. {pt.androidStep2}</p>
+
+                {/* Hướng dẫn vượt qua cảnh báo Google Play Protect trên Samsung / Android 14+ */}
+                <div className="mt-2.5 pt-2 border-t border-blue-200/70 dark:border-slate-700/80 text-[11px] space-y-1">
+                  <div className="font-black text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <span>🛡️ Nếu Play Protect hiện "Đã chặn ứng dụng không an toàn":</span>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 leading-snug">
+                    Chỉ cần bấm vào chữ <strong>"Tiếp tục cài đặt"</strong> (ngay trên nút "Tôi hiểu") là xong ngay an toàn 100%! Hoặc mở link bằng <strong>Google Chrome</strong> để thêm lối tắt mượt mà.
+                  </p>
+                </div>
               </div>
 
               {/* Hướng dẫn iOS / iPadOS */}

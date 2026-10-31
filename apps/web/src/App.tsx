@@ -24,6 +24,10 @@ import {
   Moon,
   BellRing,
   X,
+  Smartphone,
+  Laptop,
+  Tablet,
+  Trash2,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { InstallPwaModal } from './components/InstallPwaModal';
@@ -173,6 +177,44 @@ export const App: React.FC = () => {
     type?: string;
   } | null>(null);
 
+  // Quản lý các thiết bị đã đăng nhập của người dùng
+  const [userDevices, setUserDevices] = useState<any[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState<boolean>(false);
+
+  const fetchUserDevices = async () => {
+    if (!token) return;
+    setLoadingDevices(true);
+    try {
+      const res = await fetch('/api/profile/devices', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserDevices(data.devices || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  const handleRemoveDevice = async (deviceId: string) => {
+    if (!token) return;
+    if (!window.confirm('Bạn có chắc muốn đăng xuất thiết bị này khỏi tài khoản?')) return;
+    try {
+      const res = await fetch(`/api/profile/devices/${deviceId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        fetchUserDevices();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Tự động đếm ngược đến 00:00 mỗi ngày & tự động mở Challenge mới đúng 00:00:00
   useEffect(() => {
     let lastDateNum = new Date().getDate();
@@ -306,6 +348,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     fetchAllData();
   }, [token]);
+
+  useEffect(() => {
+    if (activeTab === 'profile') {
+      fetchUserDevices();
+    }
+  }, [activeTab, token]);
 
   // Khách mở thẳng link #challenges / #profile / #admin -> đưa về Trang chủ
   useEffect(() => {
@@ -808,6 +856,31 @@ export const App: React.FC = () => {
   const myTotalScore = profileData?.user?.totalScore ?? user?.totalScore ?? 0;
   const myRankNumber = leaderboardData?.myRank?.rank ?? profileData?.user?.rank ?? 12;
 
+  // Khi tài khoản ADMIN mở trang Admin (#admin) -> Chuyển hoàn toàn sang Layout Admin CMS Portal (Có Sidebar + Main)
+  if (activeTab === 'admin' && user?.role === 'ADMIN') {
+    return (
+      <div
+        className={`min-h-screen relative transition-colors ${
+          darkMode ? 'text-slate-100' : 'text-slate-800'
+        }`}
+      >
+        <AdminDashboard
+          token={token!}
+          challenges={challenges}
+          onRefreshGlobal={fetchAllData}
+          onExportCsv={handleExportLeaderboardCsv}
+          lang={lang}
+          darkMode={darkMode}
+          user={user}
+          onBackToUserMode={() => navigateToTab('home')}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+          onChangeLang={handleChangeLang}
+          onLogout={handleLogout}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`min-h-screen flex flex-col relative transition-colors ${
@@ -865,9 +938,6 @@ export const App: React.FC = () => {
               { id: 'challenges', label: t.challenges, icon: Calendar, locked: isGuest },
               { id: 'leaderboard', label: t.leaderboard, icon: Trophy, locked: false },
               { id: 'profile', label: t.profile, icon: User, locked: isGuest },
-              ...(user?.role === 'ADMIN'
-                ? [{ id: 'admin', label: t.admin, icon: ShieldCheck, locked: false }]
-                : []),
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id && !activeQuiz && !quizResult;
@@ -891,8 +961,21 @@ export const App: React.FC = () => {
             })}
           </nav>
 
-          {/* Cột Phải: Đổi ngôn ngữ (VI / EN / KO) + Sáng/Tối + Đăng xuất */}
+          {/* Cột Phải: Nút Chuyển Trang Admin + Đổi ngôn ngữ (VI / EN / KO) + Sáng/Tối + Đăng xuất */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Nút Chuyển Vào Trang Admin dành cho tài khoản Quản trị */}
+            {user?.role === 'ADMIN' && (
+              <button
+                type="button"
+                onClick={() => navigateToTab('admin')}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/25 active:scale-95 transition"
+                title="Vào Trang Quản trị (Admin Portal có Sidebar & Thống kê)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+                <span className="hidden sm:inline">Trang Admin</span>
+                <span className="sm:hidden">Admin</span>
+              </button>
+            )}
             <div
               className={`p-0.5 rounded-xl flex items-center ${
                 darkMode ? 'bg-slate-800/70' : 'bg-white/60'
@@ -1860,6 +1943,129 @@ export const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* 3 EXCITING ACTIVITIES — MATCHING IMAGE 2 DESIGN */}
+                <div className={`rounded-3xl p-5 sm:p-6 border shadow-md space-y-4 ${cardBg}`}>
+                  <div className="text-center space-y-1">
+                    <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-black text-amber-500 uppercase tracking-widest">
+                      <span>✦</span> 3 EXCITING ACTIVITIES <span>✦</span>
+                    </div>
+                    <h2 className={`text-base sm:text-lg font-black ${textPrimary}`}>
+                      Chuỗi Hoạt Động Bùng Nổ Cùng Speak Right 2026
+                    </h2>
+                    <p className={`text-xs ${textSecondary}`}>
+                      Join the challenges, improve your English and make your voice heard!
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    {/* Activity 01: Ring The Golden Bell */}
+                    <div
+                      onClick={() => setShowEventsPopup(true)}
+                      className="group cursor-pointer rounded-2xl p-4 border border-amber-200 dark:border-amber-900/60 bg-gradient-to-br from-amber-50/80 via-white to-amber-100/50 dark:from-slate-900/90 dark:to-amber-950/30 shadow-sm hover:shadow-md hover:scale-[1.02] transition space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-500 text-white shadow-sm">
+                          01
+                        </span>
+                        <span className="text-xs font-black text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition flex items-center gap-0.5">
+                          Chi tiết →
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                          🔔 RING THE GOLDEN BELL
+                        </h3>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
+                          Test your English knowledge and be the last one standing!
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+                          👥 ~100 offline
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+                          📄 Trắc nghiệm
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+                          🏆 1 Chung kết
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Activity 02: Dub It Right */}
+                    <div
+                      onClick={() => setShowEventsPopup(true)}
+                      className="group cursor-pointer rounded-2xl p-4 border border-blue-200 dark:border-blue-900/60 bg-gradient-to-br from-blue-50/80 via-white to-blue-100/50 dark:from-slate-900/90 dark:to-blue-950/30 shadow-sm hover:shadow-md hover:scale-[1.02] transition space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-blue-600 text-white shadow-sm">
+                          02
+                        </span>
+                        <span className="text-xs font-black text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition flex items-center gap-0.5">
+                          Chi tiết →
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                          🎬 DUB IT RIGHT
+                        </h3>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
+                          Team up, give the characters a voice, and bring the video to life!
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200">
+                          👥 ~3 bạn / đội
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200">
+                          🎬 Lồng tiếng video
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200">
+                          🏆 1 Chung kết
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Activity 03: Daily Challenge */}
+                    <div
+                      onClick={() => navigateToTab('challenges')}
+                      className="group cursor-pointer rounded-2xl p-4 border border-purple-200 dark:border-purple-900/60 bg-gradient-to-br from-purple-50/80 via-white to-purple-100/50 dark:from-slate-900/90 dark:to-purple-950/30 shadow-sm hover:shadow-md hover:scale-[1.02] transition space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-purple-600 text-white shadow-sm">
+                          03
+                        </span>
+                        <span className="text-xs font-black text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition flex items-center gap-0.5">
+                          Vào thi ngay →
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                          📅 DAILY CHALLENGE
+                        </h3>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
+                          Small steps every day, big progress ahead! (Pronunciation, vocabulary, accent)
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md bg-purple-100/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
+                          ♾️ Không giới hạn
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-purple-100/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
+                          🎯 30 ngày thi
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-purple-100/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
+                          🎁 Tích điểm & quà
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center pt-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+                    ⭐ "Be part of SPEAK RIGHT 2026 — Let's make English a part of our everyday success!"
+                  </div>
+                </div>
               </div>
             )}
 
@@ -2189,19 +2395,78 @@ export const App: React.FC = () => {
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* ================= 5. TAB QUẢN TRỊ (ADMIN CMS) ================= */}
-            {activeTab === 'admin' && (
-              <AdminDashboard
-                token={token}
-                challenges={challenges}
-                onRefreshGlobal={fetchAllData}
-                onExportCsv={handleExportLeaderboardCsv}
-                lang={lang}
-                darkMode={darkMode}
-              />
+                {/* Danh sách Thiết bị đã đăng nhập của người dùng */}
+                <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-3 ${cardBg}`}>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                    <div>
+                      <h3 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
+                        <Smartphone className="w-4 h-4 text-blue-600" /> Thiết Bị Đã Đăng Nhập & Hoạt Động
+                      </h3>
+                      <p className={`text-[11px] ${textSecondary}`}>
+                        Quản lý các điện thoại, máy tính hoặc máy tính bảng đã đăng nhập tài khoản của bạn.
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 dark:bg-slate-800 dark:text-blue-300">
+                      {userDevices.length} thiết bị
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {userDevices.map((dev) => (
+                      <div
+                        key={dev.id}
+                        className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${subCardBg} ${
+                          dev.isCurrent ? 'ring-2 ring-emerald-500/30' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                            {dev.deviceType === 'desktop' ? (
+                              <Laptop className="w-4 h-4" />
+                            ) : dev.deviceType === 'tablet' ? (
+                              <Tablet className="w-4 h-4" />
+                            ) : (
+                              <Smartphone className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-extrabold text-xs sm:text-sm truncate">
+                                {dev.deviceName}
+                              </span>
+                              {dev.isCurrent && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Thiết bị này
+                                </span>
+                              )}
+                              {dev.isPwaInstalled && (
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                                  ⚡ PWA
+                                </span>
+                              )}
+                            </div>
+                            <div className={`text-[10px] sm:text-[11px] truncate mt-0.5 ${textSecondary}`}>
+                              {dev.browser} • {dev.os} • Hoạt động: {new Date(dev.lastActiveAt).toLocaleString('vi-VN')}
+                            </div>
+                          </div>
+                        </div>
+
+                        {!dev.isCurrent && (
+                          <button
+                            onClick={() => handleRemoveDevice(dev.id)}
+                            className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition shrink-0"
+                            title="Đăng xuất khỏi thiết bị này"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
           </>
         )}
@@ -2331,11 +2596,7 @@ export const App: React.FC = () => {
             : 'bg-white/75 border-white/80 text-slate-800 shadow-lg'
         }`}
       >
-        <div
-          className={`grid ${
-            user?.role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'
-          } gap-1 max-w-md mx-auto`}
-        >
+        <div className="grid grid-cols-4 gap-1 max-w-md mx-auto">
           {[
             { id: 'home', label: t.home, icon: Home, locked: false },
             { id: 'challenges', label: t.challenges, icon: Calendar, locked: isGuest },
@@ -2347,9 +2608,6 @@ export const App: React.FC = () => {
               locked: false,
               onClick: isGuest ? () => setAuthView({ mode: 'login' }) : undefined,
             },
-            ...(user?.role === 'ADMIN'
-              ? [{ id: 'admin', label: t.admin, icon: ShieldCheck, locked: false }]
-              : []),
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id && !activeQuiz && !quizResult;

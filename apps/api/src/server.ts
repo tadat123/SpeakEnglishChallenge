@@ -254,6 +254,10 @@ app.post(
     { expiresIn: '7d' }
   );
 
+  const userAgent = (request.headers['user-agent'] as string) || '';
+  const ip = request.ip || '';
+  store.recordUserDevice(user.id, userAgent, ip);
+
   return {
     accessToken,
     user: {
@@ -767,6 +771,73 @@ app.get('/api/profile/me', { preHandler: [(app as any).authenticate] }, async (r
     attempts,
   };
 });
+
+// Lấy danh sách thiết bị đã đăng nhập của người dùng
+app.get('/api/profile/devices', { preHandler: [(app as any).authenticate] }, async (request: any) => {
+  const currentUa = (request.headers['user-agent'] as string) || '';
+  const devices = store.getUserDevices(request.user.sub, currentUa);
+  return { devices };
+});
+
+// Đăng xuất 1 thiết bị khỏi tài khoản
+app.delete('/api/profile/devices/:deviceId', { preHandler: [(app as any).authenticate] }, async (request: any) => {
+  const ok = store.removeUserDevice(request.user.sub, request.params.deviceId);
+  return { success: ok };
+});
+
+// ==================== ADMIN: DASHBOARD THỐNG KÊ & TỈ LỆ HOÀN THÀNH ====================
+app.get(
+  '/api/admin/dashboard/stats',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any) => {
+    const day = request.query?.day ? parseInt(request.query.day, 10) : undefined;
+    return store.getDashboardStats(day);
+  }
+);
+
+// ==================== ADMIN: QUẢN LÝ NGƯỜI DÙNG & TÌM KIẾM ====================
+app.get(
+  '/api/admin/users',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any) => {
+    const search = (request.query?.search as string) || '';
+    const department = (request.query?.department as string) || '';
+    return { users: store.getAdminUsers(search, department) };
+  }
+);
+
+app.get(
+  '/api/admin/users/:userId/details',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const details = store.getAdminUserDetails(request.params.userId);
+    if (!details) {
+      return reply.status(404).send({ message: 'Không tìm thấy người dùng' });
+    }
+    return details;
+  }
+);
+
+// ==================== ADMIN: GỬI THÔNG BÁO CÁ NHÂN HÓA ====================
+app.post(
+  '/api/admin/notifications/send',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const { targetType, targetValue, title, body, targetUrl, type } = request.body || {};
+    if (!title || !body) {
+      return reply.status(400).send({ message: 'Tiêu đề và nội dung thông báo là bắt buộc' });
+    }
+    const result = store.sendPersonalizedNotification({
+      targetType: targetType || 'all',
+      targetValue,
+      title,
+      body,
+      targetUrl,
+      type,
+    });
+    return result;
+  }
+);
 
 // ==================== 4. FULL ADMIN CMS CRUD API (NGÀY THI, CÂU HỎI CHỮ/ÂM THANH/VIDEO, UPLOAD & CONCURRENCY LOCK) ====================
 

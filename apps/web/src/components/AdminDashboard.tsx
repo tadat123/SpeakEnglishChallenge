@@ -22,6 +22,20 @@ import {
   Smartphone,
   Trophy,
   Clock,
+  BarChart3,
+  Search,
+  Filter,
+  Sparkles,
+  Laptop,
+  Tablet,
+  Eye,
+  Calendar,
+  Award,
+  ArrowLeft,
+  Menu,
+  LogOut,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
 import { Lang } from '../utils/i18n';
@@ -33,6 +47,11 @@ interface AdminDashboardProps {
   onExportCsv: () => void;
   lang: Lang;
   darkMode: boolean;
+  user?: any;
+  onBackToUserMode?: () => void;
+  onToggleDarkMode?: () => void;
+  onChangeLang?: (l: Lang) => void;
+  onLogout?: () => void;
 }
 
 const ADMIN_I18N = {
@@ -279,8 +298,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onExportCsv,
   lang,
   darkMode,
+  user,
+  onBackToUserMode,
+  onToggleDarkMode,
+  onChangeLang,
+  onLogout,
 }) => {
   const at = ADMIN_I18N[lang];
+  // Quản lý các Sub-Tab của Admin CMS
+  type AdminSubTab = 'dashboard' | 'users' | 'challenges' | 'notifications' | 'security';
+  const [adminSubTab, setAdminSubTab] = useState<AdminSubTab>('dashboard');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+
+  // Thống kê Dashboard & Tỉ lệ hoàn thành
+  const [dashboardStats, setDashboardStats] = useState<any | null>(null);
+  const [selectedStatDay, setSelectedStatDay] = useState<number>(1);
+  const [loadingStats, setLoadingStats] = useState<boolean>(false);
+
+  // Quản lý Danh sách Người dùng & Tìm kiếm
+  const [userList, setUserList] = useState<any[]>([]);
+  const [userSearch, setUserSearch] = useState<string>('');
+  const [userDeptFilter, setUserDeptFilter] = useState<string>('ALL');
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const [inspectingUser, setInspectingUser] = useState<any | null>(null);
+
+  // Soạn & Gửi thông báo cá nhân hóa (Personalized Notifications)
+  const [notifTargetType, setNotifTargetType] = useState<'all' | 'department' | 'user'>('all');
+  const [notifTargetValue, setNotifTargetValue] = useState<string>('');
+  const [notifTitle, setNotifTitle] = useState<string>('🎉 Chúc mừng {name} đã hoàn thành xuất sắc!');
+  const [notifBody, setNotifBody] = useState<string>(
+    'Chào {name} (GEN {gen}), bạn hiện có {score} điểm! Hãy tiếp tục duy trì phong độ hôm nay nhé! 🚀'
+  );
+  const [notifTargetUrl, setNotifTargetUrl] = useState<string>('#challenges');
+  const [sendingNotif, setSendingNotif] = useState<boolean>(false);
+
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [dayDetail, setDayDetail] = useState<any | null>(null);
   const [loadingDay, setLoadingDay] = useState<boolean>(false);
@@ -411,6 +462,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // ignore
     }
   };
+
+  const fetchDashboardStats = async (day = selectedStatDay) => {
+    setLoadingStats(true);
+    try {
+      const res = await fetch(`/api/admin/dashboard/stats?day=${day}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDashboardStats(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const fetchAdminUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const q = encodeURIComponent(userSearch);
+      const dept = encodeURIComponent(userDeptFilter);
+      const res = await fetch(`/api/admin/users?search=${q}&department=${dept}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserList(data.users || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const fetchUserDetails = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/details`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInspectingUser(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSendPersonalizedNotif = async () => {
+    if (!notifTitle.trim() || !notifBody.trim()) {
+      showMessage('Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo', true);
+      return;
+    }
+    setSendingNotif(true);
+    try {
+      const res = await fetch('/api/admin/notifications/send', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          targetType: notifTargetType,
+          targetValue: notifTargetValue,
+          title: notifTitle,
+          body: notifBody,
+          targetUrl: notifTargetUrl,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showMessage(`📢 Đã gửi thành công thông báo cá nhân hóa tới ${data.sentCount} nhân viên!`);
+      } else {
+        showMessage(data.message || 'Lỗi gửi thông báo', true);
+      }
+    } catch (e: any) {
+      showMessage(e.message || 'Lỗi mạng khi gửi thông báo', true);
+    } finally {
+      setSendingNotif(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardStats(selectedStatDay);
+    fetchAdminUsers();
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardStats(selectedStatDay);
+  }, [selectedStatDay]);
 
   useEffect(() => {
     fetchPushStatus(true);
@@ -711,54 +852,714 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const activePlayersCount = dayDetail?.activePlayers?.length || 0;
 
+  const ADMIN_SIDEBAR_ITEMS: {
+    id: AdminSubTab;
+    label: string;
+    sub: string;
+    icon: any;
+    badge?: string | number | null;
+  }[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard Thống Kê',
+      sub: 'Tỉ lệ hoàn thành & KPI',
+      icon: BarChart3,
+      badge: null,
+    },
+    {
+      id: 'users',
+      label: 'Quản Lý Nhân Viên',
+      sub: 'Danh sách, GEN & thiết bị',
+      icon: Users,
+      badge: userList.length || null,
+    },
+    {
+      id: 'challenges',
+      label: '30 Ngày & Đề Thi',
+      sub: 'Câu hỏi, Audio & Video',
+      icon: Edit3,
+      badge: '30D',
+    },
+    {
+      id: 'notifications',
+      label: 'Thông Báo Cá Nhân',
+      sub: 'Push PWA & Cá nhân hóa',
+      icon: BellRing,
+      badge: 'Push',
+    },
+    {
+      id: 'security',
+      label: 'An Ninh & Anti-Cheat',
+      sub: 'DDoS, WAF & IP Jail',
+      icon: ShieldCheck,
+      badge:
+        (securityStats?.threatStats?.totalBannedCount || 0) > 0
+          ? `${securityStats.threatStats.totalBannedCount} ban`
+          : 'Safe',
+    },
+  ];
+
   return (
-    <div className="space-y-4">
-      {/* Thông báo Toast */}
+    <div
+      className={`min-h-screen flex flex-col md:flex-row relative transition-colors ${
+        darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-100/70 text-slate-800'
+      }`}
+    >
+      {/* Thông báo Toast Nổi */}
       {toast && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-extrabold flex items-center justify-between shadow-sm">
+        <div className="fixed top-4 right-4 z-50 p-3.5 rounded-2xl bg-emerald-500 text-white text-xs sm:text-sm font-extrabold flex items-center gap-2 shadow-2xl">
           <span>✅ {toast}</span>
-          <button onClick={() => setToast('')} className="text-emerald-700">
+          <button onClick={() => setToast('')} className="text-white/80 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
       {errorToast && (
-        <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm font-extrabold flex items-center justify-between shadow-sm">
+        <div className="fixed top-4 right-4 z-50 p-3.5 rounded-2xl bg-red-500 text-white text-xs sm:text-sm font-extrabold flex items-center gap-2 shadow-2xl">
           <span>⚠️ {errorToast}</span>
-          <button onClick={() => setErrorToast('')} className="text-red-700">
+          <button onClick={() => setErrorToast('')} className="text-white/80 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Header Quản trị tổng quan */}
-      <div
-        className={`rounded-3xl p-4 sm:p-5 border shadow-sm backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${cardBg}`}
+      {/* Backdrop trên Mobile khi mở Sidebar */}
+      {mobileSidebarOpen && (
+        <div
+          onClick={() => setMobileSidebarOpen(false)}
+          className="md:hidden fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm"
+        />
+      )}
+
+      {/* ================= SIDEBAR (DESKTOP CỐ ĐỊNH & MOBILE DRAWER) ================= */}
+      <aside
+        className={`fixed md:sticky top-0 left-0 z-50 md:z-20 h-screen w-72 shrink-0 border-r backdrop-blur-xl flex flex-col justify-between transition-transform duration-300 ${
+          darkMode
+            ? 'bg-slate-900/95 border-slate-800 text-white'
+            : 'bg-white/95 border-slate-200 text-slate-900 shadow-sm'
+        } ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
-        <div>
-          <h2 className={`text-base sm:text-lg font-black ${textPrimary}`}>{at.headerTitle}</h2>
-          <p className={`text-xs ${textSecondary}`}>{at.headerSub}</p>
-        </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
+        {/* Phần đầu Sidebar */}
+        <div className="p-4 sm:p-5 space-y-4 border-b border-slate-200/60 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <img
+                src={`${import.meta.env.BASE_URL || '/'}logo.png`}
+                alt="Speak Right"
+                className="w-10 h-10 object-contain drop-shadow"
+              />
+              <div>
+                <div className="text-xs font-black text-blue-600 dark:text-blue-400">
+                  SPEAK RIGHT 2026
+                </div>
+                <div className="text-sm font-black tracking-tight flex items-center gap-1.5">
+                  <span>Admin CMS</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-amber-400/90 text-slate-950 font-black">
+                    PORTAL
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className="md:hidden p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* NÚT CHUYỂN GIAO DIỆN: VỀ CHỖ LÀM KIỂM TRA */}
           <button
-            onClick={handleReseed}
-            className={`px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition ${
-              darkMode
-                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            type="button"
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              onBackToUserMode?.();
+            }}
+            className="w-full py-2.5 px-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 transition group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>Về Chỗ Làm Kiểm Tra</span>
+          </button>
+        </div>
+
+        {/* Menu Điều Hướng (Navigation Items) */}
+        <div className="p-3 flex-1 overflow-y-auto space-y-1">
+          <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 ${textSecondary}`}>
+            Danh Mục Quản Trị
+          </div>
+          {ADMIN_SIDEBAR_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = adminSubTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setAdminSubTab(item.id);
+                  setMobileSidebarOpen(false);
+                  if (item.id === 'dashboard') fetchDashboardStats(selectedStatDay);
+                  if (item.id === 'users') fetchAdminUsers();
+                }}
+                className={`w-full p-2.5 rounded-2xl text-left flex items-center justify-between transition group ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 font-black'
+                    : darkMode
+                    ? 'hover:bg-slate-800/80 text-slate-300 font-bold'
+                    : 'hover:bg-blue-50/80 text-slate-700 font-bold'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : darkMode
+                        ? 'bg-slate-800 text-blue-400 group-hover:bg-blue-900/40'
+                        : 'bg-blue-50 text-blue-600 group-hover:bg-blue-100'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs truncate">{item.label}</div>
+                    <div
+                      className={`text-[10px] truncate ${
+                        isActive
+                          ? 'text-blue-100'
+                          : darkMode
+                          ? 'text-slate-500'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {item.sub}
+                    </div>
+                  </div>
+                </div>
+
+                {item.badge && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                      isActive
+                        ? 'bg-white/25 text-white'
+                        : 'bg-blue-100 text-blue-700 dark:bg-slate-800 dark:text-blue-300'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800 space-y-1">
+            <div className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 ${textSecondary}`}>
+              Tác Vụ Nhanh
+            </div>
+            <button
+              onClick={handleReseed}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                darkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
+              <span>Reset Seed Mặc Định</span>
+            </button>
+            <button
+              onClick={onExportCsv}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                darkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+              }`}
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Xuất Excel Trao Giải</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Phần đáy Sidebar: Profile Admin & Setting */}
+        <div className="p-3.5 border-t border-slate-200/60 dark:border-slate-800 space-y-2.5">
+          <div
+            className={`p-2.5 rounded-2xl border flex items-center justify-between gap-2 ${
+              darkMode ? 'bg-slate-800/60 border-slate-700/60' : 'bg-slate-50 border-slate-200'
             }`}
           >
-            <RefreshCw className="w-3.5 h-3.5" /> {at.reseedBtn}
-          </button>
-          <button
-            onClick={onExportCsv}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm"
-          >
-            <Download className="w-3.5 h-3.5" /> {at.exportBtn}
-          </button>
-        </div>
-      </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <img
+                src={user?.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=admin'}
+                alt=""
+                className="w-8 h-8 rounded-full border border-blue-300 shrink-0"
+              />
+              <div className="min-w-0">
+                <div className="text-xs font-black truncate">{user?.fullName || 'Quản trị viên'}</div>
+                <div className={`text-[10px] truncate ${textSecondary}`}>
+                  GEN: {user?.employeeId || 'ADMIN'} • <strong>SUPER ADMIN</strong>
+                </div>
+              </div>
+            </div>
+          </div>
 
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-0.5">
+              {(['vi', 'en', 'ko'] as Lang[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => onChangeLang?.(l)}
+                  className={`px-1.5 py-1 rounded-lg text-[10px] font-black uppercase transition ${
+                    lang === l
+                      ? 'bg-blue-600 text-white'
+                      : darkMode
+                      ? 'text-slate-400 hover:text-white'
+                      : 'text-slate-600 hover:text-blue-600'
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1">
+              {onToggleDarkMode && (
+                <button
+                  onClick={onToggleDarkMode}
+                  className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-blue-600"
+                  title="Đổi giao diện Sáng/Tối"
+                >
+                  {darkMode ? (
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  ) : (
+                    <Moon className="w-3.5 h-3.5 text-slate-600" />
+                  )}
+                </button>
+              )}
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="p-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                  title="Đăng xuất"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ================= MAIN CONTENT AREA (PHẢI) ================= */}
+      <main className="flex-1 min-w-0 flex flex-col min-h-screen">
+        <header
+          className={`sticky top-0 z-30 px-4 sm:px-6 py-3 border-b backdrop-blur-md flex items-center justify-between gap-3 ${
+            darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                <span>Admin CMS Portal</span>
+                <span>/</span>
+                <span>
+                  {adminSubTab === 'dashboard'
+                    ? 'Dashboard Thống Kê'
+                    : adminSubTab === 'users'
+                    ? 'Quản Lý Nhân Viên'
+                    : adminSubTab === 'challenges'
+                    ? '30 Ngày & Đề Thi'
+                    : adminSubTab === 'notifications'
+                    ? 'Thông Báo Cá Nhân Hóa'
+                    : 'An Ninh & Bảo Mật'}
+                </span>
+              </div>
+              <h1 className={`text-base sm:text-lg font-black truncate ${textPrimary}`}>
+                {adminSubTab === 'dashboard'
+                  ? '📊 Dashboard Thống Kê & Tỉ Lệ Hoàn Thành'
+                  : adminSubTab === 'users'
+                  ? '👥 Quản Lý Tài Khoản Nhân Viên & Thiết Bị'
+                  : adminSubTab === 'challenges'
+                  ? '📝 Quản Lý 30 Ngày Thi & Câu Hỏi'
+                  : adminSubTab === 'notifications'
+                  ? '📢 Soạn & Gửi Thông Báo Cá Nhân Hóa'
+                  : '🛡️ Lá Chắn An Ninh & Phòng Thủ Tấn Công'}
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onBackToUserMode}
+              className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs shadow-sm flex items-center gap-1.5 transition"
+              title="Quay lại giao diện người dùng làm bài kiểm tra"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Về Chỗ Làm Kiểm Tra</span>
+              <span className="sm:hidden">Làm bài</span>
+            </button>
+          </div>
+        </header>
+
+        <div className="p-3 sm:p-6 space-y-4 flex-1">
+      {/* ================= 1. TAB DASHBOARD THỐNG KÊ ================= */}
+      {adminSubTab === 'dashboard' && (
+        <div className="space-y-4">
+          {/* 4 Thẻ KPI Tổng quan */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold ${textSecondary}`}>Tổng số Nhân viên</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-blue-600 mt-2">
+                {dashboardStats?.totalUsers ?? '...'}
+              </div>
+              <div className={`text-[11px] mt-1 ${textSecondary}`}>
+                {dashboardStats?.completedUsersCount ?? 0} người đã làm bài
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold ${textSecondary}`}>Tỉ lệ Hoàn thành Chung</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
+                  <Trophy className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2">
+                {dashboardStats?.overallCompletionRate ?? 0}%
+              </div>
+              <div className={`text-[11px] mt-1 ${textSecondary}`}>
+                Tính trên toàn bộ 30 ngày thi
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold ${textSecondary}`}>Điểm TB Toàn Công ty</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center">
+                  <Award className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-amber-500 mt-2">
+                {dashboardStats?.avgScore ?? 0}đ
+              </div>
+              <div className={`text-[11px] mt-1 ${textSecondary}`}>
+                Thang điểm 100/ngày
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold ${textSecondary}`}>Tổng Lượt Nộp Bài</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-purple-600 mt-2">
+                {dashboardStats?.totalAttempts ?? 0}
+              </div>
+              <div className={`text-[11px] mt-1 ${textSecondary}`}>
+                Bài thi đã hoàn thành & lưu điểm
+              </div>
+            </div>
+          </div>
+
+          {/* Bộ lọc & Thống kê Tỉ lệ người hoàn thành THEO NGÀY CỤ THỂ */}
+          <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-4 ${cardBg}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60 dark:border-slate-800">
+              <div>
+                <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  Tỉ lệ Người Hoàn thành & Điểm số Theo Ngày (Bộ lọc Ngày 1 → 30)
+                </h3>
+                <p className={`text-xs ${textSecondary}`}>
+                  Chọn bất kỳ ngày nào bên dưới để xem tỉ lệ người hoàn thành, điểm trung bình, số người đạt chuẩn và số người điểm tối đa.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${textSecondary}`}>Chọn nhanh:</span>
+                <select
+                  value={selectedStatDay}
+                  onChange={(e) => setSelectedStatDay(Number(e.target.value))}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold outline-none ${inputBg}`}
+                >
+                  {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>
+                      Day {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Dải nút chọn ngày nhanh */}
+            <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => {
+                const dayStat = dashboardStats?.allDaysStats?.find((s: any) => s.dayNumber === d);
+                const isSelected = selectedStatDay === d;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedStatDay(d)}
+                    className={`p-2 rounded-xl border text-center transition ${
+                      isSelected
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-105'
+                        : dayStat?.completionRate > 0
+                        ? darkMode
+                          ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300 hover:bg-emerald-900/60'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                        : subCardBg
+                    }`}
+                  >
+                    <div className="text-xs font-black">Day {d}</div>
+                    <div className="text-[10px] font-bold opacity-80">
+                      {dayStat ? `${dayStat.completionRate}%` : '0%'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Chi tiết Thống kê Ngày đang chọn */}
+            {dashboardStats?.selectedDayStat && (
+              <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black text-blue-600">
+                      Day {dashboardStats.selectedDayStat.dayNumber}: {dashboardStats.selectedDayStat.title}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                        dashboardStats.selectedDayStat.isUnlocked
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300'
+                          : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {dashboardStats.selectedDayStat.isUnlocked ? '🔓 Đang Mở' : '🔒 Đang Khóa'}
+                    </span>
+                  </div>
+                  <span className={`text-xs ${textSecondary}`}>
+                    Ngày hiển thị: <strong>{dashboardStats.selectedDayStat.dateLabel}</strong>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 text-center">
+                  <div className={`p-3 rounded-xl border ${cardBg}`}>
+                    <div className="text-lg sm:text-xl font-black text-blue-600">
+                      {dashboardStats.selectedDayStat.participantsCount}
+                    </div>
+                    <div className={`text-[11px] ${textSecondary}`}>Người nộp bài</div>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${cardBg}`}>
+                    <div className="text-lg sm:text-xl font-black text-emerald-600">
+                      {dashboardStats.selectedDayStat.completionRate}%
+                    </div>
+                    <div className={`text-[11px] ${textSecondary}`}>Tỉ lệ hoàn thành</div>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${cardBg}`}>
+                    <div className="text-lg sm:text-xl font-black text-amber-500">
+                      {dashboardStats.selectedDayStat.averageScore}đ
+                    </div>
+                    <div className={`text-[11px] ${textSecondary}`}>Điểm trung bình</div>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${cardBg}`}>
+                    <div className="text-lg sm:text-xl font-black text-indigo-600">
+                      {dashboardStats.selectedDayStat.passCount}
+                    </div>
+                    <div className={`text-[11px] ${textSecondary}`}>Đạt chuẩn (≥50đ)</div>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${cardBg}`}>
+                    <div className="text-lg sm:text-xl font-black text-rose-500">
+                      {dashboardStats.selectedDayStat.perfectCount}
+                    </div>
+                    <div className={`text-[11px] ${textSecondary}`}>Điểm 100 tuyệt đối</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bảng Tiến độ Hoàn thành toàn bộ 30 Ngày (Progress Visual) */}
+          <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-3 ${cardBg}`}>
+            <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
+              Tiến độ Tỉ lệ Hoàn thành 30 Ngày Toàn Công ty
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {dashboardStats?.allDaysStats?.map((st: any) => (
+                <div
+                  key={st.dayNumber}
+                  onClick={() => setSelectedStatDay(st.dayNumber)}
+                  className={`p-3 rounded-2xl border cursor-pointer hover:border-blue-400 transition ${
+                    selectedStatDay === st.dayNumber ? 'border-blue-600 ring-2 ring-blue-500/20' : subCardBg
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-bold mb-1.5">
+                    <span className="text-blue-600">
+                      Day {st.dayNumber}: {st.title}
+                    </span>
+                    <span className="font-black">{st.completionRate}%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all"
+                      style={{ width: `${st.completionRate}%` }}
+                    />
+                  </div>
+                  <div className={`flex items-center justify-between text-[10px] mt-1.5 ${textSecondary}`}>
+                    <span>{st.participantsCount} người làm</span>
+                    <span>ĐTB: {st.averageScore}đ</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= 2. TAB QUẢN LÝ NHÂN VIÊN (USERS) ================= */}
+      {adminSubTab === 'users' && (
+        <div className="space-y-4">
+          <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-4 ${cardBg}`}>
+            {/* Thanh tìm kiếm & lọc bộ phận */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${textSecondary}`} />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && fetchAdminUsers()}
+                    placeholder="Tìm theo Số GEN 8 số, Tên, hoặc Gmail..."
+                    className={`w-full pl-9 pr-3 py-2.5 rounded-2xl border text-xs sm:text-sm font-semibold outline-none ${inputBg}`}
+                  />
+                </div>
+                <select
+                  value={userDeptFilter}
+                  onChange={(e) => setUserDeptFilter(e.target.value)}
+                  className={`px-3 py-2.5 rounded-2xl border text-xs font-bold outline-none ${inputBg}`}
+                >
+                  <option value="ALL">Tất cả Phòng ban</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Quality Assurance">Quality Assurance</option>
+                  <option value="Production">Production</option>
+                  <option value="Human Resources">Human Resources</option>
+                  <option value="Sales & Marketing">Sales & Marketing</option>
+                  <option value="General">General</option>
+                </select>
+                <button
+                  onClick={fetchAdminUsers}
+                  className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <Search className="w-3.5 h-3.5" /> Tìm kiếm
+                </button>
+              </div>
+            </div>
+
+            {/* Bảng Danh sách Người dùng */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr
+                    className={`border-b ${
+                      darkMode ? 'border-slate-800 text-slate-400' : 'border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    <th className="py-2.5 px-3 font-extrabold">Hạng</th>
+                    <th className="py-2.5 px-3 font-extrabold">Nhân viên</th>
+                    <th className="py-2.5 px-3 font-extrabold">Bộ phận</th>
+                    <th className="py-2.5 px-3 font-extrabold">Điểm & Tiến độ</th>
+                    <th className="py-2.5 px-3 font-extrabold">Thiết bị chính</th>
+                    <th className="py-2.5 px-3 font-extrabold">Hoạt động cuối</th>
+                    <th className="py-2.5 px-3 font-extrabold text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {userList.map((u) => (
+                    <tr key={u.id} className="hover:bg-blue-50/50 dark:hover:bg-slate-800/40 transition">
+                      <td className="py-3 px-3 font-black text-amber-500">#{u.rank}</td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=user'}
+                            alt=""
+                            className="w-8 h-8 rounded-full border border-blue-200 dark:border-slate-700 shrink-0"
+                          />
+                          <div>
+                            <div className="font-extrabold text-sm">{u.fullName}</div>
+                            <div className={`text-[11px] ${textSecondary}`}>
+                              GEN: <strong>{u.employeeId}</strong> • {u.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-slate-800 dark:text-blue-300">
+                          {u.department}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="font-black text-emerald-600">{u.totalScore}đ</div>
+                        <div className={`text-[10px] ${textSecondary}`}>{u.completedDays}/30 ngày</div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-1.5 font-bold text-[11px]">
+                          <Smartphone className="w-3.5 h-3.5 text-blue-500" />
+                          <span>{u.primaryDevice}</span>
+                        </div>
+                        <div className={`text-[10px] ${textSecondary}`}>{u.deviceCount} thiết bị lưu</div>
+                      </td>
+                      <td className="py-3 px-3 text-[11px] text-slate-500 dark:text-slate-400">
+                        {new Date(u.lastActiveAt).toLocaleString('vi-VN', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => {
+                              setAdminSubTab('notifications');
+                              setNotifTargetType('user');
+                              setNotifTargetValue(u.id);
+                              setNotifTitle(`🎉 Chào ${u.fullName}!`);
+                              setNotifBody(
+                                `Chào ${u.fullName} (GEN ${u.employeeId}), bạn hiện có ${u.totalScore} điểm! Ban tổ chức chúc bạn hoàn thành trọn vẹn thử thách hôm nay nhé! 🚀`
+                              );
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs flex items-center gap-1 shadow-sm transition"
+                            title="Gửi thông báo cá nhân cho nhân viên này"
+                          >
+                            <Send className="w-3 h-3" /> Nhắn tin
+                          </button>
+                          <button
+                            onClick={() => fetchUserDetails(u.id)}
+                            className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center gap-1 shadow-sm transition"
+                            title="Xem chi tiết lịch sử thi & thiết bị"
+                          >
+                            <Eye className="w-3 h-3" /> Chi tiết
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= 3. TAB 30 NGÀY & ĐỀ THI (CHALLENGES) ================= */}
+      {adminSubTab === 'challenges' && (
+        <div className="space-y-4">
       {/* Bộ chọn 30 Ngày (Grid nhỏ gọn) */}
       <div className={`rounded-3xl p-4 border shadow-sm backdrop-blur-md ${cardBg}`}>
         <div className={`text-xs font-extrabold mb-2.5 uppercase tracking-wider ${textSecondary}`}>
@@ -1020,6 +1821,273 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+      </div>
+      )}
+
+      {/* ================= 4. TAB THÔNG BÁO CÁ NHÂN HÓA (NOTIFICATIONS) ================= */}
+      {adminSubTab === 'notifications' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Cột trái: Form Soạn Thông Báo Cá Nhân Hóa */}
+            <div
+              className={`lg:col-span-7 rounded-3xl p-5 sm:p-6 border shadow-sm backdrop-blur-md space-y-4 ${cardBg}`}
+            >
+              <div>
+                <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
+                  <Send className="w-4 h-4 text-amber-500" />
+                  Soạn & Gửi Thông Báo Mang Tính Cá Nhân Hóa (Push & In-App)
+                </h3>
+                <p className={`text-xs ${textSecondary}`}>
+                  Hỗ trợ các thẻ thay thế tự động <strong>{'{name}'}</strong> (Họ tên),{' '}
+                  <strong>{'{gen}'}</strong> (Số GEN 8 số), <strong>{'{score}'}</strong> (Điểm số cá nhân).
+                </p>
+              </div>
+
+              {/* Đối tượng nhận */}
+              <div className="space-y-1.5">
+                <label className={`block text-xs font-bold ${textSecondary}`}>
+                  Đối tượng nhận thông báo:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'all', label: '🏢 Toàn Công Ty' },
+                    { id: 'department', label: '👥 Theo Phòng Ban' },
+                    { id: 'user', label: '👤 1 Cá Nhân' },
+                  ].map((tg) => (
+                    <button
+                      key={tg.id}
+                      type="button"
+                      onClick={() => {
+                        setNotifTargetType(tg.id as any);
+                        setNotifTargetValue('');
+                      }}
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition text-center ${
+                        notifTargetType === tg.id
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                          : subCardBg
+                      }`}
+                    >
+                      {tg.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lựa chọn Phòng ban hoặc Cá nhân */}
+              {notifTargetType === 'department' && (
+                <div className="space-y-1">
+                  <label className={`block text-xs font-bold ${textSecondary}`}>Chọn Phòng Ban:</label>
+                  <select
+                    value={notifTargetValue}
+                    onChange={(e) => setNotifTargetValue(e.target.value)}
+                    className={`w-full px-3 py-2 rounded-xl border text-xs font-bold outline-none ${inputBg}`}
+                  >
+                    <option value="">-- Chọn Phòng ban nhận thông báo --</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Quality Assurance">Quality Assurance</option>
+                    <option value="Production">Production</option>
+                    <option value="Human Resources">Human Resources</option>
+                    <option value="Sales & Marketing">Sales & Marketing</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+              )}
+
+              {notifTargetType === 'user' && (
+                <div className="space-y-1">
+                  <label className={`block text-xs font-bold ${textSecondary}`}>Chọn Nhân Viên:</label>
+                  <select
+                    value={notifTargetValue}
+                    onChange={(e) => setNotifTargetValue(e.target.value)}
+                    className={`w-full px-3 py-2 rounded-xl border text-xs font-bold outline-none ${inputBg}`}
+                  >
+                    <option value="">-- Chọn 1 Nhân viên cụ thể --</option>
+                    {userList.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.fullName} (GEN: {u.employeeId} - {u.department} - {u.totalScore}đ)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Các mẫu gợi ý sẵn (Preset Templates) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className={textSecondary}>Mẫu thông báo gợi ý sẵn:</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotifTitle('🔔 Thử thách Speak Right hôm nay đã mở!');
+                      setNotifBody(
+                        'Chào {name}! Đừng bỏ lỡ bài học hôm nay, hãy dành 5 phút để tích thêm điểm nhé! 🚀'
+                      );
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-900 dark:text-amber-300 hover:scale-[1.02] transition"
+                  >
+                    🔔 Nhắc học hôm nay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotifTitle('🏆 Chúc mừng bạn đã hoàn thành xuất sắc!');
+                      setNotifBody(
+                        'Chúc mừng {name} (GEN {gen})! Bạn đang có {score} điểm trên bảng xếp hạng. Hãy tiếp tục giữ vững phong độ! ⭐'
+                      );
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-900 dark:text-emerald-300 hover:scale-[1.02] transition"
+                  >
+                    🏆 Khen ngợi thành tích
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotifTitle('⏰ Bài thi sắp đóng lúc 00:00!');
+                      setNotifBody(
+                        'Chào {name}, chỉ còn ít giờ nữa là kết thúc ngày thi. Vào làm bài ngay để không bị ngắt chuỗi 30 ngày nhé! 🔥'
+                      );
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-purple-50 dark:bg-purple-950/40 border-purple-200 text-purple-900 dark:text-purple-300 hover:scale-[1.02] transition"
+                  >
+                    ⏰ Cảnh báo trước 00:00
+                  </button>
+                </div>
+              </div>
+
+              {/* Tiêu đề & Nội dung */}
+              <div className="space-y-1">
+                <label className={`block text-xs font-bold ${textSecondary}`}>Tiêu đề thông báo:</label>
+                <input
+                  type="text"
+                  value={notifTitle}
+                  onChange={(e) => setNotifTitle(e.target.value)}
+                  placeholder="Tiêu đề thông báo..."
+                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold outline-none ${inputBg}`}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className={`block text-xs font-bold ${textSecondary}`}>Nội dung thông báo:</label>
+                  {/* Quick Tag Chips */}
+                  <div className="flex items-center gap-1">
+                    <span className={`text-[10px] ${textSecondary}`}>Chèn nhanh:</span>
+                    <button
+                      type="button"
+                      onClick={() => setNotifBody((prev) => prev + ' {name}')}
+                      className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold"
+                    >
+                      {'{name}'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNotifBody((prev) => prev + ' {gen}')}
+                      className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold"
+                    >
+                      {'{gen}'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNotifBody((prev) => prev + ' {score}')}
+                      className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold"
+                    >
+                      {'{score}'}
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  rows={4}
+                  value={notifBody}
+                  onChange={(e) => setNotifBody(e.target.value)}
+                  placeholder="Nội dung thông báo gửi tới nhân viên..."
+                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-medium outline-none ${inputBg}`}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className={`block text-xs font-bold ${textSecondary}`}>
+                  Liên kết mở ra khi bấm vào (Target URL):
+                </label>
+                <input
+                  type="text"
+                  value={notifTargetUrl}
+                  onChange={(e) => setNotifTargetUrl(e.target.value)}
+                  placeholder="#challenges"
+                  className={`w-full px-3 py-2 rounded-xl border text-xs font-bold outline-none ${inputBg}`}
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={sendingNotif}
+                onClick={handleSendPersonalizedNotif}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                {sendingNotif ? 'Đang gửi thông báo...' : 'Gửi Thông Báo Cá Nhân Hóa Ngay'}
+              </button>
+            </div>
+
+            {/* Cột phải: Live Mobile Preview Mockup */}
+            <div
+              className={`lg:col-span-5 rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-3 flex flex-col items-center justify-center ${subCardBg}`}
+            >
+              <div className={`text-xs font-black uppercase tracking-wider ${textSecondary}`}>
+                📱 Xem trước trên Màn hình Điện thoại Nhân viên
+              </div>
+
+              {/* Mobile Device Mockup Frame */}
+              <div className="w-full max-w-[280px] rounded-[36px] border-4 border-slate-700 bg-slate-950 p-3 shadow-2xl relative">
+                {/* Loa thoại / notch */}
+                <div className="w-20 h-3.5 bg-slate-800 rounded-full mx-auto mb-3" />
+
+                {/* Màn hình điện thoại */}
+                <div className="rounded-[24px] bg-gradient-to-b from-blue-600 via-indigo-700 to-slate-900 p-3 text-white min-h-[360px] flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-[10px] text-white/80 font-bold px-1">
+                    <span>9:41</span>
+                    <span>5G • 100%</span>
+                  </div>
+
+                  {/* Notification Card Bubble */}
+                  <div className="bg-white/95 text-slate-900 rounded-2xl p-3 shadow-xl backdrop-blur-md border border-white/60 space-y-1.5 transform hover:scale-105 transition">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <img src="./logo.png" alt="" className="w-5 h-5 object-contain" />
+                        <span className="text-[11px] font-black text-blue-700">Speak Right 2026</span>
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-bold">Vừa xong</span>
+                    </div>
+
+                    <div className="font-extrabold text-xs text-slate-900 leading-snug">
+                      {notifTitle
+                        .replace(/\{name\}/gi, 'Nguyễn Văn A')
+                        .replace(/\{gen\}/gi, '20261234')
+                        .replace(/\{score\}/gi, '85')}
+                    </div>
+
+                    <div className="text-[11px] text-slate-700 leading-relaxed font-medium">
+                      {notifBody
+                        .replace(/\{name\}/gi, 'Nguyễn Văn A')
+                        .replace(/\{gen\}/gi, '20261234')
+                        .replace(/\{score\}/gi, '85')}
+                    </div>
+
+                    <div className="text-[9px] font-black text-blue-600 pt-1 border-t border-slate-100 flex items-center justify-between">
+                      <span>Bấm để mở thử thách</span>
+                      <span>→</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center text-[10px] text-white/60 font-medium">
+                    Shin-chan Daily Challenge 2026
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
       {/* ================= HỆ THỐNG PUSH NOTIFICATION PWA (CHIA ĐỀU REQUEST - KHÔNG GỬI DỒN CÙNG LÚC) ================= */}
       {pushStatus && (
@@ -1415,7 +2483,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+      </div>
+      )}
 
+      {/* ================= 5. TAB AN NINH & BẢO MẬT (SECURITY) ================= */}
+      {adminSubTab === 'security' && (
+        <div className="space-y-4">
       {/* ================= 4. LÁ CHẮN AN NINH & PHÒNG THỦ TẤN CÔNG (SQL INJECTION, CHỐNG F12, CHỐNG DDOS) ================= */}
       <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 ${cardBg}`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-800">
@@ -1603,6 +2676,128 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       </div>
+      </div>
+      )}
+        </div>
+      </main>
+
+      {/* ================= MODAL CHI TIẾT NHÂN VIÊN & THIẾT BỊ ĐÃ ĐĂNG NHẬP ================= */}
+      {inspectingUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            className={`w-full max-w-2xl rounded-3xl p-6 shadow-2xl border space-y-4 max-h-[90vh] overflow-y-auto ${cardBg}`}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black">
+                  👤
+                </div>
+                <div>
+                  <h3 className="text-base font-black">{inspectingUser.user.fullName}</h3>
+                  <p className={`text-xs ${textSecondary}`}>
+                    GEN: <strong>{inspectingUser.user.employeeId}</strong> • Phòng ban:{' '}
+                    <strong>{inspectingUser.user.department}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInspectingUser(null)}
+                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Thông tin thống kê điểm */}
+            <div className="grid grid-cols-3 gap-2.5 text-center">
+              <div className={`p-3 rounded-2xl border ${subCardBg}`}>
+                <div className="text-lg font-black text-blue-600">
+                  {inspectingUser.user.totalScore}đ
+                </div>
+                <div className={`text-[11px] ${textSecondary}`}>Tổng điểm</div>
+              </div>
+              <div className={`p-3 rounded-2xl border ${subCardBg}`}>
+                <div className="text-lg font-black text-emerald-600">
+                  {inspectingUser.user.completedDays}/30
+                </div>
+                <div className={`text-[11px] ${textSecondary}`}>Số ngày hoàn thành</div>
+              </div>
+              <div className={`p-3 rounded-2xl border ${subCardBg}`}>
+                <div className="text-lg font-black text-purple-600">
+                  {inspectingUser.devices?.length || 1}
+                </div>
+                <div className={`text-[11px] ${textSecondary}`}>Thiết bị đăng nhập</div>
+              </div>
+            </div>
+
+            {/* Danh sách thiết bị đã đăng nhập của user */}
+            <div className={`p-4 rounded-2xl border space-y-2.5 ${subCardBg}`}>
+              <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-blue-600">
+                <Smartphone className="w-4 h-4" /> Các Thiết Bị Đã Đăng Nhập Của Nhân Viên Này
+              </h4>
+              <div className="space-y-2">
+                {inspectingUser.devices?.map((dev: any) => (
+                  <div
+                    key={dev.id}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${cardBg}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">
+                        {dev.deviceType === 'desktop'
+                          ? '💻'
+                          : dev.deviceType === 'tablet'
+                          ? '📟'
+                          : '📱'}
+                      </span>
+                      <div>
+                        <div className="font-extrabold">{dev.deviceName}</div>
+                        <div className={`text-[10px] ${textSecondary}`}>
+                          Trình duyệt: {dev.browser} • OS: {dev.os} • Hoạt động:{' '}
+                          {new Date(dev.lastActiveAt).toLocaleString('vi-VN')}
+                        </div>
+                      </div>
+                    </div>
+                    {dev.isPwaInstalled && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">
+                        ⚡ PWA
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Lịch sử thi các ngày */}
+            <div className={`p-4 rounded-2xl border space-y-2.5 ${subCardBg}`}>
+              <h4 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-emerald-600">
+                <Trophy className="w-4 h-4" /> Lịch Sử Bài Thi Đã Làm ({inspectingUser.attempts?.length || 0})
+              </h4>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {inspectingUser.attempts?.length === 0 ? (
+                  <p className={`text-xs text-center py-3 ${textSecondary}`}>Chưa nộp bài thi nào</p>
+                ) : (
+                  inspectingUser.attempts.map((att: any) => (
+                    <div
+                      key={att.id}
+                      className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${cardBg}`}
+                    >
+                      <div className="font-bold">
+                        Day {att.dayNumber}: {att.dayTitle || `Bài thi ngày ${att.dayNumber}`}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-blue-600">{att.score} / 100đ</span>
+                        <span className={`text-[10px] ${textSecondary}`}>
+                          {Math.round((att.clientTimeMs || 0) / 1000)}s
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= MODAL CƠ CHẾ KHÓA NGÀY THI KHI ĐANG CÓ NGƯỜI LÀM ================= */}
       {showLockConfirmModal && dayDetail && (

@@ -159,10 +159,55 @@ interface ClientPushConfig {
   notifiedUnstudiedKeys: string[];
 }
 
+export interface UserDeviceRecord {
+  id: string;
+  userId: string;
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  deviceName: string;
+  browser: string;
+  os: string;
+  ip?: string;
+  userAgent: string;
+  isCurrent?: boolean;
+  isPwaInstalled?: boolean;
+  createdAt: string;
+  lastActiveAt: string;
+}
+
+export function parseDeviceFromUserAgent(ua = ''): {
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  browser: string;
+  os: string;
+} {
+  let deviceType: 'mobile' | 'tablet' | 'desktop' = 'desktop';
+  if (/ipad|tablet/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) {
+    deviceType = 'tablet';
+  } else if (/iphone|mobile|android/i.test(ua)) {
+    deviceType = 'mobile';
+  }
+
+  let browser = 'Trình duyệt Web';
+  if (/samsungbrowser/i.test(ua)) browser = 'Samsung Internet';
+  else if (/edg/i.test(ua)) browser = 'Microsoft Edge';
+  else if (/chrome|crios/i.test(ua)) browser = 'Google Chrome';
+  else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Apple Safari';
+  else if (/firefox|fxios/i.test(ua)) browser = 'Mozilla Firefox';
+
+  let os = 'Thiết bị';
+  if (/windows/i.test(ua)) os = 'Windows PC';
+  else if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad|ios/i.test(ua)) os = 'Apple iOS';
+  else if (/mac os/i.test(ua)) os = 'Apple macOS';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  return { deviceType, browser, os };
+}
+
 interface ClientDbShape {
   users: UserRecord[];
   challenges: DailyChallengeItem[];
   attempts: AttemptRecord[];
+  devices?: UserDeviceRecord[];
   pwaSubscriptions?: ClientPwaSub[];
   pushCampaigns?: ClientPushCampaign[];
   inAppNotifications?: ClientInAppNotif[];
@@ -908,6 +953,266 @@ function saveDb(db: ClientDbShape) {
   }
 }
 
+function getUserDevices(db: ClientDbShape, userId: string, currentUa = ''): UserDeviceRecord[] {
+  if (!db.devices) db.devices = [];
+  const userDevices = db.devices.filter((d) => d.userId === userId);
+  if (userDevices.length === 0) {
+    const parsed = parseDeviceFromUserAgent(currentUa || (typeof navigator !== 'undefined' ? navigator.userAgent : ''));
+    const defDev: UserDeviceRecord = {
+      id: `dev-${userId}-main`,
+      userId,
+      deviceType: parsed.deviceType,
+      deviceName: `${parsed.browser} trên ${parsed.os}`,
+      browser: parsed.browser,
+      os: parsed.os,
+      userAgent: currentUa || (typeof navigator !== 'undefined' ? navigator.userAgent : ''),
+      isCurrent: true,
+      isPwaInstalled: true,
+      createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+      lastActiveAt: new Date().toISOString(),
+    };
+    db.devices.push(defDev);
+    saveDb(db);
+    return [defDev];
+  }
+  return userDevices.map((d) => ({
+    ...d,
+    isCurrent: Boolean(currentUa && d.userAgent === currentUa),
+  }));
+}
+
+function recordUserDevice(db: ClientDbShape, userId: string, userAgent = '', ip = ''): UserDeviceRecord {
+  if (!db.devices) db.devices = [];
+  const parsed = parseDeviceFromUserAgent(userAgent);
+  const existing = db.devices.find(
+    (d) =>
+      d.userId === userId &&
+      (d.userAgent === userAgent ||
+        (d.browser === parsed.browser && d.os === parsed.os))
+  );
+  const now = new Date().toISOString();
+  if (existing) {
+    existing.lastActiveAt = now;
+    if (ip) existing.ip = ip;
+    saveDb(db);
+    return existing;
+  }
+  const newDevice: UserDeviceRecord = {
+    id: `dev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    userId,
+    deviceType: parsed.deviceType,
+    deviceName: `${parsed.browser} trên ${parsed.os}`,
+    browser: parsed.browser,
+    os: parsed.os,
+    ip,
+    userAgent,
+    isCurrent: true,
+    isPwaInstalled: /standalone|pwa/i.test(userAgent),
+    createdAt: now,
+    lastActiveAt: now,
+  };
+  db.devices.push(newDevice);
+  saveDb(db);
+  return newDevice;
+}
+
+function removeUserDevice(db: ClientDbShape, userId: string, deviceId: string): boolean {
+  if (!db.devices) return false;
+  const initialLen = db.devices.length;
+  db.devices = db.devices.filter((d) => !(d.userId === userId && d.id === deviceId));
+  const changed = db.devices.length !== initialLen;
+  if (changed) saveDb(db);
+  return changed;
+}
+
+function getDashboardStats(db: ClientDbShape, dayFilter?: number) {
+  const totalUsers = db.users.length;
+  const completedUsersCount = db.users.filter((u) => u.completedDays > 0).length;
+  const overallCompletionRate = totalUsers > 0 ? Math.round((completedUsersCount / totalUsers) * 100) : 0;
+  const avgScore = totalUsers > 0 ? Math.round(db.users.reduce((acc, u) => acc + (u.totalScore || 0), 0) / totalUsers) : 0;
+
+  const now = new Date();
+  const todayChallenge =
+    db.challenges.find((c) => {
+      const d = new Date(c.unlockDate);
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    }) || db.challenges[0];
+
+  const allDaysStats = db.challenges.map((ch) => {
+    const attemptsForDay = db.attempts.filter((a) => a.dayNumber === ch.dayNumber);
+    const participantsCount = attemptsForDay.length;
+    const completionRate = totalUsers > 0 ? Math.round((participantsCount / totalUsers) * 100) : 0;
+    const averageScore =
+      participantsCount > 0
+        ? Math.round(attemptsForDay.reduce((acc, a) => acc + (a.score || 0), 0) / participantsCount)
+        : 0;
+    const passCount = attemptsForDay.filter((a) => a.score >= 50).length;
+    const perfectCount = attemptsForDay.filter((a) => a.score === 100).length;
+    const averageTimeSec =
+      participantsCount > 0
+        ? Math.round(
+            attemptsForDay.reduce((acc, a) => acc + Math.floor((a.clientTimeMs || 0) / 1000), 0) /
+              participantsCount
+          )
+        : 0;
+
+    return {
+      dayNumber: ch.dayNumber,
+      title: ch.title,
+      dateLabel: ch.dateLabel,
+      isUnlocked: isDayUnlocked(ch),
+      participantsCount,
+      completionRate,
+      averageScore,
+      passCount,
+      perfectCount,
+      averageTimeSec,
+    };
+  });
+
+  const targetDayNumber = dayFilter || todayChallenge?.dayNumber || 1;
+  const selectedDayStat = allDaysStats.find((d) => d.dayNumber === targetDayNumber) || allDaysStats[0];
+
+  return {
+    totalUsers,
+    completedUsersCount,
+    overallCompletionRate,
+    avgScore,
+    totalAttempts: db.attempts.length,
+    todayChallenge: {
+      dayNumber: todayChallenge?.dayNumber || 1,
+      title: todayChallenge?.title || 'Day 1',
+      dateLabel: todayChallenge?.dateLabel || '',
+    },
+    selectedDayStat,
+    allDaysStats,
+  };
+}
+
+function getAdminUsers(db: ClientDbShape, search = '', department = '') {
+  let users = db.users.map((u) => {
+    const userAttempts = db.attempts.filter((a) => a.userId === u.id);
+    const lastAttempt = userAttempts.sort(
+      (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+    )[0];
+    const devices = getUserDevices(db, u.id);
+
+    return {
+      id: u.id,
+      employeeId: u.employeeId,
+      fullName: u.fullName,
+      email: u.email,
+      phone: u.phone,
+      department: u.department || 'General',
+      avatarUrl: u.avatarUrl,
+      role: u.role,
+      totalScore: u.totalScore || 0,
+      completedDays: u.completedDays || 0,
+      createdAt: u.createdAt,
+      lastActiveAt: lastAttempt?.completedAt || u.createdAt,
+      deviceCount: devices.length,
+      primaryDevice: devices[0]?.deviceName || 'Thiết bị di động',
+    };
+  });
+
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    users = users.filter(
+      (u) =>
+        u.employeeId.includes(q) ||
+        u.fullName.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+    );
+  }
+
+  if (department && department !== 'ALL') {
+    users = users.filter((u) => u.department === department);
+  }
+
+  users.sort((a, b) => b.totalScore - a.totalScore || b.completedDays - a.completedDays);
+  return users.map((u, idx) => ({ ...u, rank: idx + 1 }));
+}
+
+function getAdminUserDetails(db: ClientDbShape, userId: string) {
+  const user = db.users.find((u) => u.id === userId);
+  if (!user) return null;
+  const attempts = db.attempts
+    .filter((a) => a.userId === userId)
+    .sort((a, b) => a.dayNumber - b.dayNumber);
+  const devices = getUserDevices(db, userId);
+  return {
+    user: {
+      id: user.id,
+      employeeId: user.employeeId,
+      fullName: user.fullName,
+      email: user.email,
+      department: user.department,
+      role: user.role,
+      totalScore: user.totalScore,
+      completedDays: user.completedDays,
+      createdAt: user.createdAt,
+    },
+    attempts,
+    devices,
+  };
+}
+
+function sendPersonalizedNotification(db: ClientDbShape, payload: {
+  targetType: 'all' | 'department' | 'user';
+  targetValue?: string;
+  title: string;
+  body: string;
+  targetUrl?: string;
+  type?: string;
+}) {
+  let targets: UserRecord[] = [];
+  if (payload.targetType === 'user' && payload.targetValue) {
+    const u = db.users.find((x) => x.id === payload.targetValue);
+    if (u) targets = [u];
+  } else if (payload.targetType === 'department' && payload.targetValue) {
+    targets = db.users.filter((u) => u.department === payload.targetValue);
+  } else {
+    targets = db.users;
+  }
+
+  if (targets.length === 0) return { sentCount: 0, success: false };
+
+  if (!db.inAppNotifications) db.inAppNotifications = [];
+  const campaignId = `camp-custom-${Date.now()}`;
+  const targetUrl = payload.targetUrl || '#challenges';
+  const notifType = (payload.type || 'PERSONALIZED') as any;
+
+  targets.forEach((user) => {
+    const personalizedTitle = payload.title
+      .replace(/\{name\}/gi, user.fullName)
+      .replace(/\{gen\}/gi, user.employeeId)
+      .replace(/\{score\}/gi, String(user.totalScore || 0));
+
+    const personalizedBody = payload.body
+      .replace(/\{name\}/gi, user.fullName)
+      .replace(/\{gen\}/gi, user.employeeId)
+      .replace(/\{score\}/gi, String(user.totalScore || 0));
+
+    db.inAppNotifications!.unshift({
+      id: `inapp-${Date.now()}-${user.id}`,
+      campaignId,
+      type: notifType,
+      userId: user.id,
+      title: personalizedTitle,
+      body: personalizedBody,
+      targetUrl,
+      deliveredAt: new Date().toISOString(),
+    });
+  });
+
+  saveDb(db);
+  return { sentCount: targets.length, success: true };
+}
+
 function isDayUnlocked(c: DailyChallengeItem): boolean {
   return new Date(c.unlockDate).getTime() <= Date.now() && c.isPublished;
 }
@@ -1038,6 +1343,8 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
         401
       );
     }
+
+    recordUserDevice(db, user.id, typeof navigator !== 'undefined' ? navigator.userAgent : '');
 
     return jsonResponse({
       accessToken: encodeToken(user),
@@ -1690,7 +1997,61 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     });
   }
 
+  // 10b. GET /api/profile/devices
+  if (path === '/api/profile/devices' && method === 'GET') {
+    const devices = getUserDevices(
+      db,
+      currentUser.id,
+      typeof navigator !== 'undefined' ? navigator.userAgent : ''
+    );
+    return jsonResponse({ devices });
+  }
+
+  // 10c. DELETE /api/profile/devices/:deviceId
+  const deleteDevMatch = path.match(/^\/api\/profile\/devices\/([^/]+)$/);
+  if (deleteDevMatch && method === 'DELETE') {
+    const devId = deleteDevMatch[1];
+    const ok = removeUserDevice(db, currentUser.id, devId);
+    return jsonResponse({ success: ok });
+  }
+
   // ==================== ADMIN ENDPOINTS ====================
+
+  // Dashboard Stats
+  if (path.startsWith('/api/admin/dashboard/stats') && method === 'GET') {
+    const dayParam = url.searchParams.get('day');
+    const dayFilter = dayParam ? parseInt(dayParam, 10) : undefined;
+    return jsonResponse(getDashboardStats(db, dayFilter));
+  }
+
+  // User Management List
+  if (path.startsWith('/api/admin/users') && !path.includes('/details') && method === 'GET') {
+    const search = url.searchParams.get('search') || '';
+    const department = url.searchParams.get('department') || '';
+    return jsonResponse({ users: getAdminUsers(db, search, department) });
+  }
+
+  // User Details
+  const userDetailsMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/details$/);
+  if (userDetailsMatch && method === 'GET') {
+    const targetUserId = userDetailsMatch[1];
+    const details = getAdminUserDetails(db, targetUserId);
+    if (!details) return jsonResponse({ message: 'Không tìm thấy người dùng.' }, 404);
+    return jsonResponse(details);
+  }
+
+  // Send Personalized Notification
+  if (path === '/api/admin/notifications/send' && method === 'POST') {
+    const result = sendPersonalizedNotification(db, {
+      targetType: body.targetType || 'all',
+      targetValue: body.targetValue,
+      title: body.title || '',
+      body: body.body || '',
+      targetUrl: body.targetUrl,
+      type: body.type,
+    });
+    return jsonResponse(result);
+  }
 
   // 11. GET /api/admin/challenges/:dayNumber
   const adminDayMatch = path.match(/^\/api\/admin\/challenges\/(\d+)$/);
