@@ -29,6 +29,11 @@ import { AuthScreen } from './components/AuthScreen';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ResponsiveBackground, PerfmonsterFooter } from './components/LayoutDecor';
+import {
+  PronunciationChallengeQ11,
+  Q11SubmissionData,
+} from './components/PronunciationChallengeQ11';
+import { SpeakRightEventsPopup } from './components/SpeakRightEventsPopup';
 import { playPronunciation } from './utils/audio';
 import { Lang, TRANSLATIONS } from './utils/i18n';
 import {
@@ -103,6 +108,10 @@ export const App: React.FC = () => {
   } | null>(null);
   const [quizResult, setQuizResult] = useState<any | null>(null);
   const [showDetailedReview, setShowDetailedReview] = useState(false);
+  const [adminPreviewResult, setAdminPreviewResult] = useState(false);
+  const [showEventsPopup, setShowEventsPopup] = useState(false);
+  const [q11Data, setQ11Data] = useState<Q11SubmissionData | null>(null);
+  const [midnightCountdown, setMidnightCountdown] = useState<string>('00:00:00');
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [autoNextOnSelect, setAutoNextOnSelect] = useState<boolean>(true);
   const [gracePeriodNotice, setGracePeriodNotice] = useState<string | null>(null);
@@ -114,6 +123,37 @@ export const App: React.FC = () => {
     targetUrl: string;
     type?: string;
   } | null>(null);
+
+  // Tự động đếm ngược đến 00:00 mỗi ngày & tự động mở Challenge mới đúng 00:00:00
+  useEffect(() => {
+    let lastDateNum = new Date().getDate();
+    const updateClock = () => {
+      const now = new Date();
+      const nextMidnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0,
+        0,
+        0,
+        0
+      );
+      const diffSec = Math.max(0, Math.floor((nextMidnight.getTime() - now.getTime()) / 1000));
+      const hh = String(Math.floor(diffSec / 3600)).padStart(2, '0');
+      const mm = String(Math.floor((diffSec % 3600) / 60)).padStart(2, '0');
+      const ss = String(diffSec % 60).padStart(2, '0');
+      setMidnightCountdown(`${hh}:${mm}:${ss}`);
+
+      // Khi bước qua 00:00 sang ngày mới -> Tự động mở khóa Challenge tiếp theo và công bố kết quả ngày vừa kết thúc
+      if (now.getDate() !== lastDateNum) {
+        lastDateNum = now.getDate();
+        fetchAllData();
+      }
+    };
+    updateClock();
+    const timerId = setInterval(updateClock, 1000);
+    return () => clearInterval(timerId);
+  }, [token]);
 
   // Hệ thống biến giao diện Sáng / Tối tường minh (Mờ nhẹ 58%-65% trên Mobile/Tablet để nhìn xuyên thấy cảnh nền Shin-chan)
   const cardBg = darkMode
@@ -354,6 +394,8 @@ export const App: React.FC = () => {
 
       setQuizResult(null);
       setShowDetailedReview(false);
+      setAdminPreviewResult(false);
+      setQ11Data(null);
       setActiveQuiz({
         dayNumber: data.dayNumber,
         title: data.title,
@@ -377,7 +419,6 @@ export const App: React.FC = () => {
 
   const handleSelectOption = (question: any, optionId: 'A' | 'B' | 'C' | 'D') => {
     if (!activeQuiz) return;
-    const isLastQuestion = activeQuiz.currentIndex === activeQuiz.questions.length - 1;
 
     setActiveQuiz((prev) => {
       if (!prev) return null;
@@ -388,10 +429,11 @@ export const App: React.FC = () => {
       };
     });
 
-    if (autoNextOnSelect && !isLastQuestion) {
+    if (autoNextOnSelect) {
       setTimeout(() => {
         setActiveQuiz((prev) => {
-          if (!prev || prev.currentIndex >= prev.questions.length - 1) return prev;
+          // Cho phép tự động chuyển sang tới Câu 11 (index === questions.length)
+          if (!prev || prev.currentIndex >= prev.questions.length) return prev;
           const nextIdx = prev.currentIndex + 1;
           const nextQ = prev.questions[nextIdx];
           if (nextQ?.hasPromptAudio && nextQ?.targetWord) {
@@ -412,6 +454,7 @@ export const App: React.FC = () => {
         body: JSON.stringify({
           answers: activeQuiz.answers,
           clientTimeMs: activeQuiz.elapsedSeconds * 1000,
+          q11Pronunciation: q11Data,
         }),
       });
       const data = await res.json();
@@ -427,7 +470,10 @@ export const App: React.FC = () => {
 
       setActiveQuiz(null);
       setGracePeriodNotice(null);
-      setQuizResult(data);
+      setQuizResult({
+        ...data,
+        q11Pronunciation: q11Data,
+      });
       window.location.hash = `#result/${data.dayNumber}`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       confetti({
@@ -654,6 +700,13 @@ export const App: React.FC = () => {
 
       {/* ================= NỘI DUNG CHÍNH ================= */}
       <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 pb-6">
+        <SpeakRightEventsPopup
+          lang={lang}
+          darkMode={darkMode}
+          externalOpen={showEventsPopup}
+          onExternalClose={() => setShowEventsPopup(false)}
+          onStartDailyChallenge={() => handleStartDay(todayChallenge)}
+        />
         <InstallPwaModal lang={lang} darkMode={darkMode} />
 
         {/* Banner Thông Báo Đẩy PWA Thời Gian Thực (Nhận từ Staggered Push Queue) */}
@@ -755,6 +808,26 @@ export const App: React.FC = () => {
                     </button>
                   );
                 })}
+                {/* Nút chuyển nhanh sang Câu 11 – Pronunciation Challenge 🎙️ (Không tính điểm) */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveQuiz((prev) =>
+                      prev ? { ...prev, currentIndex: prev.questions.length } : null
+                    )
+                  }
+                  className={`px-2 h-7 rounded-lg text-xs font-extrabold shrink-0 transition flex items-center gap-1 ${
+                    activeQuiz.currentIndex === activeQuiz.questions.length
+                      ? 'bg-indigo-600 text-white shadow-sm scale-105'
+                      : q11Data?.submitted
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : darkMode
+                      ? 'bg-slate-800 text-indigo-300 border border-indigo-700/60'
+                      : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                  }`}
+                >
+                  🎙️ 11
+                </button>
               </div>
 
               <button
@@ -772,17 +845,58 @@ export const App: React.FC = () => {
             </div>
 
             {(() => {
+              const answeredCount = Object.keys(activeQuiz.answers).length;
+              const isQuestion11 = activeQuiz.currentIndex >= activeQuiz.questions.length;
+
+              if (isQuestion11) {
+                return (
+                  <div className="mt-3">
+                    <PronunciationChallengeQ11
+                      lang={lang}
+                      darkMode={darkMode}
+                      value={q11Data}
+                      onChange={setQ11Data}
+                    />
+
+                    <div className="flex items-center justify-between gap-2.5 mt-5 pt-3.5 border-t border-slate-200/60">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveQuiz((prev) =>
+                            prev ? { ...prev, currentIndex: prev.questions.length - 1 } : null
+                          )
+                        }
+                        className={`px-4 py-3 rounded-2xl border font-bold text-xs sm:text-sm ${
+                          darkMode
+                            ? 'border-slate-700 text-slate-300'
+                            : 'border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {t.prevQuestion}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSubmitQuiz}
+                        className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition"
+                      >
+                        {t.submitQuiz} ({answeredCount}/{activeQuiz.questions.length})
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
               const q = activeQuiz.questions[activeQuiz.currentIndex];
               const selectedOpt = activeQuiz.answers[q.id];
-              const answeredCount = Object.keys(activeQuiz.answers).length;
 
               return (
                 <div className="mt-3">
                   <div
                     className={`border rounded-2xl p-4 sm:p-5 ${
                       darkMode
-                        ? 'bg-slate-800 border-slate-700'
-                        : 'bg-gradient-to-br from-blue-50 to-indigo-50/60 border-blue-100'
+                        ? 'bg-slate-800/80 border-slate-700'
+                        : 'bg-gradient-to-br from-blue-50/85 to-indigo-50/75 border-blue-100'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -832,10 +946,16 @@ export const App: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Danh sách đáp án đã được xáo trộn ngẫu nhiên theo từng người chơi & KHÔNG hiển thị A, B, C, D */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
-                    {q.options.map((opt: any) => {
+                    {q.options.map((opt: any, optIdx: number) => {
                       const isSelected = selectedOpt === opt.id;
                       const optAudioKey = `opt-${q.id}-${opt.id}`;
+                      const displayLabel =
+                        q.questionType === 'CHOOSE_AUDIO' && /^Audio [A-D]$/i.test(opt.text)
+                          ? `Mẫu phát âm ${optIdx + 1}`
+                          : opt.text;
+
                       return (
                         <div
                           key={opt.id}
@@ -844,10 +964,10 @@ export const App: React.FC = () => {
                             isSelected
                               ? darkMode
                                 ? 'border-blue-500 bg-blue-950/60 shadow-sm'
-                                : 'border-blue-600 bg-blue-50 shadow-sm'
+                                : 'border-blue-600 bg-blue-50/90 shadow-sm'
                               : darkMode
-                              ? 'border-slate-700 bg-slate-800/80 hover:border-blue-400'
-                              : 'border-slate-200 bg-white hover:border-blue-300'
+                              ? 'border-slate-700 bg-slate-800/75 hover:border-blue-400'
+                              : 'border-white/80 bg-white/80 hover:border-blue-300'
                           }`}
                         >
                           {opt.hasOptionAudio && (
@@ -873,7 +993,7 @@ export const App: React.FC = () => {
 
                           <div className="flex-1 min-w-0">
                             <span className={`text-sm sm:text-base font-bold block ${textPrimary}`}>
-                              {opt.id}. {opt.text}
+                              {displayLabel}
                             </span>
                             {opt.hasOptionAudio && (
                               <span className="text-[11px] text-blue-600 font-semibold">
@@ -928,10 +1048,14 @@ export const App: React.FC = () => {
                     ) : (
                       <button
                         type="button"
-                        onClick={handleSubmitQuiz}
-                        className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition"
+                        onClick={() =>
+                          setActiveQuiz((prev) =>
+                            prev ? { ...prev, currentIndex: prev.questions.length } : null
+                          )
+                        }
+                        className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition"
                       >
-                        {t.submitQuiz} ({answeredCount}/{activeQuiz.questions.length})
+                        🎙️ Sang Câu 11: Pronunciation Challenge →
                       </button>
                     )}
                   </div>
@@ -940,10 +1064,75 @@ export const App: React.FC = () => {
             })()}
           </div>
         ) : quizResult ? (
-          /* ---------- B. MÀN HÌNH KẾT QUẢ ---------- */
+          /* ---------- B. MÀN HÌNH KẾT QUẢ (CHỈ CÔNG BỐ SAU KHI CHALLENGE KẾT THÚC LÚC 00:00) ---------- */
           <div className="max-w-2xl mx-auto">
-            {!showDetailedReview ? (
-              <div className={`rounded-3xl shadow-xl border p-6 text-center backdrop-blur-md ${cardBg}`}>
+            {!quizResult.resultsRevealed && !adminPreviewResult ? (
+              <div className={`rounded-3xl shadow-xl border p-6 text-center ${cardBg}`}>
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+                  <Clock className="w-9 h-9" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-blue-600">
+                  🎉 Đã ghi nhận bài nộp Day {quizResult.dayNumber}!
+                </h2>
+                <p className={`text-xs sm:text-sm font-bold mt-1 ${textPrimary}`}>
+                  Thời gian hoàn thành: {formatTimeMmSs(Math.round(quizResult.timeSpentMs / 1000))}
+                </p>
+
+                <div
+                  className={`my-5 p-4 sm:p-5 rounded-3xl border text-left space-y-2.5 ${
+                    darkMode
+                      ? 'bg-amber-950/40 border-amber-700/70 text-amber-200'
+                      : 'bg-amber-50/90 border-amber-300 text-amber-950'
+                  }`}
+                >
+                  <div className="text-xs sm:text-sm font-black flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Chế độ Bảo mật Đáp án & Kết quả khi Challenge đang diễn ra</span>
+                  </div>
+                  <p className="text-xs leading-relaxed">
+                    Theo thể lệ chương trình, người chơi chưa biết ngay đáp án đúng/sai lúc vừa nộp bài để đảm bảo tính công bằng.{' '}
+                    <strong>
+                      Điểm số và giải thích đáp án chi tiết sẽ tự động được công bố ngay khi Challenge của ngày hôm nay kết thúc (lúc 00:00 đêm nay)!
+                    </strong>
+                  </p>
+                  <div className="pt-1 flex items-center justify-between text-xs font-extrabold">
+                    <span>⏳ Thời gian mở công bố kết quả & Challenge mới:</span>
+                    <span className="px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-mono font-black">
+                      00:00 (còn {midnightCountdown})
+                    </span>
+                  </div>
+                </div>
+
+                {quizResult.q11Pronunciation?.submitted && (
+                  <div
+                    className={`mb-5 p-4 rounded-2xl border text-left text-xs space-y-1.5 ${subCardBg}`}
+                  >
+                    <div className="font-black text-indigo-600">
+                      🎙️ Nhận xét AI Câu 11 (Pronunciation Challenge – Không tính điểm):
+                    </div>
+                    <p className={textSecondary}>{quizResult.q11Pronunciation.aiSummaryFeedback}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <button
+                    onClick={() => navigateToTab('home')}
+                    className="flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-md"
+                  >
+                    {t.backToHome}
+                  </button>
+                  {user.role === 'ADMIN' && (
+                    <button
+                      onClick={() => setAdminPreviewResult(true)}
+                      className={`px-4 py-3.5 rounded-2xl font-bold text-xs border ${subCardBg}`}
+                    >
+                      👁️ Xem trước kết quả (Quyền Admin)
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : !showDetailedReview ? (
+              <div className={`rounded-3xl shadow-xl border p-6 text-center ${cardBg}`}>
                 <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-100 flex items-center justify-center mb-2">
                   <Star className="w-10 h-10 text-amber-400 fill-amber-400" />
                 </div>
@@ -951,12 +1140,6 @@ export const App: React.FC = () => {
                 <p className={`text-sm font-bold ${textPrimary}`}>
                   {t.completedDayMsg} Day {quizResult.dayNumber}
                 </p>
-
-                {quizResult.climbedToTop1 && (
-                  <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md">
-                    👑 Chúc mừng bạn vừa leo lên vị trí TOP 1 Bảng Xếp Hạng! Hệ thống đang chia đều request Push thông báo tin vui này tới toàn bộ người dùng cài PWA!
-                  </div>
-                )}
 
                 <div className={`my-5 p-4 rounded-3xl border ${subCardBg}`}>
                   <div className="text-4xl font-black text-blue-600">
@@ -1006,7 +1189,7 @@ export const App: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className={`rounded-3xl shadow-xl border p-4 sm:p-6 backdrop-blur-md ${cardBg}`}>
+              <div className={`rounded-3xl shadow-xl border p-4 sm:p-6 ${cardBg}`}>
                 <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 mb-3">
                   <button
                     onClick={() => setShowDetailedReview(false)}
@@ -1043,8 +1226,7 @@ export const App: React.FC = () => {
                             <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                           )}
                           <span className="text-xs font-extrabold">
-                            {t.questionLabel} {item.orderIndex}: {item.correctOptionId}.{' '}
-                            {item.correctOptionText}
+                            {t.questionLabel} {item.orderIndex}: {item.correctOptionText}
                           </span>
                         </div>
                         <button
@@ -1071,9 +1253,21 @@ export const App: React.FC = () => {
                 <div className="bg-gradient-to-br from-blue-600/75 via-blue-600/70 to-indigo-700/75 backdrop-blur-[2px] border border-white/30 rounded-3xl p-5 sm:p-6 text-white shadow-xl">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1.5">
-                      <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-0.5 rounded-full text-xs font-extrabold">
-                        🔥 {t.todayChallengeBadge} • {todayChallenge?.title || 'Day 1'} (
-                        {todayChallenge?.dateLabel || '04/11/2026'})
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-0.5 rounded-full text-xs font-extrabold">
+                          🔥 {t.todayChallengeBadge} • {todayChallenge?.title || 'Day 1'} (
+                          {todayChallenge?.dateLabel || '04/11/2026'})
+                        </div>
+                        <div className="inline-flex items-center gap-1 bg-amber-400/90 text-slate-950 px-2.5 py-0.5 rounded-full text-[11px] font-black">
+                          🕛 Mở bài mới 00:00 (còn {midnightCountdown})
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowEventsPopup(true)}
+                          className="inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2.5 py-0.5 rounded-full text-[11px] font-extrabold transition"
+                        >
+                          🎉 Chuỗi sự kiện Speak Right
+                        </button>
                       </div>
                       <h1 className="text-xl sm:text-2xl font-black">{t.todayTitle}</h1>
                       <p className="text-xs sm:text-sm text-blue-100">{t.todayVocab}</p>
@@ -1086,7 +1280,9 @@ export const App: React.FC = () => {
                       >
                         <Play className="w-5 h-5 fill-slate-950" />
                         {todayChallenge?.status === 'COMPLETED'
-                          ? `${t.retryTodayBtn} ${todayChallenge.title} (${todayChallenge.score}/100${t.pointsSuffix})`
+                          ? todayChallenge.resultsRevealed
+                            ? `${t.retryTodayBtn} ${todayChallenge.title} (${todayChallenge.score}/100${t.pointsSuffix})`
+                            : `${t.retryTodayBtn} ${todayChallenge.title} (⏳ Chờ 00:00 công bố)`
                           : `${t.startTodayBtn} (${todayChallenge?.title || 'Day 1'})`}
                       </button>
                     </div>
@@ -1184,9 +1380,15 @@ export const App: React.FC = () => {
                             <div className={`text-[11px] mt-1 ${textSecondary}`}>{c.dateLabel}</div>
                             <div className="mt-2 text-xs font-extrabold">
                               {isCompleted ? (
-                                <span className="text-emerald-600">
-                                  {c.score}/100{t.pointsSuffix}
-                                </span>
+                                c.resultsRevealed ? (
+                                  <span className="text-emerald-600">
+                                    {c.score}/100{t.pointsSuffix}
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-600 dark:text-amber-400">
+                                    ⏳ Đã nộp • Chờ 00:00
+                                  </span>
+                                )
                               ) : isOpen ? (
                                 <span className="text-blue-600">{t.tapToStart}</span>
                               ) : (
@@ -1339,22 +1541,28 @@ export const App: React.FC = () => {
 
                         <div className="mt-2 flex items-center justify-between">
                           {isCompleted ? (
-                            <div className="flex items-center gap-0.5">
-                              {[1, 2, 3].map((s) => (
-                                <Star
-                                  key={s}
-                                  className={`w-3.5 h-3.5 ${
-                                    s <= (c.stars || 3)
-                                      ? 'text-amber-400 fill-amber-400'
-                                      : 'text-slate-200'
-                                  }`}
-                                />
-                              ))}
-                              <span className="text-xs font-extrabold text-emerald-600 ml-1">
-                                {c.score}
-                                {t.pointsSuffix}
+                            c.resultsRevealed ? (
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3].map((s) => (
+                                  <Star
+                                    key={s}
+                                    className={`w-3.5 h-3.5 ${
+                                      s <= (c.stars || 3)
+                                        ? 'text-amber-400 fill-amber-400'
+                                        : 'text-slate-200'
+                                    }`}
+                                  />
+                                ))}
+                                <span className="text-xs font-extrabold text-emerald-600 ml-1">
+                                  {c.score}
+                                  {t.pointsSuffix}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400">
+                                ⏳ Chờ 00:00 công bố
                               </span>
-                            </div>
+                            )
                           ) : isOpen ? (
                             <span className="text-xs font-extrabold text-blue-600">
                               {t.tapToStart}

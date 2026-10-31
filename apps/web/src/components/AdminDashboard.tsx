@@ -301,6 +301,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [spreadWindowSeconds, setSpreadWindowSeconds] = useState<number>(18);
   const [minIntervalMs, setMinIntervalMs] = useState<number>(1200);
   const [autoRemindUnstudied, setAutoRemindUnstudied] = useState<boolean>(true);
+  const [morningHour, setMorningHour] = useState<number>(8);
+  const [eveningTop1Hour, setEveningTop1Hour] = useState<number>(19);
+  const [nightUnstudiedHour, setNightUnstudiedHour] = useState<number>(23);
 
   const cardBg = darkMode
     ? 'bg-slate-900/90 border-slate-800 text-slate-100'
@@ -364,6 +367,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setSpreadWindowSeconds(data.queueStatus.config.spreadWindowSeconds ?? 18);
           setMinIntervalMs(data.queueStatus.config.minIntervalMs ?? 1200);
           setAutoRemindUnstudied(Boolean(data.queueStatus.config.autoRemindUnstudied));
+          setMorningHour(data.queueStatus.config.morningHour ?? 8);
+          setEveningTop1Hour(data.queueStatus.config.eveningTop1Hour ?? 19);
+          setNightUnstudiedHour(data.queueStatus.config.nightUnstudiedHour ?? 23);
         }
       }
     } catch {
@@ -379,7 +385,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const handleSavePushConfig = async () => {
+  const handleSavePushConfig = async (resetTodayQuota = false) => {
     const res = await fetch('/api/admin/push/config', {
       method: 'PUT',
       headers,
@@ -387,17 +393,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         spreadWindowSeconds: Number(spreadWindowSeconds),
         minIntervalMs: Number(minIntervalMs),
         autoRemindUnstudied,
+        morningHour: Number(morningHour),
+        eveningTop1Hour: Number(eveningTop1Hour),
+        nightUnstudiedHour: Number(nightUnstudiedHour),
+        resetTodayQuota,
       }),
     });
     if (res.ok) {
       const data = await res.json();
-      showMessage(data.message);
+      showMessage(
+        resetTodayQuota
+          ? 'Đã đặt lại hạn mức 3 khung thông báo hôm nay (Sáng / 19h / 23h)!'
+          : data.message
+      );
       fetchPushStatus(true);
     }
   };
 
   const handleTriggerPush = async (
-    type: 'NEW_DAY_UNLOCKED' | 'NEW_TOP_1' | 'UNSTUDIED_REMINDER'
+    type: 'NEW_DAY_UNLOCKED' | 'NEW_TOP_1' | 'UNSTUDIED_REMINDER',
+    force = false
   ) => {
     const res = await fetch('/api/admin/push/trigger', {
       method: 'POST',
@@ -405,10 +420,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       body: JSON.stringify({
         type,
         dayNumber: selectedDay,
+        force,
       }),
     });
     const data = await res.json();
     if (!res.ok) {
+      if (data.alreadySentToday && !force) {
+        const confirmForce = window.confirm(
+          `${data.message}\n\nBạn có muốn GỬI LẠI CƯỠNG BỨC (Force Push) cho khung giờ này ngay bây giờ không?`
+        );
+        if (confirmForce) {
+          await handleTriggerPush(type, true);
+        }
+        return;
+      }
       showMessage(data.message || 'Lỗi gửi thông báo Push', true);
       return;
     }
@@ -966,13 +991,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div>
               <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
                 <BellRing className="w-5 h-5 text-amber-500" />
-                3. Hệ thống Push Thông báo PWA (Chia đều Request — Staggered Queue)
+                3. Lịch Push PWA Chống Tràn Lan (3 Khung Giờ Cố Định / Ngày & Chia Đều Request)
               </h3>
               <p className={`text-xs mt-0.5 ${textSecondary}`}>
-                Tự động & chủ động gửi thông báo tới tất cả thiết bị đã cài đặt PWA theo từng nhịp chia đều (không gửi dồn cùng một lúc tránh nghẽn mạng).
+                Chống làm phiền user khi thứ hạng hoặc bài học thay đổi liên tục: Mỗi ngày chỉ gửi đúng{' '}
+                <strong>1 lần buổi sáng ({morningHour}:00 - Có bài mới)</strong>,{' '}
+                <strong>1 lần 19h tối ({eveningTop1Hour}:00 - Top 1 hiện tại)</strong> và{' '}
+                <strong>1 lần 23h đêm ({nightUnstudiedHour}:00 - Nhắc USER chưa làm bài)</strong>, chia đều từng request.
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {pushStatus.queueStatus?.currentVnTime && (
+                <span className="px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  🕒 Giờ VN: {pushStatus.queueStatus.currentVnTime} ({pushStatus.queueStatus.currentVnDate})
+                </span>
+              )}
               <span
                 className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 ${
                   pushStatus.queueStatus?.isProcessing
@@ -988,22 +1021,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          {/* 3 Kịch bản Push chính */}
+          {/* 3 Khung giờ Push cố định trong ngày (Chống spam thông báo tràn lan) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {/* Kịch bản 1: Mở khóa ngày mới */}
+            {/* Khung 1: Buổi sáng — Có bài mới */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-600 text-white">
-                    Kịch bản 1 • Tất cả PWA
+                    🌅 Buổi sáng ({String(morningHour).padStart(2, '0')}:00) • 1 lần/ngày
                   </span>
-                  <Unlock className="w-4 h-4 text-blue-500" />
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                      pushStatus.queueStatus?.sentToday?.morningNewDay
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {pushStatus.queueStatus?.sentToday?.morningNewDay ? '✓ Đã gửi hôm nay' : 'Chưa gửi hôm nay'}
+                  </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  🔓 Mở khóa ngày mới để học
+                  🔓 Có bài mới (Mở khóa ngày học)
                 </h4>
                 <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Tự động kích hoạt ngay khi mở khóa ngày mới hoặc đúng 00:00. Rải đều thông báo tới{' '}
+                  Chỉ thông báo <strong>1 lần vào buổi sáng</strong> (hoặc lần mở khóa đầu tiên trong ngày). Rải đều request tới{' '}
                   <strong>{pushStatus.stats?.totalPwaDevices || 0} thiết bị PWA</strong>.
                 </p>
               </div>
@@ -1013,24 +1054,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
               >
                 <Send className="w-3.5 h-3.5" />
-                Push Mở khóa Day {selectedDay} ngay
+                {pushStatus.queueStatus?.sentToday?.morningNewDay
+                  ? `Đã gửi sáng nay (Bấm để gửi lại Day ${selectedDay})`
+                  : `Push "Có bài mới" (Day ${selectedDay})`}
               </button>
             </div>
 
-            {/* Kịch bản 2: Người leo lên Top 1 mới */}
+            {/* Khung 2: 19h tối — Thông báo Top 1 hiện tại */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
-                    Kịch bản 2 • Tất cả PWA
+                    🌆 {String(eveningTop1Hour).padStart(2, '0')}h Tối • 1 lần/ngày
                   </span>
-                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                      pushStatus.queueStatus?.sentToday?.evening19hTop1
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {pushStatus.queueStatus?.sentToday?.evening19hTop1 ? '✓ Đã gửi hôm nay' : 'Chờ 19h tối'}
+                  </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  👑 Có người leo lên Top 1 mới
+                  👑 Thông báo Top 1 hiện tại ({eveningTop1Hour}h tối)
                 </h4>
                 <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Tự động phát khi có người vượt điểm lên Top 1. Top 1 hiện tại:{' '}
+                  Không bắn thông báo liên tục mỗi khi đổi ngôi trong ngày. Đúng <strong>{eveningTop1Hour}:00 tối</strong> mới tổng hợp vinh danh Top 1 hiện tại:{' '}
                   <strong>
                     {pushStatus.stats?.currentTop1?.fullName || 'Chưa có'} (
                     {pushStatus.stats?.currentTop1?.totalScore?.toLocaleString() || 0}đ)
@@ -1044,28 +1095,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
               >
                 <Trophy className="w-3.5 h-3.5" />
-                Push Thông báo Top 1 mới
+                {pushStatus.queueStatus?.sentToday?.evening19hTop1
+                  ? 'Đã gửi bản tin 19h (Bấm để gửi lại)'
+                  : 'Push Bản tin Top 1 hiện tại (19h)'}
               </button>
             </div>
 
-            {/* Kịch bản 3: Những ai có tài khoản mà chưa học */}
+            {/* Khung 3: 23h đêm — Thông báo cho những ai là USER mà chưa làm bài */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
-                    Kịch bản 3 • Lọc TK chưa học
+                    🌙 {String(nightUnstudiedHour).padStart(2, '0')}h Đêm • Chỉ USER chưa làm
                   </span>
-                  <Clock className="w-4 h-4 text-rose-500" />
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                      pushStatus.queueStatus?.sentToday?.night23hUnstudied
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {pushStatus.queueStatus?.sentToday?.night23hUnstudied ? '✓ Đã gửi hôm nay' : 'Chờ 23h đêm'}
+                  </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  ⏰ Có tài khoản mà chưa học
+                  ⏰ Nhắc USER chưa làm bài ({nightUnstudiedHour}h đêm)
                 </h4>
                 <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Hiện có{' '}
+                  Đúng <strong>{nightUnstudiedHour}:00 đêm</strong> chỉ lọc các tài khoản có <code>role = USER</code> cài PWA mà chưa hoàn thành bài ({' '}
                   <strong className="text-rose-500">
-                    {pushStatus.stats?.unstudiedAccountsCount || 0} tài khoản cài PWA
+                    {pushStatus.stats?.unstudiedAccountsCount || 0} USER
                   </strong>{' '}
-                  chưa hoàn thành {pushStatus.stats?.latestUnlockedDay?.title || 'bài hôm nay'} (hoặc chưa học bài nào).
+                  chưa làm {pushStatus.stats?.latestUnlockedDay?.title || 'bài hôm nay'}).
                 </p>
               </div>
               <button
@@ -1074,36 +1135,86 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
               >
                 <BellRing className="w-3.5 h-3.5" />
-                Push Nhắc {pushStatus.stats?.unstudiedAccountsCount || 0} TK chưa học
+                {pushStatus.queueStatus?.sentToday?.night23hUnstudied
+                  ? `Đã nhắc lúc 23h (Bấm để gửi lại ${pushStatus.stats?.unstudiedAccountsCount || 0} USER)`
+                  : `Push Nhắc ${pushStatus.stats?.unstudiedAccountsCount || 0} USER chưa làm (23h)`}
               </button>
             </div>
           </div>
 
-          {/* Bộ điều khiển tốc độ chia đều Request (Staggered Rate-Limit Config) */}
+          {/* Bộ điều khiển Khung Giờ & Tốc độ chia đều Request (Staggered Rate-Limit Config) */}
           <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className={`text-xs sm:text-sm font-black ${textPrimary}`}>
-                  ⚙️ Cấu hình Chia Đều Request (Không thông báo cùng một lúc)
+                  ⚙️ Cấu hình 3 Khung Giờ Trong Ngày & Chia Đều Request (Không gửi dồn cùng lúc)
                 </h4>
                 <p className={`text-[11px] ${textSecondary}`}>
-                  Hệ thống tự động chia tổng khung thời gian cho số lượng thiết bị PWA để gửi tuần tự từng request một.
+                  Mỗi khung giờ chỉ tự động kích hoạt tối đa 1 lần/ngày và chia đều khoảng cách giữa từng request để chống quá tải & chống spam thông báo.
                 </p>
               </div>
-              <label className="text-xs font-extrabold flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoRemindUnstudied}
-                  onChange={(e) => setAutoRemindUnstudied(e.target.checked)}
-                />
-                <span>Tự động nhắc người có TK chưa học mỗi ngày</span>
-              </label>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="text-xs font-extrabold flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoRemindUnstudied}
+                    onChange={(e) => setAutoRemindUnstudied(e.target.checked)}
+                  />
+                  <span>Bật lịch tự động (Sáng / 19h / 23h)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => handleSavePushConfig(true)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-[11px] font-extrabold transition"
+                >
+                  Đặt lại hạn mức hôm nay
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Tổng khung thời gian rải đều (giây)
+                  Giờ báo Bài mới (Sáng)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={morningHour}
+                  onChange={(e) => setMorningHour(Number(e.target.value))}
+                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                  Giờ báo Top 1 (19h tối)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={eveningTop1Hour}
+                  onChange={(e) => setEveningTop1Hour(Number(e.target.value))}
+                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                  Giờ nhắc USER (23h đêm)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={nightUnstudiedHour}
+                  onChange={(e) => setNightUnstudiedHour(Number(e.target.value))}
+                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                  Tổng khung rải đều (giây)
                 </label>
                 <input
                   type="number"
@@ -1116,7 +1227,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Khoảng cách tối thiểu giữa 2 request (ms)
+                  Cách nhau tối thiểu (ms)
                 </label>
                 <input
                   type="number"
@@ -1131,11 +1242,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-end">
                 <button
                   type="button"
-                  onClick={handleSavePushConfig}
+                  onClick={() => handleSavePushConfig(false)}
                   className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 h-[38px]"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  Lưu cấu hình chia đều
+                  Lưu cấu hình
                 </button>
               </div>
             </div>
@@ -1147,10 +1258,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className={`lg:col-span-5 p-4 rounded-2xl border space-y-2.5 ${subCardBg}`}>
               <div className="flex items-center justify-between">
                 <h4 className={`text-xs font-black uppercase tracking-wider ${textPrimary}`}>
-                  📋 Danh sách TK cài PWA chưa học ({pushStatus.stats?.unstudiedAccountsCount || 0})
+                  📋 Danh sách USER cài PWA chưa làm bài ({pushStatus.stats?.unstudiedAccountsCount || 0})
                 </h4>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                  Mục tiêu nhắc học
+                  Nhắc lúc {nightUnstudiedHour}h đêm
                 </span>
               </div>
 

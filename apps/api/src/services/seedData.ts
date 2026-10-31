@@ -278,20 +278,17 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
 
 export function generate30DaysChallenges(): DailyChallengeItem[] {
   const days: DailyChallengeItem[] = [];
-  const baseDate = new Date('2026-11-04T00:00:00.000Z');
+  const now = new Date();
+  // Căn mốc 00:00:00 (Nửa đêm) của ngày hôm nay để mỗi ngày mới tự động mở đúng 00:00
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
   for (let day = 1; day <= 30; day++) {
-    const d = new Date(baseDate);
-    d.setUTCDate(baseDate.getUTCDate() + (day - 1));
-    const dd = String(d.getUTCDate()).padStart(2, '0');
-    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const yyyy = d.getUTCFullYear();
+    const unlockDateObj = new Date(todayMidnight.getTime() + (day - 1) * 86400 * 1000);
+    const dd = String(unlockDateObj.getDate()).padStart(2, '0');
+    const mm = String(unlockDateObj.getMonth() + 1).padStart(2, '0');
+    const yyyy = unlockDateObj.getFullYear();
 
-    const now = new Date();
-    const unlockDate =
-      day === 1
-        ? new Date(now.getTime() - 3600 * 1000).toISOString()
-        : new Date(now.getTime() + (day - 1) * 86400 * 1000).toISOString();
+    const unlockDate = unlockDateObj.toISOString();
 
     const questions: QuestionItem[] = OFFICIAL_10_QUESTIONS.map((q, idx) => ({
       ...q,

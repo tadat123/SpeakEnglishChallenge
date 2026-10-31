@@ -307,9 +307,11 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
   return challenges.map((c) => {
     const attempt = attempts.find((a) => a.dayNumber === c.dayNumber);
     const isUnlocked = store.isDayUnlocked(c);
+    const isEnded = store.isDayEnded(c);
+    const endsAt = store.getDayEndDate(c);
 
     let stars = 0;
-    if (attempt) {
+    if (attempt && isEnded) {
       if (attempt.score >= 90) stars = 3;
       else if (attempt.score >= 60) stars = 2;
       else stars = 1;
@@ -321,6 +323,8 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
       title: c.title,
       dateLabel: c.dateLabel,
       unlockDate: c.unlockDate,
+      endsAt,
+      resultsRevealed: isEnded,
       isPublished: c.isPublished,
       questionCount: c.questions.length,
       activePlayersCount: activeCounts[c.dayNumber] || 0,
@@ -328,7 +332,7 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
       status: !isUnlocked ? 'LOCKED' : attempt ? 'COMPLETED' : 'OPEN',
       isCompletedByMe: Boolean(attempt),
       stars,
-      score: attempt?.score ?? null,
+      score: attempt ? (isEnded ? attempt.score : null) : null,
       timeSpentMs: attempt?.timeSpentMs ?? null,
     };
   });
@@ -512,8 +516,6 @@ app.post(
     const {
       isFirstOfficialAttempt,
       climbedToTop1,
-      previousTop1,
-      newTop1,
     } = store.recordAttempt({
       id: crypto.randomUUID(),
       userId,
@@ -530,11 +532,11 @@ app.post(
 
     store.completeActiveSession(userId, dayNumber);
 
-    // KHI CÓ NGƯỜI VỪA LEO LÊN TOP 1 MỚI -> Tự động rải đều thông báo Push cho tất cả ai cài PWA
-    let top1PushCampaign = null;
-    if (climbedToTop1 && newTop1) {
-      top1PushCampaign = pushService.enqueueNewTop1(newTop1, previousTop1);
-    }
+    // Chống spam thông báo khi Top 1 đổi ngôi liên tục trong ngày:
+    // Hệ thống KHÔNG bắn Push tức thì mỗi lần đổi Top 1 mà tổng hợp thông báo Top 1 hiện tại đúng 1 lần/ngày vào 19h tối.
+
+    const endsAt = store.getDayEndDate(challenge);
+    const resultsRevealed = store.isDayEnded(challenge);
 
     return {
       dayNumber,
@@ -545,8 +547,10 @@ app.post(
       timeSpentMs: serverElapsedMs,
       isFirstOfficialAttempt,
       climbedToTop1,
-      top1PushCampaign,
+      top1PushCampaign: null,
       submittedDuringGracePeriod: !isUnlocked && Boolean(session),
+      endsAt,
+      resultsRevealed,
       detailedReview,
     };
   }
@@ -660,8 +664,15 @@ app.put(
         msg = `🛡️ Đã KHÓA MỀM ${result.challenge.title}: Chặn người mới vào, nhưng vẫn cho phép ${result.activePlayersAffected} người đang làm dở được nộp bài nốt!`;
       }
     } else if (body.unlockNow === true) {
-      pushCampaign = pushService.enqueueNewDayUnlocked(result.challenge);
-      msg = `🔓 Đã MỞ KHÓA ${result.challenge.title} & đang chia đều thông báo Push tới ${pushCampaign.totalTargets} thiết bị PWA (${pushCampaign.staggerIntervalMs}ms/request)!`;
+      // Chống tràn lan thông báo khi Admin khóa/mở liên tục:
+      // Chỉ tự động gửi nếu trong ngày hôm nay chưa gửi thông báo buổi sáng nào!
+      const qStatus = pushService.getQueueStatus();
+      if (!qStatus.sentToday.morningNewDay) {
+        pushCampaign = pushService.enqueueNewDayUnlocked(result.challenge);
+        msg = `🔓 Đã MỞ KHÓA ${result.challenge.title} & gửi thông báo bài mới (1 lần/ngày) chia đều tới ${pushCampaign.totalTargets} thiết bị PWA!`;
+      } else {
+        msg = `🔓 Đã MỞ KHÓA ${result.challenge.title} (Đã chặn gửi lặp thông báo vì hôm nay đã thông báo bài mới buổi sáng rồi!).`;
+      }
     }
 
     return {
@@ -940,7 +951,7 @@ app.get(
   }
 );
 
-// Admin: Cấu hình tốc độ chia đều request (Spread Window & Khoảng cách ms giữa các request)
+// Admin: Cấu hình tốc độ chia đều request & 3 khung giờ thông báo cố định trong ngày (Sáng / 19h / 23h)
 app.put(
   '/api/admin/push/config',
   { preHandler: [(app as any).requireAdmin] },
@@ -950,6 +961,10 @@ app.put(
       minIntervalMs?: number;
       maxIntervalMs?: number;
       autoRemindUnstudied?: boolean;
+      morningHour?: number;
+      eveningTop1Hour?: number;
+      nightUnstudiedHour?: number;
+      resetTodayQuota?: boolean;
     };
 
     const updated = store.updatePushConfig({
@@ -965,37 +980,70 @@ app.put(
       ...(body.autoRemindUnstudied !== undefined
         ? { autoRemindUnstudied: Boolean(body.autoRemindUnstudied) }
         : {}),
+      ...(body.morningHour !== undefined
+        ? { morningHour: Math.max(0, Math.min(23, Number(body.morningHour))) }
+        : {}),
+      ...(body.eveningTop1Hour !== undefined
+        ? { eveningTop1Hour: Math.max(0, Math.min(23, Number(body.eveningTop1Hour))) }
+        : {}),
+      ...(body.nightUnstudiedHour !== undefined
+        ? { nightUnstudiedHour: Math.max(0, Math.min(23, Number(body.nightUnstudiedHour))) }
+        : {}),
+      ...(body.resetTodayQuota
+        ? {
+            lastMorningNotifiedDate: null,
+            lastEveningTop1NotifiedDate: null,
+            lastNightUnstudiedNotifiedDate: null,
+          }
+        : {}),
     });
 
     return {
-      message: `Đã lưu cấu hình chia đều Request Push (Tổng khung chia đều: ${updated.spreadWindowSeconds}s, Khoảng cách tối thiểu: ${updated.minIntervalMs}ms/request)!`,
+      message: `Đã lưu cấu hình lịch thông báo ngày (${updated.morningHour}h sáng bài mới • ${updated.eveningTop1Hour}h tối Top 1 • ${updated.nightUnstudiedHour}h tối nhắc USER chưa làm) & chia đều ${updated.spreadWindowSeconds}s!`,
       config: updated,
     };
   }
 );
 
-// Admin: Phát lệnh Push thông báo chia đều request cho 3 kịch bản
+// Admin: Phát lệnh Push thông báo chia đều request cho 3 kịch bản cố định trong ngày
 app.post(
   '/api/admin/push/trigger',
   { preHandler: [(app as any).requireAdmin] },
   async (request: any, reply) => {
-    const { type, dayNumber } = (request.body || {}) as {
+    const { type, dayNumber, force } = (request.body || {}) as {
       type: 'NEW_DAY_UNLOCKED' | 'NEW_TOP_1' | 'UNSTUDIED_REMINDER';
       dayNumber?: number;
+      force?: boolean;
     };
 
+    const qStatus = pushService.getQueueStatus();
+
     if (type === 'NEW_DAY_UNLOCKED') {
+      if (qStatus.sentToday.morningNewDay && !force) {
+        return reply.status(429).send({
+          alreadySentToday: true,
+          message:
+            '🛡️ Chống spam: Hôm nay đã gửi thông báo "Có bài mới buổi sáng" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+        });
+      }
       const targetDay =
         (dayNumber ? store.getChallengeByDay(Number(dayNumber)) : undefined) ||
         store.getLatestUnlockedChallenge();
       const campaign = pushService.enqueueNewDayUnlocked(targetDay);
       return {
-        message: `🚀 Đang chia đều ${campaign.totalTargets} request thông báo mở khóa ${targetDay.title} (Cách nhau ${campaign.staggerIntervalMs}ms/request, tổng ${Math.round(campaign.totalSpreadMs / 1000)}s)!`,
+        message: `🌅 Đang chia đều ${campaign.totalTargets} request thông báo buổi sáng: Có bài mới (${targetDay.title}) — Cách nhau ${campaign.staggerIntervalMs}ms/request!`,
         campaign,
       };
     }
 
     if (type === 'NEW_TOP_1') {
+      if (qStatus.sentToday.evening19hTop1 && !force) {
+        return reply.status(429).send({
+          alreadySentToday: true,
+          message:
+            '🛡️ Chống spam: Hôm nay đã gửi thông báo "Top 1 hiện tại lúc 19h tối" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+        });
+      }
       const lb = store.getLeaderboard();
       const top1 = lb[0];
       const top2 = lb[1] || null;
@@ -1004,18 +1052,25 @@ app.post(
       }
       const campaign = pushService.enqueueNewTop1(top1, top2);
       return {
-        message: `👑 Đang chia đều ${campaign.totalTargets} request thông báo Top 1 mới (${top1.fullName}) tới toàn bộ PWA (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`,
+        message: `👑 Đang chia đều ${campaign.totalTargets} request bản tin 19h tối: Top 1 hiện tại (${top1.fullName}) tới toàn bộ PWA (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`,
         campaign,
       };
     }
 
     if (type === 'UNSTUDIED_REMINDER') {
+      if (qStatus.sentToday.night23hUnstudied && !force) {
+        return reply.status(429).send({
+          alreadySentToday: true,
+          message:
+            '🛡️ Chống spam: Hôm nay đã gửi thông báo "23h tối nhắc USER chưa làm bài" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+        });
+      }
       const campaign = pushService.enqueueUnstudiedAccountsReminder();
       return {
         message:
           campaign.totalTargets > 0
-            ? `⏰ Đang chia đều ${campaign.totalTargets} request nhắc học tới những người có tài khoản PWA mà chưa học (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`
-            : '🎉 Tuyệt vời! Tất cả tài khoản cài PWA đều đã hoàn thành bài học hôm nay.',
+            ? `⏰ Đang chia đều ${campaign.totalTargets} request lúc 23h tối nhắc các tài khoản USER cài PWA mà chưa làm bài (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`
+            : '🎉 Tuyệt vời! Tất cả tài khoản USER cài PWA đều đã hoàn thành bài học hôm nay.',
         campaign,
       };
     }

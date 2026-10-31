@@ -112,6 +112,12 @@ export interface PushStaggerConfig {
   minIntervalMs: number;       // Khoảng cách tối thiểu giữa 2 request liên tiếp (ms), VD: 1200ms
   maxIntervalMs: number;       // Khoảng cách tối đa giữa 2 request liên tiếp (ms), VD: 6000ms
   autoRemindUnstudied: boolean;
+  morningHour: number;         // Giờ thông báo buổi sáng (mặc định 8h sáng): Có bài mới (1 lần/ngày)
+  eveningTop1Hour: number;     // Giờ thông báo Top 1 hiện tại (mặc định 19h tối, 1 lần/ngày)
+  nightUnstudiedHour: number;  // Giờ nhắc những ai là USER mà chưa làm bài (mặc định 23h tối, 1 lần/ngày)
+  lastMorningNotifiedDate: string | null;       // YYYY-MM-DD đã gửi thông báo buổi sáng
+  lastEveningTop1NotifiedDate: string | null;   // YYYY-MM-DD đã gửi thông báo Top 1 lúc 19h
+  lastNightUnstudiedNotifiedDate: string | null;// YYYY-MM-DD đã gửi nhắc USER chưa làm lúc 23h
   lastTop1UserId: string | null;
   notifiedUnlockedDays: number[];
   notifiedUnstudiedKeys: string[];
@@ -193,10 +199,23 @@ class DataStore {
         minIntervalMs: 1200,
         maxIntervalMs: 5000,
         autoRemindUnstudied: true,
+        morningHour: 8,
+        eveningTop1Hour: 19,
+        nightUnstudiedHour: 23,
+        lastMorningNotifiedDate: null,
+        lastEveningTop1NotifiedDate: null,
+        lastNightUnstudiedNotifiedDate: null,
         lastTop1UserId: 'u-1',
         notifiedUnlockedDays: unlockedNow.length ? unlockedNow : [1],
         notifiedUnstudiedKeys: [],
       };
+    } else {
+      parsed.pushConfig.morningHour = parsed.pushConfig.morningHour ?? 8;
+      parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 19;
+      parsed.pushConfig.nightUnstudiedHour = parsed.pushConfig.nightUnstudiedHour ?? 23;
+      parsed.pushConfig.lastMorningNotifiedDate = parsed.pushConfig.lastMorningNotifiedDate ?? null;
+      parsed.pushConfig.lastEveningTop1NotifiedDate = parsed.pushConfig.lastEveningTop1NotifiedDate ?? null;
+      parsed.pushConfig.lastNightUnstudiedNotifiedDate = parsed.pushConfig.lastNightUnstudiedNotifiedDate ?? null;
     }
 
     return parsed;
@@ -416,6 +435,17 @@ class DataStore {
     return new Date(challenge.unlockDate).getTime() <= Date.now() && challenge.isPublished;
   }
 
+  public getDayEndDate(challenge: DailyChallengeItem): string {
+    const unlockMs = new Date(challenge.unlockDate).getTime();
+    const d = new Date(unlockMs);
+    const nextMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
+    return nextMidnight.toISOString();
+  }
+
+  public isDayEnded(challenge: DailyChallengeItem): boolean {
+    return Date.now() >= new Date(this.getDayEndDate(challenge)).getTime();
+  }
+
   public getUserAttempts(userId: string): AttemptRecord[] {
     return this.data.attempts.filter((a) => a.userId === userId);
   }
@@ -424,6 +454,42 @@ class DataStore {
     return this.data.attempts.find(
       (a) => a.userId === userId && a.dayNumber === dayNumber
     );
+  }
+
+  // Xáo trộn đáp án ngẫu nhiên khác nhau cho từng người chơi & bỏ ký hiệu Audio A/B/C/D
+  private shuffleOptionsForUser(
+    options: QuestionItem['options'],
+    questionType: QuestionItem['questionType'],
+    seedStr: string
+  ): QuestionItem['options'] {
+    const cloned = JSON.parse(JSON.stringify(options)) as QuestionItem['options'];
+    // Kết hợp seed theo userId + questionId + random salt nhẹ để mỗi người chơi có thứ tự khác nhau
+    let hash = 2166136261;
+    for (let i = 0; i < seedStr.length; i++) {
+      hash ^= seedStr.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    let state = (hash >>> 0) || 123456789;
+    const nextRand = () => {
+      state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+
+    for (let i = cloned.length - 1; i > 0; i--) {
+      const j = Math.floor(nextRand() * (i + 1));
+      const tmp = cloned[i];
+      cloned[i] = cloned[j];
+      cloned[j] = tmp;
+    }
+
+    if (questionType === 'CHOOSE_AUDIO') {
+      return cloned.map((opt, idx) => ({
+        ...opt,
+        text: `Mẫu phát âm ${idx + 1}`,
+      }));
+    }
+
+    return cloned;
   }
 
   // ==================== QUẢN LÝ PHIÊN THI ĐANG DIỄN RA & CHỐNG XUNG ĐỘT KHI KHÓA ====================
@@ -435,10 +501,18 @@ class DataStore {
     if (!user || !challenge) return null;
 
     const now = Date.now();
-    // Chụp lại bản sao bộ câu hỏi ngay thời điểm nhân viên bắt đầu làm bài
-    const questionsSnapshot: QuestionItem[] = JSON.parse(
+    // Chụp lại bản sao bộ câu hỏi ngay thời điểm nhân viên bắt đầu làm bài & xáo trộn đáp án theo từng nhân viên
+    const rawQuestions: QuestionItem[] = JSON.parse(
       JSON.stringify(challenge.questions)
     );
+    const questionsSnapshot: QuestionItem[] = rawQuestions.map((q) => ({
+      ...q,
+      options: this.shuffleOptionsForUser(
+        q.options,
+        q.questionType,
+        `${user.id}-${user.employeeId}-day${dayNumber}-${q.id}-${now}`
+      ),
+    }));
 
     const session: ActiveQuizSession = {
       userId: user.id,
@@ -843,6 +917,9 @@ class DataStore {
     }[] = [];
 
     for (const user of this.data.users) {
+      // Chỉ thông báo cho những ai là USER (không gửi nhắc học cho tài khoản ADMIN)
+      if (user.role !== 'USER') continue;
+
       const doneTargetDay = Boolean(this.getAttempt(user.id, targetDay.dayNumber));
       const neverStudiedAnyDay = user.completedDays === 0 && this.getUserAttempts(user.id).length === 0;
 

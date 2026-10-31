@@ -76,6 +76,24 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function getVietnamDateAndHour(): {
+  dateKey: string;
+  hour: number;
+  minute: number;
+} {
+  const now = new Date();
+  // Tính theo múi giờ Việt Nam (UTC+7)
+  const vnTime = new Date(now.getTime() + (7 * 60 + now.getTimezoneOffset()) * 60000);
+  const yyyy = vnTime.getFullYear();
+  const mm = String(vnTime.getMonth() + 1).padStart(2, '0');
+  const dd = String(vnTime.getDate()).padStart(2, '0');
+  return {
+    dateKey: `${yyyy}-${mm}-${dd}`,
+    hour: vnTime.getHours(),
+    minute: vnTime.getMinutes(),
+  };
+}
+
 class StaggeredPushService {
   private pendingQueue: QueuedPushTask[] = [];
   private isProcessing = false;
@@ -86,10 +104,19 @@ class StaggeredPushService {
   }
 
   public getQueueStatus() {
+    const { dateKey, hour, minute } = getVietnamDateAndHour();
+    const cfg = store.getPushConfig();
     return {
       isProcessing: this.isProcessing,
       pendingRequestsCount: this.pendingQueue.length,
-      config: store.getPushConfig(),
+      currentVnDate: dateKey,
+      currentVnTime: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+      sentToday: {
+        morningNewDay: cfg.lastMorningNotifiedDate === dateKey,
+        evening19hTop1: cfg.lastEveningTop1NotifiedDate === dateKey,
+        night23hUnstudied: cfg.lastNightUnstudiedNotifiedDate === dateKey,
+      },
+      config: cfg,
     };
   }
 
@@ -106,12 +133,14 @@ class StaggeredPushService {
   }
 
   /**
-   * 1. THÔNG BÁO MỞ KHÓA NGÀY MỚI ĐỂ HỌC (Gửi chia đều cho tất cả ai cài PWA)
+   * KHUNG 1 — BUỔI SÁNG (1 LẦN/NGÀY): Thông báo "Có bài mới"
+   * Gửi chia đều request cho tất cả ai cài PWA.
    */
   public enqueueNewDayUnlocked(challenge: DailyChallengeItem): PushCampaignRecord {
+    const { dateKey } = getVietnamDateAndHour();
     const pwaSubs = store.getPwaSubscriptions(true);
-    const title = `🔓 Đã mở khóa ${challenge.title} (${challenge.dateLabel})!`;
-    const body = `Bài học phát âm mới của ${challenge.title} đã sẵn sàng. Vào hoàn thành 10 câu hỏi để tích điểm ngay nhé!`;
+    const title = `🌅 Chào buổi sáng! Đã có bài mới: ${challenge.title} (${challenge.dateLabel})`;
+    const body = `Bài học phát âm mới của ${challenge.title} đã mở khóa. Vào hoàn thành 10 câu hỏi để tích điểm ngay hôm nay nhé!`;
     const targetUrl = '/#challenges';
 
     const tasks = pwaSubs.map((sub) => ({
@@ -124,13 +153,13 @@ class StaggeredPushService {
       targetUrl,
     }));
 
-    // Đánh dấu ngày này đã thông báo để không bị lặp tự động
     const cfg = store.getPushConfig();
-    if (!cfg.notifiedUnlockedDays.includes(challenge.dayNumber)) {
-      store.updatePushConfig({
-        notifiedUnlockedDays: [...cfg.notifiedUnlockedDays, challenge.dayNumber],
-      });
-    }
+    store.updatePushConfig({
+      lastMorningNotifiedDate: dateKey,
+      notifiedUnlockedDays: cfg.notifiedUnlockedDays.includes(challenge.dayNumber)
+        ? cfg.notifiedUnlockedDays
+        : [...cfg.notifiedUnlockedDays, challenge.dayNumber],
+    });
 
     return this.createAndDispatchStaggeredCampaign(
       'NEW_DAY_UNLOCKED',
@@ -142,18 +171,20 @@ class StaggeredPushService {
   }
 
   /**
-   * 2. THÔNG BÁO CÓ NGƯỜI LEO LÊN VỊ TRÍ TOP 1 MỚI (Gửi chia đều cho tất cả ai cài PWA)
+   * KHUNG 2 — 19H TỐI (1 LẦN/NGÀY): Thông báo "Top 1 hiện tại"
+   * Chống spam khi Top 1 đổi liên tục trong ngày: Chỉ tổng hợp và thông báo 1 lần lúc 19h tối cho tất cả ai cài PWA.
    */
   public enqueueNewTop1(
-    newTop1: { id: string; fullName: string; employeeId: string; totalScore: number },
-    previousTop1?: { id: string; fullName: string; employeeId: string; totalScore: number } | null
+    currentTop1: { id: string; fullName: string; employeeId: string; totalScore: number },
+    runnerUp?: { id: string; fullName: string; employeeId: string; totalScore: number } | null
   ): PushCampaignRecord {
+    const { dateKey } = getVietnamDateAndHour();
     const pwaSubs = store.getPwaSubscriptions(true);
-    const title = `👑 Ngôi vương đổi chủ! Top 1 mới lộ diện!`;
+    const title = `👑 Bản tin BXH 19h: Top 1 hiện tại là ${currentTop1.fullName}!`;
     const body =
-      previousTop1 && previousTop1.id !== newTop1.id
-        ? `${newTop1.fullName} (GEN ${newTop1.employeeId}) vừa vượt qua ${previousTop1.fullName} để leo lên vị trí Top 1 với ${newTop1.totalScore.toLocaleString()} điểm! Vào đua Top ngay!`
-        : `${newTop1.fullName} (GEN ${newTop1.employeeId}) vừa vươn lên dẫn đầu Bảng Xếp Hạng Top 1 với ${newTop1.totalScore.toLocaleString()} điểm!`;
+      runnerUp && runnerUp.id !== currentTop1.id
+        ? `Cập nhật 19h tối: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang dẫn đầu Top 1 với ${currentTop1.totalScore.toLocaleString()} điểm (theo sát là ${runnerUp.fullName}). Vào bứt phá ngay!`
+        : `Cập nhật 19h tối: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang giữ vị trí Top 1 Bảng Xếp Hạng với ${currentTop1.totalScore.toLocaleString()} điểm!`;
     const targetUrl = '/#leaderboard';
 
     const tasks = pwaSubs.map((sub) => ({
@@ -166,6 +197,11 @@ class StaggeredPushService {
       targetUrl,
     }));
 
+    store.updatePushConfig({
+      lastEveningTop1NotifiedDate: dateKey,
+      lastTop1UserId: currentTop1.id,
+    });
+
     return this.createAndDispatchStaggeredCampaign(
       'NEW_TOP_1',
       title,
@@ -176,14 +212,16 @@ class StaggeredPushService {
   }
 
   /**
-   * 3. THÔNG BÁO NHỮNG AI CÓ TÀI KHOẢN MÀ CHƯA HỌC (Chỉ gửi cho người có TK trên PWA mà chưa học, chia đều request)
+   * KHUNG 3 — 23H ĐÊM (1 LẦN/NGÀY): Thông báo cho những ai là USER mà chưa làm bài
+   * Chỉ gửi cá nhân hóa và chia đều request cho các tài khoản role === 'USER' đã cài PWA nhưng chưa làm bài.
    */
   public enqueueUnstudiedAccountsReminder(): PushCampaignRecord {
+    const { dateKey } = getVietnamDateAndHour();
     const unstudiedList = store.getUnstudiedAccountsWithPwa();
     const latestDay = store.getLatestUnlockedChallenge();
 
-    const summaryTitle = `⏰ Nhắc học: Tài khoản chưa hoàn thành ${latestDay.title}`;
-    const summaryBody = `Thông báo cá nhân hóa gửi rải đều tới ${unstudiedList.length} tài khoản đã cài PWA nhưng chưa học ${latestDay.title} (hoặc chưa học ngày nào).`;
+    const summaryTitle = `⏰ Nhắc học 23h tối: ${unstudiedList.length} USER chưa làm ${latestDay.title}`;
+    const summaryBody = `Thông báo lúc 23h gửi rải đều tới ${unstudiedList.length} tài khoản USER cài PWA nhưng chưa hoàn thành ${latestDay.title}.`;
     const targetUrl = '/#challenges';
 
     const tasks: {
@@ -198,12 +236,12 @@ class StaggeredPushService {
 
     for (const item of unstudiedList) {
       const personalTitle = item.neverStudiedAnyDay
-        ? `👋 ${item.user.fullName} ơi, bạn có tài khoản nhưng chưa học bài nào!`
-        : `⏰ Nhắc học: ${item.user.fullName} chưa hoàn thành ${item.targetDay.title}!`;
+        ? `⏰ 23h Nhắc học: ${item.user.fullName} ơi, bạn chưa làm bài nào!`
+        : `⏰ 23h Nhắc học: ${item.user.fullName} chưa hoàn thành ${item.targetDay.title}!`;
 
       const personalBody = item.neverStudiedAnyDay
-        ? `Tài khoản GEN ${item.user.employeeId} chưa bắt đầu ngày thử thách nào. ${item.targetDay.title} (${item.targetDay.dateLabel}) đang mở, vào học 2 phút ngay nhé!`
-        : `Chào ${item.user.fullName} (GEN ${item.user.employeeId}), bạn đừng quên hoàn thành 10 câu hỏi của ${item.targetDay.title} hôm nay để giữ vững thứ hạng trên PWA nhé!`;
+        ? `Chỉ còn 1 tiếng nữa là hết ngày! Tài khoản GEN ${item.user.employeeId} chưa làm bài học nào. ${item.targetDay.title} đang mở, vào hoàn thành 2 phút ngay nhé!`
+        : `Chỉ còn 1 tiếng nữa là khép lại ngày hôm nay! Chào ${item.user.fullName} (GEN ${item.user.employeeId}), đừng quên hoàn thành ${item.targetDay.title} trước 24h nhé!`;
 
       for (const sub of item.subscriptions) {
         tasks.push({
@@ -217,6 +255,10 @@ class StaggeredPushService {
         });
       }
     }
+
+    store.updatePushConfig({
+      lastNightUnstudiedNotifiedDate: dateKey,
+    });
 
     return this.createAndDispatchStaggeredCampaign(
       'UNSTUDIED_REMINDER',
@@ -343,7 +385,6 @@ class StaggeredPushService {
             deliveryStatus = 'SENT';
           } catch (err: any) {
             if (err?.statusCode === 404 || err?.statusCode === 410) {
-              // Endpoint PWA đã gỡ cài đặt hoặc hết hạn -> xóa khỏi danh sách
               store.removePwaSubscription(task.subscription.endpoint);
             }
             deliveryStatus = 'FAILED';
@@ -405,52 +446,59 @@ class StaggeredPushService {
   }
 
   /**
-   * Bộ lập lịch tự động kiểm tra:
-   * 1. Phát hiện khi có Ngày mới vừa đến giờ mở khóa tự động (00:00) -> Push thông báo mở khóa ngày mới.
-   * 2. Phát hiện những tài khoản cài PWA nhưng chưa học ngày hiện tại -> Push nhắc học tự động 1 lần/ngày.
+   * Bộ lập lịch tự động chống tràn lan thông báo (Chỉ thông báo đúng 3 mốc cố định trong ngày):
+   * 1. Buổi sáng (mặc định 08:00 - 1 lần/ngày): Thông báo "Có bài mới" tới tất cả PWA.
+   * 2. 19h tối (19:00 - 1 lần/ngày): Thông báo "Top 1 hiện tại" tới tất cả PWA.
+   * 3. 23h đêm (23:00 - 1 lần/ngày): Thông báo nhắc riêng những ai là USER cài PWA mà chưa làm bài.
    */
   public startAutoScheduler() {
     if (this.schedulerTimer) return;
 
     this.schedulerTimer = setInterval(() => {
       try {
-        const cfg = store.getPushConfig();
-        const challenges = store.getChallenges();
+        if (this.isProcessing) return;
 
-        // 1. Tự động kiểm tra có ngày mới nào vừa được mở khóa theo lịch hay không
-        for (const c of challenges) {
-          if (store.isDayUnlocked(c) && !cfg.notifiedUnlockedDays.includes(c.dayNumber)) {
-            this.enqueueNewDayUnlocked(c);
-            break;
+        const cfg = store.getPushConfig();
+        if (!cfg.autoRemindUnstudied) return;
+
+        const { dateKey, hour } = getVietnamDateAndHour();
+        const morningHour = cfg.morningHour ?? 8;
+        const eveningTop1Hour = cfg.eveningTop1Hour ?? 19;
+        const nightUnstudiedHour = cfg.nightUnstudiedHour ?? 23;
+
+        // 1. Khung buổi sáng (1 lần/ngày): Thông báo Có bài mới
+        if (hour === morningHour && cfg.lastMorningNotifiedDate !== dateKey) {
+          const latestDay = store.getLatestUnlockedChallenge();
+          if (latestDay && store.isDayUnlocked(latestDay)) {
+            this.enqueueNewDayUnlocked(latestDay);
+            return;
           }
         }
 
-        // 2. Tự động nhắc học hàng ngày đối với tài khoản chưa học (nếu bật autoRemindUnstudied)
-        if (cfg.autoRemindUnstudied && !this.isProcessing) {
-          const latestDay = store.getLatestUnlockedChallenge();
-          const todayStr = new Date().toISOString().slice(0, 10);
-          const reminderKey = `${todayStr}:day-${latestDay.dayNumber}`;
-          const hourLocal = new Date().getHours();
+        // 2. Khung 19h tối (1 lần/ngày): Thông báo Top 1 hiện tại
+        if (hour === eveningTop1Hour && cfg.lastEveningTop1NotifiedDate !== dateKey) {
+          const leaderboard = store.getLeaderboard();
+          const currentTop1 = leaderboard[0];
+          const runnerUp = leaderboard[1] || null;
+          if (currentTop1) {
+            this.enqueueNewTop1(currentTop1, runnerUp);
+            return;
+          }
+        }
 
-          // Tự động nhắc vào khung giờ 08:00 - 21:00 nếu trong ngày chưa nhắc cho Day này
-          if (
-            hourLocal >= 8 &&
-            hourLocal <= 21 &&
-            !cfg.notifiedUnstudiedKeys.includes(reminderKey)
-          ) {
-            const unstudied = store.getUnstudiedAccountsWithPwa();
-            if (unstudied.length > 0) {
-              store.updatePushConfig({
-                notifiedUnstudiedKeys: [...cfg.notifiedUnstudiedKeys.slice(-30), reminderKey],
-              });
-              this.enqueueUnstudiedAccountsReminder();
-            }
+        // 3. Khung 23h tối (1 lần/ngày): Thông báo cho những ai là USER mà chưa làm bài
+        if (hour === nightUnstudiedHour && cfg.lastNightUnstudiedNotifiedDate !== dateKey) {
+          const unstudied = store.getUnstudiedAccountsWithPwa();
+          if (unstudied.length > 0) {
+            this.enqueueUnstudiedAccountsReminder();
+          } else {
+            store.updatePushConfig({ lastNightUnstudiedNotifiedDate: dateKey });
           }
         }
       } catch (e) {
         console.error('Push scheduler error:', e);
       }
-    }, 30000);
+    }, 20000);
   }
 }
 

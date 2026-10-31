@@ -8,12 +8,12 @@
       "phone": "0901234567",
       "department": "HR & Training",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak",
-      "passwordHash": "$2a$10$41yPG0Z8yLmXGED2GupkiePW200axz1GA5905D251IALZuR0fGuTK",
+      "passwordHash": "$2a$10$z.9x3Xe.3gx3BvtDsXxZgOnwbDluWfTZDso81iuYmlQIQUtGOcSs2",
       "role": "ADMIN",
       "totalScore": 2500,
       "totalTimeMs": 650000,
       "completedDays": 12,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     },
     {
       "id": "u-thao",
@@ -23,12 +23,12 @@
       "phone": "0987654321",
       "department": "Quality Assurance (QA)",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=ThaoNguyen",
-      "passwordHash": "$2a$10$lRAekI..29vrU.s261XgNONGCKMDaTTj461INaAilHp8wioJqbb/C",
+      "passwordHash": "$2a$10$OGuE.soUJQ5fbyMVNf.alOTsDz461SI3kfRKGgx7T0KLtkKuroWB6",
       "role": "USER",
       "totalScore": 2150,
       "totalTimeMs": 740000,
       "completedDays": 12,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     },
     {
       "id": "u-1",
@@ -38,12 +38,12 @@
       "phone": "0912345001",
       "department": "R&D Center",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=MinhAnh",
-      "passwordHash": "$2a$10$lRAekI..29vrU.s261XgNONGCKMDaTTj461INaAilHp8wioJqbb/C",
+      "passwordHash": "$2a$10$OGuE.soUJQ5fbyMVNf.alOTsDz461SI3kfRKGgx7T0KLtkKuroWB6",
       "role": "USER",
       "totalScore": 2980,
       "totalTimeMs": 510000,
       "completedDays": 15,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     },
     {
       "id": "u-2",
@@ -53,12 +53,12 @@
       "phone": "0912345002",
       "department": "Production",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=QuocHuy",
-      "passwordHash": "$2a$10$lRAekI..29vrU.s261XgNONGCKMDaTTj461INaAilHp8wioJqbb/C",
+      "passwordHash": "$2a$10$OGuE.soUJQ5fbyMVNf.alOTsDz461SI3kfRKGgx7T0KLtkKuroWB6",
       "role": "USER",
       "totalScore": 2850,
       "totalTimeMs": 540000,
       "completedDays": 14,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     },
     {
       "id": "u-3",
@@ -68,12 +68,12 @@
       "phone": "0912345003",
       "department": "Quality Assurance (QA)",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=ThuHuong",
-      "passwordHash": "$2a$10$lRAekI..29vrU.s261XgNONGCKMDaTTj461INaAilHp8wioJqbb/C",
+      "passwordHash": "$2a$10$OGuE.soUJQ5fbyMVNf.alOTsDz461SI3kfRKGgx7T0KLtkKuroWB6",
       "role": "USER",
       "totalScore": 2720,
       "totalTimeMs": 590000,
       "completedDays": 14,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     },
     {
       "id": "u-4",
@@ -83,12 +83,12 @@
       "phone": "0912345004",
       "department": "IT & System",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=HoangNam",
-      "passwordHash": "$2a$10$lRAekI..29vrU.s261XgNONGCKMDaTTj461INaAilHp8wioJqbb/C",
+      "passwordHash": "$2a$10$OGuE.soUJQ5fbyMVNf.alOTsDz461SI3kfRKGgx7T0KLtkKuroWB6",
       "role": "USER",
       "totalScore": 2650,
       "totalTimeMs": 610000,
       "completedDays": 13,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     },
     {
       "id": "u-5",
@@ -98,12 +98,12 @@
       "phone": "0912345005",
       "department": "HR & Training",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=MaiLinh",
-      "passwordHash": "$2a$10$lRAekI..29vrU.s261XgNONGCKMDaTTj461INaAilHp8wioJqbb/C",
+      "passwordHash": "$2a$10$OGuE.soUJQ5fbyMVNf.alOTsDz461SI3kfRKGgx7T0KLtkKuroWB6",
       "role": "USER",
       "totalScore": 2600,
       "totalTimeMs": 630000,
       "completedDays": 13,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     },
     {
       "id": "u-6",
@@ -113,12 +113,12 @@
       "phone": "0912345006",
       "department": "Production",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=DucTrong",
-      "passwordHash": "$2a$10$lRAekI..29vrU.s261XgNONGCKMDaTTj461INaAilHp8wioJqbb/C",
+      "passwordHash": "$2a$10$OGuE.soUJQ5fbyMVNf.alOTsDz461SI3kfRKGgx7T0KLtkKuroWB6",
       "role": "USER",
       "totalScore": 0,
       "totalTimeMs": 0,
       "completedDays": 0,
-      "createdAt": "2026-10-29T16:57:26.791Z"
+      "createdAt": "2026-10-31T10:14:14.105Z"
     }
   ],
   "challenges": [
@@ -126,8 +126,8 @@
       "id": 1,
       "dayNumber": 1,
       "title": "Day 1",
-      "dateLabel": "04/11/2026",
-      "unlockDate": "2026-10-29T15:57:26.791Z",
+      "dateLabel": "31/10/2026",
+      "unlockDate": "2026-10-30T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -498,8 +498,8 @@
       "id": 2,
       "dayNumber": 2,
       "title": "Day 2",
-      "dateLabel": "05/11/2026",
-      "unlockDate": "2026-10-30T16:57:26.791Z",
+      "dateLabel": "01/11/2026",
+      "unlockDate": "2026-10-31T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -870,8 +870,8 @@
       "id": 3,
       "dayNumber": 3,
       "title": "Day 3",
-      "dateLabel": "06/11/2026",
-      "unlockDate": "2026-10-31T16:57:26.791Z",
+      "dateLabel": "02/11/2026",
+      "unlockDate": "2026-11-01T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -1242,8 +1242,8 @@
       "id": 4,
       "dayNumber": 4,
       "title": "Day 4",
-      "dateLabel": "07/11/2026",
-      "unlockDate": "2026-11-01T16:57:26.791Z",
+      "dateLabel": "03/11/2026",
+      "unlockDate": "2026-11-02T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -1614,8 +1614,8 @@
       "id": 5,
       "dayNumber": 5,
       "title": "Day 5",
-      "dateLabel": "08/11/2026",
-      "unlockDate": "2026-11-02T16:57:26.791Z",
+      "dateLabel": "04/11/2026",
+      "unlockDate": "2026-11-03T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -1986,8 +1986,8 @@
       "id": 6,
       "dayNumber": 6,
       "title": "Day 6",
-      "dateLabel": "09/11/2026",
-      "unlockDate": "2026-11-03T16:57:26.791Z",
+      "dateLabel": "05/11/2026",
+      "unlockDate": "2026-11-04T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -2358,8 +2358,8 @@
       "id": 7,
       "dayNumber": 7,
       "title": "Day 7",
-      "dateLabel": "10/11/2026",
-      "unlockDate": "2026-11-04T16:57:26.791Z",
+      "dateLabel": "06/11/2026",
+      "unlockDate": "2026-11-05T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -2730,8 +2730,8 @@
       "id": 8,
       "dayNumber": 8,
       "title": "Day 8",
-      "dateLabel": "11/11/2026",
-      "unlockDate": "2026-11-05T16:57:26.791Z",
+      "dateLabel": "07/11/2026",
+      "unlockDate": "2026-11-06T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -3102,8 +3102,8 @@
       "id": 9,
       "dayNumber": 9,
       "title": "Day 9",
-      "dateLabel": "12/11/2026",
-      "unlockDate": "2026-11-06T16:57:26.791Z",
+      "dateLabel": "08/11/2026",
+      "unlockDate": "2026-11-07T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -3474,8 +3474,8 @@
       "id": 10,
       "dayNumber": 10,
       "title": "Day 10",
-      "dateLabel": "13/11/2026",
-      "unlockDate": "2026-11-07T16:57:26.791Z",
+      "dateLabel": "09/11/2026",
+      "unlockDate": "2026-11-08T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -3846,8 +3846,8 @@
       "id": 11,
       "dayNumber": 11,
       "title": "Day 11",
-      "dateLabel": "14/11/2026",
-      "unlockDate": "2026-11-08T16:57:26.791Z",
+      "dateLabel": "10/11/2026",
+      "unlockDate": "2026-11-09T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -4218,8 +4218,8 @@
       "id": 12,
       "dayNumber": 12,
       "title": "Day 12",
-      "dateLabel": "15/11/2026",
-      "unlockDate": "2026-11-09T16:57:26.791Z",
+      "dateLabel": "11/11/2026",
+      "unlockDate": "2026-11-10T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -4590,8 +4590,8 @@
       "id": 13,
       "dayNumber": 13,
       "title": "Day 13",
-      "dateLabel": "16/11/2026",
-      "unlockDate": "2026-11-10T16:57:26.791Z",
+      "dateLabel": "12/11/2026",
+      "unlockDate": "2026-11-11T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -4962,8 +4962,8 @@
       "id": 14,
       "dayNumber": 14,
       "title": "Day 14",
-      "dateLabel": "17/11/2026",
-      "unlockDate": "2026-11-11T16:57:26.791Z",
+      "dateLabel": "13/11/2026",
+      "unlockDate": "2026-11-12T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -5334,8 +5334,8 @@
       "id": 15,
       "dayNumber": 15,
       "title": "Day 15",
-      "dateLabel": "18/11/2026",
-      "unlockDate": "2026-11-12T16:57:26.791Z",
+      "dateLabel": "14/11/2026",
+      "unlockDate": "2026-11-13T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -5706,8 +5706,8 @@
       "id": 16,
       "dayNumber": 16,
       "title": "Day 16",
-      "dateLabel": "19/11/2026",
-      "unlockDate": "2026-11-13T16:57:26.791Z",
+      "dateLabel": "15/11/2026",
+      "unlockDate": "2026-11-14T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -6078,8 +6078,8 @@
       "id": 17,
       "dayNumber": 17,
       "title": "Day 17",
-      "dateLabel": "20/11/2026",
-      "unlockDate": "2026-11-14T16:57:26.791Z",
+      "dateLabel": "16/11/2026",
+      "unlockDate": "2026-11-15T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -6450,8 +6450,8 @@
       "id": 18,
       "dayNumber": 18,
       "title": "Day 18",
-      "dateLabel": "21/11/2026",
-      "unlockDate": "2026-11-15T16:57:26.791Z",
+      "dateLabel": "17/11/2026",
+      "unlockDate": "2026-11-16T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -6822,8 +6822,8 @@
       "id": 19,
       "dayNumber": 19,
       "title": "Day 19",
-      "dateLabel": "22/11/2026",
-      "unlockDate": "2026-11-16T16:57:26.791Z",
+      "dateLabel": "18/11/2026",
+      "unlockDate": "2026-11-17T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -7194,8 +7194,8 @@
       "id": 20,
       "dayNumber": 20,
       "title": "Day 20",
-      "dateLabel": "23/11/2026",
-      "unlockDate": "2026-11-17T16:57:26.791Z",
+      "dateLabel": "19/11/2026",
+      "unlockDate": "2026-11-18T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -7566,8 +7566,8 @@
       "id": 21,
       "dayNumber": 21,
       "title": "Day 21",
-      "dateLabel": "24/11/2026",
-      "unlockDate": "2026-11-18T16:57:26.791Z",
+      "dateLabel": "20/11/2026",
+      "unlockDate": "2026-11-19T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -7938,8 +7938,8 @@
       "id": 22,
       "dayNumber": 22,
       "title": "Day 22",
-      "dateLabel": "25/11/2026",
-      "unlockDate": "2026-11-19T16:57:26.791Z",
+      "dateLabel": "21/11/2026",
+      "unlockDate": "2026-11-20T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -8310,8 +8310,8 @@
       "id": 23,
       "dayNumber": 23,
       "title": "Day 23",
-      "dateLabel": "26/11/2026",
-      "unlockDate": "2026-11-20T16:57:26.791Z",
+      "dateLabel": "22/11/2026",
+      "unlockDate": "2026-11-21T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -8682,8 +8682,8 @@
       "id": 24,
       "dayNumber": 24,
       "title": "Day 24",
-      "dateLabel": "27/11/2026",
-      "unlockDate": "2026-11-21T16:57:26.791Z",
+      "dateLabel": "23/11/2026",
+      "unlockDate": "2026-11-22T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -9054,8 +9054,8 @@
       "id": 25,
       "dayNumber": 25,
       "title": "Day 25",
-      "dateLabel": "28/11/2026",
-      "unlockDate": "2026-11-22T16:57:26.791Z",
+      "dateLabel": "24/11/2026",
+      "unlockDate": "2026-11-23T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -9426,8 +9426,8 @@
       "id": 26,
       "dayNumber": 26,
       "title": "Day 26",
-      "dateLabel": "29/11/2026",
-      "unlockDate": "2026-11-23T16:57:26.791Z",
+      "dateLabel": "25/11/2026",
+      "unlockDate": "2026-11-24T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -9798,8 +9798,8 @@
       "id": 27,
       "dayNumber": 27,
       "title": "Day 27",
-      "dateLabel": "30/11/2026",
-      "unlockDate": "2026-11-24T16:57:26.791Z",
+      "dateLabel": "26/11/2026",
+      "unlockDate": "2026-11-25T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -10170,8 +10170,8 @@
       "id": 28,
       "dayNumber": 28,
       "title": "Day 28",
-      "dateLabel": "01/12/2026",
-      "unlockDate": "2026-11-25T16:57:26.791Z",
+      "dateLabel": "27/11/2026",
+      "unlockDate": "2026-11-26T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -10542,8 +10542,8 @@
       "id": 29,
       "dayNumber": 29,
       "title": "Day 29",
-      "dateLabel": "02/12/2026",
-      "unlockDate": "2026-11-26T16:57:26.791Z",
+      "dateLabel": "28/11/2026",
+      "unlockDate": "2026-11-27T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -10914,8 +10914,8 @@
       "id": 30,
       "dayNumber": 30,
       "title": "Day 30",
-      "dateLabel": "03/12/2026",
-      "unlockDate": "2026-11-27T16:57:26.791Z",
+      "dateLabel": "29/11/2026",
+      "unlockDate": "2026-11-28T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -11298,8 +11298,8 @@
       "isPwaInstalled": true,
       "isSimulated": true,
       "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:57:26.791Z",
-      "updatedAt": "2026-10-29T16:57:26.791Z",
+      "createdAt": "2026-10-29T10:14:14.106Z",
+      "updatedAt": "2026-10-31T10:14:14.106Z",
       "lastNotifiedAt": null
     },
     {
@@ -11315,8 +11315,8 @@
       "isPwaInstalled": true,
       "isSimulated": true,
       "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:57:26.791Z",
-      "updatedAt": "2026-10-29T16:57:26.791Z",
+      "createdAt": "2026-10-29T10:14:14.106Z",
+      "updatedAt": "2026-10-31T10:14:14.106Z",
       "lastNotifiedAt": null
     },
     {
@@ -11332,8 +11332,8 @@
       "isPwaInstalled": true,
       "isSimulated": true,
       "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:57:26.791Z",
-      "updatedAt": "2026-10-29T16:57:26.791Z",
+      "createdAt": "2026-10-29T10:14:14.106Z",
+      "updatedAt": "2026-10-31T10:14:14.106Z",
       "lastNotifiedAt": null
     },
     {
@@ -11349,8 +11349,8 @@
       "isPwaInstalled": true,
       "isSimulated": true,
       "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:57:26.791Z",
-      "updatedAt": "2026-10-29T16:57:26.791Z",
+      "createdAt": "2026-10-29T10:14:14.106Z",
+      "updatedAt": "2026-10-31T10:14:14.106Z",
       "lastNotifiedAt": null
     },
     {
@@ -11366,8 +11366,8 @@
       "isPwaInstalled": true,
       "isSimulated": true,
       "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:57:26.791Z",
-      "updatedAt": "2026-10-29T16:57:26.791Z",
+      "createdAt": "2026-10-29T10:14:14.106Z",
+      "updatedAt": "2026-10-31T10:14:14.106Z",
       "lastNotifiedAt": null
     },
     {
@@ -11383,8 +11383,8 @@
       "isPwaInstalled": true,
       "isSimulated": true,
       "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:57:26.791Z",
-      "updatedAt": "2026-10-29T16:57:26.791Z",
+      "createdAt": "2026-10-29T10:14:14.106Z",
+      "updatedAt": "2026-10-31T10:14:14.106Z",
       "lastNotifiedAt": null
     },
     {
@@ -11400,8 +11400,8 @@
       "isPwaInstalled": true,
       "isSimulated": true,
       "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:57:26.791Z",
-      "updatedAt": "2026-10-29T16:57:26.791Z",
+      "createdAt": "2026-10-29T10:14:14.106Z",
+      "updatedAt": "2026-10-31T10:14:14.106Z",
       "lastNotifiedAt": null
     }
   ],
@@ -11412,6 +11412,12 @@
     "minIntervalMs": 1200,
     "maxIntervalMs": 5000,
     "autoRemindUnstudied": true,
+    "morningHour": 8,
+    "eveningTop1Hour": 19,
+    "nightUnstudiedHour": 23,
+    "lastMorningNotifiedDate": null,
+    "lastEveningTop1NotifiedDate": null,
+    "lastNightUnstudiedNotifiedDate": null,
     "lastTop1UserId": "u-1",
     "notifiedUnlockedDays": [
       1

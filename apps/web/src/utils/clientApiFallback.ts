@@ -148,6 +148,12 @@ interface ClientPushConfig {
   minIntervalMs: number;
   maxIntervalMs: number;
   autoRemindUnstudied: boolean;
+  morningHour: number;
+  eveningTop1Hour: number;
+  nightUnstudiedHour: number;
+  lastMorningNotifiedDate: string | null;
+  lastEveningTop1NotifiedDate: string | null;
+  lastNightUnstudiedNotifiedDate: string | null;
   lastTop1UserId: string | null;
   notifiedUnlockedDays: number[];
   notifiedUnstudiedKeys: string[];
@@ -342,20 +348,16 @@ const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'orderInd
 
 function generate30Days(): DailyChallengeItem[] {
   const days: DailyChallengeItem[] = [];
-  const baseDate = new Date('2026-11-04T00:00:00.000Z');
   const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
   for (let day = 1; day <= 30; day++) {
-    const d = new Date(baseDate);
-    d.setUTCDate(baseDate.getUTCDate() + (day - 1));
-    const dd = String(d.getUTCDate()).padStart(2, '0');
-    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const yyyy = d.getUTCFullYear();
+    const unlockDateObj = new Date(todayMidnight.getTime() + (day - 1) * 86400 * 1000);
+    const dd = String(unlockDateObj.getDate()).padStart(2, '0');
+    const mm = String(unlockDateObj.getMonth() + 1).padStart(2, '0');
+    const yyyy = unlockDateObj.getFullYear();
 
-    const unlockDate =
-      day === 1
-        ? new Date(now.getTime() - 3600 * 1000).toISOString()
-        : new Date(now.getTime() + (day - 1) * 86400 * 1000).toISOString();
+    const unlockDate = unlockDateObj.toISOString();
 
     const questions: QuestionItem[] = OFFICIAL_10_QUESTIONS.map((q, idx) => ({
       ...JSON.parse(JSON.stringify(q)),
@@ -538,10 +540,24 @@ function ensureClientPushState(db: ClientDbShape): ClientDbShape {
       minIntervalMs: 1200,
       maxIntervalMs: 5000,
       autoRemindUnstudied: true,
+      morningHour: 8,
+      eveningTop1Hour: 19,
+      nightUnstudiedHour: 23,
+      lastMorningNotifiedDate: null,
+      lastEveningTop1NotifiedDate: null,
+      lastNightUnstudiedNotifiedDate: null,
       lastTop1UserId: 'u-1',
       notifiedUnlockedDays: [1],
       notifiedUnstudiedKeys: [],
     };
+  } else {
+    db.pushConfig.morningHour = db.pushConfig.morningHour ?? 8;
+    db.pushConfig.eveningTop1Hour = db.pushConfig.eveningTop1Hour ?? 19;
+    db.pushConfig.nightUnstudiedHour = db.pushConfig.nightUnstudiedHour ?? 23;
+    db.pushConfig.lastMorningNotifiedDate = db.pushConfig.lastMorningNotifiedDate ?? null;
+    db.pushConfig.lastEveningTop1NotifiedDate = db.pushConfig.lastEveningTop1NotifiedDate ?? null;
+    db.pushConfig.lastNightUnstudiedNotifiedDate =
+      db.pushConfig.lastNightUnstudiedNotifiedDate ?? null;
   }
   return db;
 }
@@ -581,6 +597,22 @@ function getLatestUnlockedDay(db: ClientDbShape): DailyChallengeItem {
   return unlocked[0] || db.challenges[0];
 }
 
+function getClientVnDateTime() {
+  const now = new Date();
+  const vnTime = new Date(now.getTime() + (7 * 60 + now.getTimezoneOffset()) * 60000);
+  const yyyy = vnTime.getFullYear();
+  const mm = String(vnTime.getMonth() + 1).padStart(2, '0');
+  const dd = String(vnTime.getDate()).padStart(2, '0');
+  return {
+    dateKey: `${yyyy}-${mm}-${dd}`,
+    hour: vnTime.getHours(),
+    minute: vnTime.getMinutes(),
+    formattedTime: `${String(vnTime.getHours()).padStart(2, '0')}:${String(
+      vnTime.getMinutes()
+    ).padStart(2, '0')}`,
+  };
+}
+
 function getClientUnstudiedWithPwa(db: ClientDbShape) {
   const targetDay = getLatestUnlockedDay(db);
   const subs = (db.pwaSubscriptions || []).filter((s) => s.isPwaInstalled);
@@ -592,6 +624,9 @@ function getClientUnstudiedWithPwa(db: ClientDbShape) {
   }[] = [];
 
   for (const user of db.users) {
+    // Chỉ thông báo cho những ai là USER mà chưa làm bài
+    if (user.role !== 'USER') continue;
+
     const doneDay = db.attempts.some(
       (a) => a.userId === user.id && a.dayNumber === targetDay.dayNumber
     );
@@ -739,9 +774,11 @@ function triggerClientDayUnlocked(
   db: ClientDbShape,
   challenge: DailyChallengeItem
 ): ClientPushCampaign {
+  const { dateKey } = getClientVnDateTime();
+  if (db.pushConfig) db.pushConfig.lastMorningNotifiedDate = dateKey;
   const subs = (db.pwaSubscriptions || []).filter((s) => s.isPwaInstalled);
-  const title = `🔓 Đã mở khóa ${challenge.title} (${challenge.dateLabel})!`;
-  const body = `Bài học phát âm mới của ${challenge.title} đã sẵn sàng. Vào hoàn thành 10 câu hỏi để tích điểm ngay nhé!`;
+  const title = `🌅 Chào buổi sáng! Đã có bài mới: ${challenge.title} (${challenge.dateLabel})`;
+  const body = `Bài học phát âm mới của ${challenge.title} đã mở khóa. Vào hoàn thành 10 câu hỏi để tích điểm ngay hôm nay nhé!`;
   const targetUrl = '/#challenges';
   return enqueueClientStaggerCampaign(
     db,
@@ -763,15 +800,20 @@ function triggerClientDayUnlocked(
 
 function triggerClientNewTop1(
   db: ClientDbShape,
-  newTop1: { id: string; fullName: string; employeeId: string; totalScore: number },
-  prevTop1?: { id: string; fullName: string; employeeId: string; totalScore: number } | null
+  currentTop1: { id: string; fullName: string; employeeId: string; totalScore: number },
+  runnerUp?: { id: string; fullName: string; employeeId: string; totalScore: number } | null
 ): ClientPushCampaign {
+  const { dateKey } = getClientVnDateTime();
+  if (db.pushConfig) {
+    db.pushConfig.lastEveningTop1NotifiedDate = dateKey;
+    db.pushConfig.lastTop1UserId = currentTop1.id;
+  }
   const subs = (db.pwaSubscriptions || []).filter((s) => s.isPwaInstalled);
-  const title = `👑 Ngôi vương đổi chủ! Top 1 mới lộ diện!`;
+  const title = `👑 Bản tin BXH 19h: Top 1 hiện tại là ${currentTop1.fullName}!`;
   const body =
-    prevTop1 && prevTop1.id !== newTop1.id
-      ? `${newTop1.fullName} (GEN ${newTop1.employeeId}) vừa vượt qua ${prevTop1.fullName} để leo lên vị trí Top 1 với ${newTop1.totalScore.toLocaleString()} điểm! Vào đua Top ngay!`
-      : `${newTop1.fullName} (GEN ${newTop1.employeeId}) vừa vươn lên dẫn đầu Bảng Xếp Hạng Top 1 với ${newTop1.totalScore.toLocaleString()} điểm!`;
+    runnerUp && runnerUp.id !== currentTop1.id
+      ? `Cập nhật 19h tối: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang dẫn đầu Top 1 với ${currentTop1.totalScore.toLocaleString()} điểm (theo sát là ${runnerUp.fullName}). Vào bứt phá ngay!`
+      : `Cập nhật 19h tối: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang giữ vị trí Top 1 Bảng Xếp Hạng với ${currentTop1.totalScore.toLocaleString()} điểm!`;
   const targetUrl = '/#leaderboard';
   return enqueueClientStaggerCampaign(
     db,
@@ -792,10 +834,12 @@ function triggerClientNewTop1(
 }
 
 function triggerClientUnstudiedReminder(db: ClientDbShape): ClientPushCampaign {
+  const { dateKey } = getClientVnDateTime();
+  if (db.pushConfig) db.pushConfig.lastNightUnstudiedNotifiedDate = dateKey;
   const unstudiedList = getClientUnstudiedWithPwa(db);
   const latestDay = getLatestUnlockedDay(db);
-  const summaryTitle = `⏰ Nhắc học: Tài khoản chưa hoàn thành ${latestDay.title}`;
-  const summaryBody = `Thông báo cá nhân hóa gửi rải đều tới ${unstudiedList.length} tài khoản đã cài PWA nhưng chưa học ${latestDay.title}.`;
+  const summaryTitle = `⏰ Nhắc học 23h tối: ${unstudiedList.length} USER chưa làm ${latestDay.title}`;
+  const summaryBody = `Thông báo lúc 23h gửi rải đều tới ${unstudiedList.length} tài khoản USER cài PWA nhưng chưa hoàn thành ${latestDay.title}.`;
   const targetUrl = '/#challenges';
 
   const tasks: {
@@ -810,11 +854,11 @@ function triggerClientUnstudiedReminder(db: ClientDbShape): ClientPushCampaign {
 
   for (const item of unstudiedList) {
     const personalTitle = item.neverStudiedAnyDay
-      ? `👋 ${item.user.fullName} ơi, bạn có tài khoản nhưng chưa học bài nào!`
-      : `⏰ Nhắc học: ${item.user.fullName} chưa hoàn thành ${item.targetDay.title}!`;
+      ? `⏰ 23h Nhắc học: ${item.user.fullName} ơi, bạn chưa làm bài nào!`
+      : `⏰ 23h Nhắc học: ${item.user.fullName} chưa hoàn thành ${item.targetDay.title}!`;
     const personalBody = item.neverStudiedAnyDay
-      ? `Tài khoản GEN ${item.user.employeeId} chưa bắt đầu ngày thử thách nào. ${item.targetDay.title} (${item.targetDay.dateLabel}) đang mở, vào học 2 phút ngay nhé!`
-      : `Chào ${item.user.fullName} (GEN ${item.user.employeeId}), bạn đừng quên hoàn thành 10 câu hỏi của ${item.targetDay.title} hôm nay để giữ vững thứ hạng nhé!`;
+      ? `Chỉ còn 1 tiếng nữa là hết ngày! Tài khoản GEN ${item.user.employeeId} chưa làm bài học nào. ${item.targetDay.title} đang mở, vào hoàn thành 2 phút ngay nhé!`
+      : `Chỉ còn 1 tiếng nữa là khép lại ngày hôm nay! Chào ${item.user.fullName} (GEN ${item.user.employeeId}), đừng quên hoàn thành ${item.targetDay.title} trước 24h nhé!`;
 
     for (const sub of item.subscriptions) {
       tasks.push({
@@ -1230,8 +1274,21 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     const list = db.challenges.map((c) => {
       const attempt = userAttempts.find((a) => a.dayNumber === c.dayNumber);
       const unlocked = isDayUnlocked(c);
+      const unlockDateObj = new Date(c.unlockDate);
+      const endDateObj = new Date(
+        unlockDateObj.getFullYear(),
+        unlockDateObj.getMonth(),
+        unlockDateObj.getDate() + 1,
+        0,
+        0,
+        0,
+        0
+      );
+      const endsAt = endDateObj.toISOString();
+      const resultsRevealed = Date.now() >= endDateObj.getTime();
+
       let stars = 0;
-      if (attempt) {
+      if (attempt && resultsRevealed) {
         if (attempt.score >= 90) stars = 3;
         else if (attempt.score >= 60) stars = 2;
         else stars = 1;
@@ -1242,13 +1299,15 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
         title: c.title,
         dateLabel: c.dateLabel,
         unlockDate: c.unlockDate,
+        endsAt,
+        resultsRevealed,
         isPublished: c.isPublished,
         questionCount: c.questions.length,
         activePlayersCount: 0,
         status: !unlocked ? 'LOCKED' : attempt ? 'COMPLETED' : 'OPEN',
         isCompletedByMe: Boolean(attempt),
         stars,
-        score: attempt?.score ?? null,
+        score: attempt ? (resultsRevealed ? attempt.score : null) : null,
         timeSpentMs: attempt?.timeSpentMs ?? null,
       };
     });
@@ -1271,7 +1330,40 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     }
 
     const startedAt = Date.now();
-    const snapshot: QuestionItem[] = JSON.parse(JSON.stringify(challenge.questions));
+    const rawQuestions: QuestionItem[] = JSON.parse(JSON.stringify(challenge.questions));
+    // Xáo trộn đáp án ngẫu nhiên khác nhau cho từng người chơi & bỏ ký hiệu Audio A/B/C/D
+    const snapshot: QuestionItem[] = rawQuestions.map((q) => {
+      const clonedOpts = [...q.options];
+      const seedStr = `${currentUser.id}-${currentUser.employeeId}-d${dayNumber}-${q.id}-${startedAt}`;
+      let hash = 2166136261;
+      for (let i = 0; i < seedStr.length; i++) {
+        hash ^= seedStr.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      let state = (hash >>> 0) || 123456789;
+      const nextRand = () => {
+        state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+        return state / 4294967296;
+      };
+      for (let i = clonedOpts.length - 1; i > 0; i--) {
+        const j = Math.floor(nextRand() * (i + 1));
+        const tmp = clonedOpts[i];
+        clonedOpts[i] = clonedOpts[j];
+        clonedOpts[j] = tmp;
+      }
+      const finalOpts =
+        q.questionType === 'CHOOSE_AUDIO'
+          ? clonedOpts.map((opt, idx) => ({
+              ...opt,
+              text: `Mẫu phát âm ${idx + 1}`,
+            }))
+          : clonedOpts;
+      return {
+        ...q,
+        options: finalOpts,
+      };
+    });
+
     activeSessions.set(`${currentUser.id}:${dayNumber}`, {
       userId: currentUser.id,
       employeeId: currentUser.employeeId,
@@ -1416,12 +1508,25 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       if (newTop1 && newTop1.totalScore > 0 && baselineTop1Id !== newTop1.id) {
         climbedToTop1 = true;
         if (db.pushConfig) db.pushConfig.lastTop1UserId = newTop1.id;
-        top1PushCampaign = triggerClientNewTop1(db, newTop1, prevTop1);
+        // Chống spam khi đổi ngôi liên tục: Không bắn Push tức thì mà đợi bản tin 19h tối
       }
       saveDb(db);
     }
 
     activeSessions.delete(`${currentUser.id}:${dayNumber}`);
+
+    const unlockDateObj = new Date(challenge.unlockDate);
+    const endDateObj = new Date(
+      unlockDateObj.getFullYear(),
+      unlockDateObj.getMonth(),
+      unlockDateObj.getDate() + 1,
+      0,
+      0,
+      0,
+      0
+    );
+    const endsAt = endDateObj.toISOString();
+    const resultsRevealed = Date.now() >= endDateObj.getTime();
 
     return jsonResponse({
       dayNumber,
@@ -1434,6 +1539,8 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       climbedToTop1,
       top1PushCampaign,
       submittedDuringGracePeriod: false,
+      endsAt,
+      resultsRevealed,
       detailedReview,
     });
   }
@@ -1509,8 +1616,13 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       challenge.unlockDate = new Date(Date.now() - 60000).toISOString();
       challenge.isPublished = true;
       forceLockedDays.delete(dayNumber);
-      pushCampaign = triggerClientDayUnlocked(db, challenge);
-      msg = `🔓 Đã MỞ KHÓA ${challenge.title} & đang chia đều thông báo Push tới ${pushCampaign.totalTargets} thiết bị PWA (${pushCampaign.staggerIntervalMs}ms/request)!`;
+      const { dateKey } = getClientVnDateTime();
+      if (db.pushConfig?.lastMorningNotifiedDate !== dateKey) {
+        pushCampaign = triggerClientDayUnlocked(db, challenge);
+        msg = `🔓 Đã MỞ KHÓA ${challenge.title} & gửi thông báo bài mới (1 lần/ngày) chia đều tới ${pushCampaign.totalTargets} thiết bị PWA!`;
+      } else {
+        msg = `🔓 Đã MỞ KHÓA ${challenge.title} (Chống spam: Hôm nay đã gửi thông báo bài mới buổi sáng rồi).`;
+      }
     } else if (body.unlockNow === false) {
       challenge.unlockDate = new Date(Date.now() + 86400000 * 30).toISOString();
       if (body.lockMode === 'FORCE') {
@@ -1645,6 +1757,8 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
     const unstudiedList = getClientUnstudiedWithPwa(db);
     const lb = getLeaderboard(db);
     const latestDay = getLatestUnlockedDay(db);
+    const { dateKey, formattedTime } = getClientVnDateTime();
+    const cfg = db.pushConfig!;
 
     return jsonResponse({
       vapidPublicKey:
@@ -1652,7 +1766,14 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       queueStatus: {
         isProcessing: clientQueueRunning,
         pendingRequestsCount: clientPushQueue.length,
-        config: db.pushConfig,
+        currentVnDate: dateKey,
+        currentVnTime: formattedTime,
+        sentToday: {
+          morningNewDay: cfg.lastMorningNotifiedDate === dateKey,
+          evening19hTop1: cfg.lastEveningTop1NotifiedDate === dateKey,
+          night23hUnstudied: cfg.lastNightUnstudiedNotifiedDate === dateKey,
+        },
+        config: cfg,
       },
       stats: {
         totalPwaDevices: pwaSubs.length,
@@ -1697,10 +1818,26 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
       ...(body.autoRemindUnstudied !== undefined
         ? { autoRemindUnstudied: Boolean(body.autoRemindUnstudied) }
         : {}),
+      ...(body.morningHour !== undefined
+        ? { morningHour: Math.max(0, Math.min(23, Number(body.morningHour))) }
+        : {}),
+      ...(body.eveningTop1Hour !== undefined
+        ? { eveningTop1Hour: Math.max(0, Math.min(23, Number(body.eveningTop1Hour))) }
+        : {}),
+      ...(body.nightUnstudiedHour !== undefined
+        ? { nightUnstudiedHour: Math.max(0, Math.min(23, Number(body.nightUnstudiedHour))) }
+        : {}),
+      ...(body.resetTodayQuota
+        ? {
+            lastMorningNotifiedDate: null,
+            lastEveningTop1NotifiedDate: null,
+            lastNightUnstudiedNotifiedDate: null,
+          }
+        : {}),
     };
     saveDb(db);
     return jsonResponse({
-      message: `Đã lưu cấu hình chia đều Request Push (Tổng khung chia đều: ${db.pushConfig.spreadWindowSeconds}s, Khoảng cách tối thiểu: ${db.pushConfig.minIntervalMs}ms/request)!`,
+      message: `Đã lưu cấu hình lịch thông báo ngày (${db.pushConfig.morningHour}h sáng bài mới • ${db.pushConfig.eveningTop1Hour}h tối Top 1 • ${db.pushConfig.nightUnstudiedHour}h tối nhắc USER chưa làm) & chia đều ${db.pushConfig.spreadWindowSeconds}s!`,
       config: db.pushConfig,
     });
   }
@@ -1708,34 +1845,68 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
   // 20. POST /api/admin/push/trigger
   if (path === '/api/admin/push/trigger' && method === 'POST') {
     const type = body.type as ClientPushType;
+    const force = Boolean(body.force);
+    const { dateKey } = getClientVnDateTime();
+    const cfg = db.pushConfig!;
+
     if (type === 'NEW_DAY_UNLOCKED') {
+      if (cfg.lastMorningNotifiedDate === dateKey && !force) {
+        return jsonResponse(
+          {
+            alreadySentToday: true,
+            message:
+              '🛡️ Chống spam: Hôm nay đã gửi thông báo "Có bài mới buổi sáng" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+          },
+          429
+        );
+      }
       const targetDay =
         (body.dayNumber ? db.challenges.find((c) => c.dayNumber === Number(body.dayNumber)) : undefined) ||
         getLatestUnlockedDay(db);
       const campaign = triggerClientDayUnlocked(db, targetDay);
       return jsonResponse({
-        message: `🚀 Đang chia đều ${campaign.totalTargets} request thông báo mở khóa ${targetDay.title} (Cách nhau ${campaign.staggerIntervalMs}ms/request, tổng ${Math.round(campaign.totalSpreadMs / 1000)}s)!`,
+        message: `🌅 Đang chia đều ${campaign.totalTargets} request thông báo buổi sáng: Có bài mới (${targetDay.title}) — Cách nhau ${campaign.staggerIntervalMs}ms/request!`,
         campaign,
       });
     }
     if (type === 'NEW_TOP_1') {
+      if (cfg.lastEveningTop1NotifiedDate === dateKey && !force) {
+        return jsonResponse(
+          {
+            alreadySentToday: true,
+            message:
+              '🛡️ Chống spam: Hôm nay đã gửi thông báo "Top 1 hiện tại lúc 19h tối" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+          },
+          429
+        );
+      }
       const lb = getLeaderboard(db);
       const top1 = lb[0];
       const top2 = lb[1] || null;
       if (!top1) return jsonResponse({ message: 'Chưa có dữ liệu BXH.' }, 400);
       const campaign = triggerClientNewTop1(db, top1, top2);
       return jsonResponse({
-        message: `👑 Đang chia đều ${campaign.totalTargets} request thông báo Top 1 mới (${top1.fullName}) tới toàn bộ PWA (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`,
+        message: `👑 Đang chia đều ${campaign.totalTargets} request bản tin 19h tối: Top 1 hiện tại (${top1.fullName}) tới toàn bộ PWA (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`,
         campaign,
       });
     }
     if (type === 'UNSTUDIED_REMINDER') {
+      if (cfg.lastNightUnstudiedNotifiedDate === dateKey && !force) {
+        return jsonResponse(
+          {
+            alreadySentToday: true,
+            message:
+              '🛡️ Chống spam: Hôm nay đã gửi thông báo "23h tối nhắc USER chưa làm bài" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+          },
+          429
+        );
+      }
       const campaign = triggerClientUnstudiedReminder(db);
       return jsonResponse({
         message:
           campaign.totalTargets > 0
-            ? `⏰ Đang chia đều ${campaign.totalTargets} request nhắc học tới những người có tài khoản PWA mà chưa học (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`
-            : '🎉 Tuyệt vời! Tất cả tài khoản cài PWA đều đã hoàn thành bài học hôm nay.',
+            ? `⏰ Đang chia đều ${campaign.totalTargets} request lúc 23h tối nhắc các tài khoản USER cài PWA mà chưa làm bài (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`
+            : '🎉 Tuyệt vời! Tất cả tài khoản USER cài PWA đều đã hoàn thành bài học hôm nay.',
         campaign,
       });
     }
