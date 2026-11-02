@@ -17,6 +17,7 @@ import {
   Zap,
   Sun,
   Moon,
+  Loader2,
 } from 'lucide-react';
 import {
   checkPasswordStrength,
@@ -468,9 +469,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-blue-600/25 transition"
+                  className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-blue-600/25 transition flex items-center justify-center gap-2"
                 >
-                  {loading ? t.loggingIn : t.loginBtn}
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{t.loggingIn}</span>
+                    </>
+                  ) : (
+                    t.loginBtn
+                  )}
                 </button>
               </form>
             )}
@@ -586,9 +594,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition disabled:opacity-50"
+                    className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? '...' : t.registerBtn}
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{t.registerBtn}...</span>
+                      </>
+                    ) : (
+                      t.registerBtn
+                    )}
                   </button>
                 )}
               </form>
@@ -645,9 +660,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition"
+                    className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition flex items-center justify-center gap-2"
                   >
-                    {loading ? '...' : t.sendOtpBtn}
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{t.sendOtpBtn}...</span>
+                      </>
+                    ) : (
+                      t.sendOtpBtn
+                    )}
                   </button>
                 )}
               </form>
@@ -734,9 +756,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg transition"
+                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg transition flex items-center justify-center gap-2"
                 >
-                  {t.saveNewPassBtn}
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{t.saveNewPassBtn}...</span>
+                    </>
+                  ) : (
+                    t.saveNewPassBtn
+                  )}
                 </button>
               </form>
             )}

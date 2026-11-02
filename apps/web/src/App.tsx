@@ -35,6 +35,7 @@ import {
   Infinity as InfinityIcon,
   Target,
   Gift,
+  Loader2,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -167,6 +168,9 @@ export const App: React.FC = () => {
     notice?: string | null;
   } | null>(null);
   const [loginPromptMsg, setLoginPromptMsg] = useState<string | null>(null);
+  const [isGlobalLoading, setIsGlobalLoading] = useState<boolean>(true);
+  const [startingDay, setStartingDay] = useState<number | null>(null);
+  const [submittingQuiz, setSubmittingQuiz] = useState<boolean>(false);
   const [guestSubmittedDay, setGuestSubmittedDay] = useState<any | null>(null);
   const [pendingSaveNotice, setPendingSaveNotice] = useState<string | null>(null);
   const isGuest = !token || !user;
@@ -308,9 +312,9 @@ export const App: React.FC = () => {
   }, []);
 
   const fetchAllData = async () => {
-    if (!token) {
-      // Chế độ khách mặc định (vào web lần đầu chưa đăng nhập): tải bài hôm nay + bảng xếp hạng công khai
-      try {
+    try {
+      if (!token) {
+        // Chế độ khách mặc định (vào web lần đầu chưa đăng nhập): tải bài hôm nay + bảng xếp hạng công khai
         const [todayRes, lbRes] = await Promise.all([
           fetch('/api/public/today'),
           fetch('/api/public/leaderboard'),
@@ -320,12 +324,9 @@ export const App: React.FC = () => {
           setChallenges(data.challenge ? [data.challenge] : []);
         }
         if (lbRes.ok) setLeaderboardData(await lbRes.json());
-      } catch (e) {
-        console.error('Lỗi tải dữ liệu khách:', e);
+        return;
       }
-      return;
-    }
-    try {
+
       const [chalRes, lbRes, profRes] = await Promise.all([
         fetch('/api/challenges', { headers: getHeaders() }),
         fetch('/api/leaderboard?scope=company', {
@@ -349,6 +350,8 @@ export const App: React.FC = () => {
       }
     } catch (e) {
       console.error('Lỗi tải dữ liệu:', e);
+    } finally {
+      setIsGlobalLoading(false);
     }
   };
 
@@ -556,20 +559,26 @@ export const App: React.FC = () => {
   const handleStartDay = async (dayItem: any) => {
     if (!dayItem) return;
 
-    // Chế độ Khách: chỉ được làm bài của NGÀY HÔM NAY (không làm được các ngày trước chưa hoàn thành)
-    if (isGuest) {
-      if (todayChallenge && dayItem.dayNumber !== todayChallenge.dayNumber) {
-        setLoginPromptMsg(
-          L(
-            'Khách chỉ được làm thử bài thi của ngày hôm nay. Vui lòng đăng nhập hoặc tạo tài khoản để làm các ngày khác!',
-            "Guests can only take today's challenge. Please log in or register to take challenges from other days!",
-            '게스트는 오늘의 챌린지만 참여할 수 있습니다. 다른 날짜의 챌린지는 로그인 후 이용해 주세요!'
-          )
-        );
-        return;
-      }
+    if (dayItem.status === 'LOCKED') {
+      setLockedModalDay(dayItem);
+      return;
+    }
 
-      try {
+    setStartingDay(dayItem.dayNumber);
+    try {
+      // Chế độ Khách: chỉ được làm bài của NGÀY HÔM NAY (không làm được các ngày trước chưa hoàn thành)
+      if (isGuest) {
+        if (todayChallenge && dayItem.dayNumber !== todayChallenge.dayNumber) {
+          setLoginPromptMsg(
+            L(
+              'Khách chỉ được làm thử bài thi của ngày hôm nay. Vui lòng đăng nhập hoặc tạo tài khoản để làm các ngày khác!',
+              "Guests can only take today's challenge. Please log in or register to take challenges from other days!",
+              '게스트는 오늘의 챌린지만 참여할 수 있습니다. 다른 날짜의 챌린지는 로그인 후 이용해 주세요!'
+            )
+          );
+          return;
+        }
+
         const guestId = localStorage.getItem('sr_guest_id') || `g-${Date.now()}`;
         localStorage.setItem('sr_guest_id', guestId);
         const res = await fetch(`/api/public/challenges/${dayItem.dayNumber}/start`, {
@@ -601,18 +610,8 @@ export const App: React.FC = () => {
           setTimeout(() => handleSpeak(`prompt-${firstQ.id}`, firstQ.targetWord), 350);
         }
         return;
-      } catch (err: any) {
-        alert(err.message || 'Không thể bắt đầu thử thách');
-        return;
       }
-    }
 
-    if (dayItem.status === 'LOCKED') {
-      setLockedModalDay(dayItem);
-      return;
-    }
-
-    try {
       const res = await fetch(`/api/challenges/${dayItem.dayNumber}/start`, {
         method: 'POST',
         headers: getHeaders(true),
@@ -643,6 +642,8 @@ export const App: React.FC = () => {
       }
     } catch (err: any) {
       alert(err.message || 'Không thể bắt đầu thử thách');
+    } finally {
+      setStartingDay(null);
     }
   };
 
@@ -676,89 +677,89 @@ export const App: React.FC = () => {
 
   const handleSubmitQuiz = async () => {
     if (!activeQuiz) return;
-
-    // Chế độ Khách: không lưu vào DB, tính điểm tạm thời và lưu Pending để bảo khách đăng nhập tạo tài khoản
-    if (isGuest) {
-      const questionsToGrade = activeQuiz.questions;
-      let score = 0;
-      let correctCount = 0;
-      let wrongCount = 0;
-
-      const detailedReview = questionsToGrade.map((q: any) => {
-        const selectedOptionId = activeQuiz.answers?.[q.id] || null;
-        const isCorrect = selectedOptionId === q.correctOptionId;
-        if (isCorrect) {
-          score += q.points;
-          correctCount += 1;
-        } else {
-          wrongCount += 1;
-        }
-        const correctOption = q.options.find((o: any) => o.id === q.correctOptionId);
-        const selectedOption = q.options.find((o: any) => o.id === selectedOptionId);
-        return {
-          questionId: q.id,
-          orderIndex: q.orderIndex,
-          promptText: q.promptText,
-          targetWord: q.targetWord,
-          promptAudioUrl: q.promptAudioUrl,
-          promptVideoUrl: q.promptVideoUrl,
-          options: q.options,
-          selectedOptionId,
-          selectedOptionText: selectedOption?.text || 'Chưa chọn',
-          correctOptionId: q.correctOptionId,
-          correctOptionText: correctOption?.text || '',
-          isCorrect,
-          explanation: q.explanation,
-        };
-      });
-
-      const clientTimeMs = activeQuiz.elapsedSeconds * 1000;
-      const pending: GuestPendingSubmission = {
-        dayNumber: activeQuiz.dayNumber,
-        title: activeQuiz.title,
-        dateLabel: activeQuiz.dateLabel,
-        answers: activeQuiz.answers,
-        clientTimeMs,
-        q11Pronunciation: q11Data,
-        expiresAt: getNextMidnightMs(),
-      };
-      localStorage.setItem(GUEST_PENDING_KEY, JSON.stringify(pending));
-
-      setActiveQuiz(null);
-      setGracePeriodNotice(null);
-      setGuestSubmittedDay({
-        dayNumber: activeQuiz.dayNumber,
-        score,
-        totalPoints: questionsToGrade.length * 10,
-        correctCount,
-        wrongCount,
-      });
-
-      setQuizResult({
-        dayNumber: activeQuiz.dayNumber,
-        score,
-        totalPoints: questionsToGrade.length * 10,
-        correctCount,
-        wrongCount,
-        timeSpentMs: clientTimeMs,
-        isGuest: true,
-        resultsRevealed: false,
-        endsAt: new Date(getNextMidnightMs()).toISOString(),
-        detailedReview,
-        q11Pronunciation: q11Data,
-      });
-
-      window.location.hash = `#result/${activeQuiz.dayNumber}`;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      confetti({
-        particleCount: 80,
-        spread: 65,
-        origin: { y: 0.6 },
-      });
-      return;
-    }
-
+    setSubmittingQuiz(true);
     try {
+      // Chế độ Khách: không lưu vào DB, tính điểm tạm thời và lưu Pending để bảo khách đăng nhập tạo tài khoản
+      if (isGuest) {
+        const questionsToGrade = activeQuiz.questions;
+        let score = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+
+        const detailedReview = questionsToGrade.map((q: any) => {
+          const selectedOptionId = activeQuiz.answers?.[q.id] || null;
+          const isCorrect = selectedOptionId === q.correctOptionId;
+          if (isCorrect) {
+            score += q.points;
+            correctCount += 1;
+          } else {
+            wrongCount += 1;
+          }
+          const correctOption = q.options.find((o: any) => o.id === q.correctOptionId);
+          const selectedOption = q.options.find((o: any) => o.id === selectedOptionId);
+          return {
+            questionId: q.id,
+            orderIndex: q.orderIndex,
+            promptText: q.promptText,
+            targetWord: q.targetWord,
+            promptAudioUrl: q.promptAudioUrl,
+            promptVideoUrl: q.promptVideoUrl,
+            options: q.options,
+            selectedOptionId,
+            selectedOptionText: selectedOption?.text || 'Chưa chọn',
+            correctOptionId: q.correctOptionId,
+            correctOptionText: correctOption?.text || '',
+            isCorrect,
+            explanation: q.explanation,
+          };
+        });
+
+        const clientTimeMs = activeQuiz.elapsedSeconds * 1000;
+        const pending: GuestPendingSubmission = {
+          dayNumber: activeQuiz.dayNumber,
+          title: activeQuiz.title,
+          dateLabel: activeQuiz.dateLabel,
+          answers: activeQuiz.answers,
+          clientTimeMs,
+          q11Pronunciation: q11Data,
+          expiresAt: getNextMidnightMs(),
+        };
+        localStorage.setItem(GUEST_PENDING_KEY, JSON.stringify(pending));
+
+        setActiveQuiz(null);
+        setGracePeriodNotice(null);
+        setGuestSubmittedDay({
+          dayNumber: activeQuiz.dayNumber,
+          score,
+          totalPoints: questionsToGrade.length * 10,
+          correctCount,
+          wrongCount,
+        });
+
+        setQuizResult({
+          dayNumber: activeQuiz.dayNumber,
+          score,
+          totalPoints: questionsToGrade.length * 10,
+          correctCount,
+          wrongCount,
+          timeSpentMs: clientTimeMs,
+          isGuest: true,
+          resultsRevealed: false,
+          endsAt: new Date(getNextMidnightMs()).toISOString(),
+          detailedReview,
+          q11Pronunciation: q11Data,
+        });
+
+        window.location.hash = `#result/${activeQuiz.dayNumber}`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        confetti({
+          particleCount: 80,
+          spread: 65,
+          origin: { y: 0.6 },
+        });
+        return;
+      }
+
       const res = await fetch(`/api/challenges/${activeQuiz.dayNumber}/submit`, {
         method: 'POST',
         headers: getHeaders(true),
@@ -795,6 +796,8 @@ export const App: React.FC = () => {
       fetchAllData();
     } catch (err: any) {
       alert(err.message || 'Lỗi nộp bài');
+    } finally {
+      setSubmittingQuiz(false);
     }
   };
 
@@ -1166,8 +1169,20 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* ---------- A. MÀN HÌNH LÀM BÀI ---------- */}
-        {activeQuiz ? (
+        {/* ---------- A. LOADING SPINNER HOẶC MÀN HÌNH LÀM BÀI ---------- */}
+        {isGlobalLoading && challenges.length === 0 ? (
+          <div className={`max-w-md mx-auto my-16 p-8 rounded-3xl shadow-xl border text-center backdrop-blur-md ${cardBg}`}>
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-4 shadow-inner">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+            <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
+              {L('Đang tải dữ liệu SpeakRight...', 'Loading SpeakRight data...', 'SpeakRight 데이터를 불러오는 중...')}
+            </h3>
+            <p className={`text-xs sm:text-sm mt-1.5 ${textSecondary}`}>
+              {L('Vui lòng đợi giây lát trong khi kết nối tới máy chủ...', 'Please wait while connecting to the server...', '서버에 연결하는 동안 잠시 기다려 주세요...')}
+            </p>
+          </div>
+        ) : activeQuiz ? (
           <div className={`max-w-2xl mx-auto rounded-3xl shadow-xl border p-4 sm:p-6 backdrop-blur-md ${cardBg}`}>
             {gracePeriodNotice && (
               <div className="mb-3 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs font-extrabold flex items-center gap-2">
@@ -1289,9 +1304,17 @@ export const App: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleSubmitQuiz}
-                        className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition"
+                        disabled={submittingQuiz}
+                        className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-2 disabled:opacity-60"
                       >
-                        {t.submitQuiz} ({answeredCount}/{activeQuiz.questions.length})
+                        {submittingQuiz ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>{L('Đang nộp bài...', 'Submitting...', '제출 중...')}</span>
+                          </>
+                        ) : (
+                          `${t.submitQuiz} (${answeredCount}/${activeQuiz.questions.length})`
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1743,9 +1766,14 @@ export const App: React.FC = () => {
                     <div className="shrink-0">
                       <button
                         onClick={() => handleStartDay(todayChallenge)}
-                        className="w-full md:w-auto px-6 py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-sm sm:text-base shadow-xl flex items-center justify-center gap-2 transition"
+                        disabled={startingDay !== null}
+                        className="w-full md:w-auto px-6 py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-sm sm:text-base shadow-xl flex items-center justify-center gap-2 transition disabled:opacity-75"
                       >
-                        <Play className="w-5 h-5 fill-slate-950" />
+                        {startingDay === todayChallenge?.dayNumber ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Play className="w-5 h-5 fill-slate-950" />
+                        )}
                         {todayChallenge?.status === 'COMPLETED'
                           ? todayChallenge.resultsRevealed
                             ? `${t.retryTodayBtn} ${todayChallenge.title} (${todayChallenge.score}/100${t.pointsSuffix})`
@@ -1840,7 +1868,9 @@ export const App: React.FC = () => {
                               <span className={`text-sm font-black ${textPrimary}`}>
                                 {c.title}
                               </span>
-                              {isCompleted ? (
+                              {startingDay === c.dayNumber ? (
+                                <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                              ) : isCompleted ? (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                               ) : isOpen ? (
                                 <span className="text-[10px] font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-full">
@@ -2189,8 +2219,12 @@ export const App: React.FC = () => {
                   </div>
                   <button
                     onClick={() => handleStartDay(todayChallenge)}
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 text-white font-extrabold text-xs shadow-sm"
+                    disabled={startingDay !== null}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-75"
                   >
+                    {startingDay === todayChallenge?.dayNumber && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
                     {t.doTodayBtn}
                   </button>
                 </div>
@@ -2225,7 +2259,9 @@ export const App: React.FC = () => {
                             <div className={`text-[11px] ${textSecondary}`}>{c.dateLabel}</div>
                           </div>
 
-                          {isCompleted ? (
+                          {startingDay === c.dayNumber ? (
+                            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                          ) : isCompleted ? (
                             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                           ) : isOpen ? (
                             <span className="text-[10px] font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-full">

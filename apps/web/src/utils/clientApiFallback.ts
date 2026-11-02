@@ -2321,6 +2321,11 @@ async function handleClientApi(urlStr: string, init?: RequestInit): Promise<Resp
 }
 
 export function installClientApiFallback() {
+  try {
+    // Xóa bỏ database ảo lưu trong trình duyệt để tránh nhầm lẫn với dữ liệu thật
+    localStorage.removeItem('sr_client_db_v3');
+  } catch {}
+
   const originalFetch = window.fetch.bind(window);
   const configuredApiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
@@ -2337,38 +2342,42 @@ export function installClientApiFallback() {
       return originalFetch(input, init);
     }
 
-    // 1. Nếu đã cấu hình VITE_API_URL (Backend thật trên Render / Railway / VPS có DB + Redis + Gmail SMTP)
-    // thì tự động định tuyến mọi request /api/... sang máy chủ Backend thật trước!
-    if (configuredApiBase && urlStr.startsWith('/api/')) {
-      try {
-        const targetUrl = `${configuredApiBase}${urlStr}`;
-        const response = await originalFetch(targetUrl, init);
-        if (response.status < 502) {
-          return response;
-        }
-      } catch {
-        // Nếu máy chủ Backend thật đang khởi động (Cold Start) hoặc mất kết nối -> tự động dự phòng sang Client Store
-      }
-    }
+    // Luôn gửi trực tiếp tới máy chủ Backend thật
+    const targetUrl = configuredApiBase && urlStr.startsWith('/api/')
+      ? `${configuredApiBase}${urlStr}`
+      : input;
 
-    // 2. Nếu đang chạy trên GitHub Pages (*.github.io) và CHƯA gắn VITE_API_URL -> xử lý bằng Client Store
-    if (window.location.hostname.endsWith('github.io') && !configuredApiBase) {
-      return handleClientApi(urlStr, init);
-    }
-
-    // 3. Ở môi trường khác (Localhost / VPS), gọi Backend thật trước, nếu tắt thì dự phòng sang Client Store
     try {
-      const response = await originalFetch(input, init);
+      const response = await originalFetch(targetUrl, init);
       const contentType = response.headers.get('content-type') || '';
-      if (response.status === 404 && !contentType.includes('application/json')) {
-        return handleClientApi(urlStr, init);
-      }
-      if (response.status >= 502 && response.status <= 504) {
-        return handleClientApi(urlStr, init);
+
+      // Nếu Backend trả về trang lỗi HTML (502 Bad Gateway từ Nginx, 503, 500)
+      if (!response.ok && !contentType.includes('application/json')) {
+        return new Response(
+          JSON.stringify({
+            message: `Lỗi máy chủ Backend (HTTP ${response.status} ${response.statusText}): Không thể kết nối tới Backend API. Vui lòng kiểm tra container api/postgres trên VPS!`,
+            error: 'SERVER_UNAVAILABLE',
+            status: response.status,
+          }),
+          {
+            status: response.status,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
       }
       return response;
-    } catch {
-      return handleClientApi(urlStr, init);
+    } catch (err: any) {
+      // Khi Backend bị tắt hoặc mất mạng -> Báo lỗi thực tế, TUYỆT ĐỐI KHÔNG dùng dữ liệu giả lập!
+      return new Response(
+        JSON.stringify({
+          message: `Lỗi kết nối máy chủ Backend: Không thể kết nối tới Backend API (${err?.message || 'Network Error'}). Vui lòng kiểm tra Docker containers trên VPS!`,
+          error: 'NETWORK_ERROR',
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
   };
 }
