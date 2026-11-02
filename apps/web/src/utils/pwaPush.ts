@@ -211,3 +211,62 @@ export async function triggerLocalServiceWorkerNotification(payload: {
     // ignore
   }
 }
+
+export async function sendTestNativeNotification(): Promise<{ ok: boolean; message: string }> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { ok: false, message: 'Trình duyệt này không hỗ trợ thông báo đẩy ngoài app.' };
+  }
+
+  if (Notification.permission !== 'granted') {
+    let perm: NotificationPermission = 'default';
+    try {
+      perm = await Notification.requestPermission();
+    } catch {
+      // ignore
+    }
+    if (perm !== 'granted') {
+      return {
+        ok: false,
+        message: 'Bạn chưa cấp quyền "Cho phép thông báo". Vui lòng bấm Cho phép để nhận thông báo ngoài màn hình!',
+      };
+    }
+  }
+
+  try {
+    const reg = await registerPwaServiceWorker();
+    const testPayload = {
+      title: '🔔 SPEAK RIGHT 2026',
+      body: '🎉 Kiểm tra thành công! Thông báo đã xuất hiện ngoài màn hình (Lock screen / Khay hệ thống) của bạn!',
+      targetUrl: './#challenges',
+      type: 'TEST_NOTIFICATION',
+      tag: `sr-test-${Date.now()}`,
+    };
+
+    if (reg && reg.active) {
+      reg.active.postMessage({
+        type: 'SHOW_NATIVE_PWA_NOTIFICATION',
+        payload: testPayload,
+      });
+      return { ok: true, message: 'Đã gửi thông báo ra ngoài màn hình thành công!' };
+    }
+
+    if (reg && 'showNotification' in reg) {
+      await reg.showNotification(testPayload.title, {
+        body: testPayload.body,
+        icon: './logo.png',
+        badge: './logo.png',
+        tag: testPayload.tag,
+        data: { url: testPayload.targetUrl },
+      });
+      return { ok: true, message: 'Đã gửi thông báo ra ngoài màn hình thành công!' };
+    }
+
+    new Notification(testPayload.title, {
+      body: testPayload.body,
+      icon: './logo.png',
+    });
+    return { ok: true, message: 'Đã gửi thông báo ra ngoài màn hình thành công!' };
+  } catch (err: any) {
+    return { ok: false, message: `Lỗi kích hoạt thông báo: ${err?.message || err}` };
+  }
+}

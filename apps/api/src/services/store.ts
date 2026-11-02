@@ -216,6 +216,175 @@ export function computeCompositeLeaderboardScore(totalScore: number, totalTimeMs
   return totalScore * 10_000_000 + (T_MAX - totalSeconds);
 }
 
+const defaultUserPassHash = bcrypt.hashSync('User@2026', 10);
+const DEFAULT_EMPLOYEES: UserRecord[] = [
+  {
+    id: 'u-1',
+    employeeId: '20260001',
+    fullName: 'Nguyễn Minh Anh',
+    email: 'minhanh.dev@gmail.com',
+    phone: '0912345001',
+    department: 'R&D Center',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=MinhAnh',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 100,
+    totalTimeMs: 45000,
+    completedDays: 1,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-2',
+    employeeId: '20260002',
+    fullName: 'Trần Quốc Huy',
+    email: 'quochuy.eng@gmail.com',
+    phone: '0912345002',
+    department: 'Production',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=QuocHuy',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 90,
+    totalTimeMs: 52000,
+    completedDays: 1,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-3',
+    employeeId: '20260003',
+    fullName: 'Lê Thu Hương',
+    email: 'thuhuong.qa@gmail.com',
+    phone: '0912345003',
+    department: 'Quality Assurance (QA)',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ThuHuong',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 90,
+    totalTimeMs: 58000,
+    completedDays: 1,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-4',
+    employeeId: '20260004',
+    fullName: 'Phạm Hoàng Nam',
+    email: 'hoangnam.it@gmail.com',
+    phone: '0912345004',
+    department: 'IT & System',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=HoangNam',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 80,
+    totalTimeMs: 65000,
+    completedDays: 1,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-5',
+    employeeId: '20260005',
+    fullName: 'Đỗ Mai Linh',
+    email: 'mailinh.hr@gmail.com',
+    phone: '0912345005',
+    department: 'HR & Training',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=MaiLinh',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 80,
+    totalTimeMs: 70000,
+    completedDays: 1,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-thao',
+    employeeId: '20261234',
+    fullName: 'Nguyễn Thị Thảo',
+    email: 'thaonguyen.work@gmail.com',
+    phone: '0987654321',
+    department: 'Quality Assurance (QA)',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ThaoNguyen',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 70,
+    totalTimeMs: 80000,
+    completedDays: 1,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-6',
+    employeeId: '20260006',
+    fullName: 'Vũ Đức Thắng',
+    email: 'ducthang.eng@gmail.com',
+    phone: '0912345006',
+    department: 'Quality Assurance (QA)',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DucThang',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 0,
+    totalTimeMs: 0,
+    completedDays: 0,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-7',
+    employeeId: '20260007',
+    fullName: 'Hoàng Bích Ngọc',
+    email: 'bichngoc.fin@gmail.com',
+    phone: '0912345007',
+    department: 'Logistics & Supply',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BichNgoc',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 0,
+    totalTimeMs: 0,
+    completedDays: 0,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-8',
+    employeeId: '20260008',
+    fullName: 'Bùi Tiến Dũng',
+    email: 'tiendung.pe@gmail.com',
+    phone: '0912345008',
+    department: 'Production',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=TienDung',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 0,
+    totalTimeMs: 0,
+    completedDays: 0,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-9',
+    employeeId: '20260009',
+    fullName: 'Đặng Khánh Vy',
+    email: 'khanhvy.mkt@gmail.com',
+    phone: '0912345009',
+    department: 'R&D Center',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=KhanhVy',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 0,
+    totalTimeMs: 0,
+    completedDays: 0,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+  {
+    id: 'u-10',
+    employeeId: '20260010',
+    fullName: 'Ngô Quang Hải',
+    email: 'quanghai.qa@gmail.com',
+    phone: '0912345010',
+    department: 'Quality Assurance (QA)',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=QuangHai',
+    passwordHash: defaultUserPassHash,
+    role: 'USER',
+    totalScore: 0,
+    totalTimeMs: 0,
+    completedDays: 0,
+    createdAt: '2026-10-29T14:40:54.932Z',
+  },
+];
+
 class DataStore {
   private data: DatabaseShape;
   // key = `${userId}:${dayNumber}` -> ActiveQuizSession
@@ -414,6 +583,93 @@ class DataStore {
         }
         // Đảm bảo luôn có tài khoản Admin GEN: 88888888 với mật khẩu Admin@2026 và role ADMIN
         if (!Array.isArray(parsed.users)) parsed.users = [];
+        const normalUsers = parsed.users.filter((u) => u.role === 'USER');
+        if (normalUsers.length === 0) {
+          parsed.users.push(...DEFAULT_EMPLOYEES);
+        }
+        if (!Array.isArray(parsed.attempts) || parsed.attempts.length === 0) {
+          const now = Date.now();
+          parsed.attempts = [
+            {
+              id: 'att-seed-1',
+              userId: 'u-1',
+              challengeId: 1,
+              dayNumber: 1,
+              score: 100,
+              correctCount: 10,
+              wrongCount: 0,
+              timeSpentMs: 45000,
+              answersDetail: {},
+              startedAt: new Date(now - 7200000).toISOString(),
+              completedAt: new Date(now - 7155000).toISOString(),
+            },
+            {
+              id: 'att-seed-2',
+              userId: 'u-2',
+              challengeId: 1,
+              dayNumber: 1,
+              score: 90,
+              correctCount: 9,
+              wrongCount: 1,
+              timeSpentMs: 52000,
+              answersDetail: {},
+              startedAt: new Date(now - 6500000).toISOString(),
+              completedAt: new Date(now - 6448000).toISOString(),
+            },
+            {
+              id: 'att-seed-3',
+              userId: 'u-3',
+              challengeId: 1,
+              dayNumber: 1,
+              score: 90,
+              correctCount: 9,
+              wrongCount: 1,
+              timeSpentMs: 58000,
+              answersDetail: {},
+              startedAt: new Date(now - 5500000).toISOString(),
+              completedAt: new Date(now - 5442000).toISOString(),
+            },
+            {
+              id: 'att-seed-4',
+              userId: 'u-4',
+              challengeId: 1,
+              dayNumber: 1,
+              score: 80,
+              correctCount: 8,
+              wrongCount: 2,
+              timeSpentMs: 65000,
+              answersDetail: {},
+              startedAt: new Date(now - 4500000).toISOString(),
+              completedAt: new Date(now - 4435000).toISOString(),
+            },
+            {
+              id: 'att-seed-5',
+              userId: 'u-5',
+              challengeId: 1,
+              dayNumber: 1,
+              score: 80,
+              correctCount: 8,
+              wrongCount: 2,
+              timeSpentMs: 70000,
+              answersDetail: {},
+              startedAt: new Date(now - 3500000).toISOString(),
+              completedAt: new Date(now - 3430000).toISOString(),
+            },
+            {
+              id: 'att-seed-thao',
+              userId: 'u-thao',
+              challengeId: 1,
+              dayNumber: 1,
+              score: 70,
+              correctCount: 7,
+              wrongCount: 3,
+              timeSpentMs: 80000,
+              answersDetail: {},
+              startedAt: new Date(now - 2500000).toISOString(),
+              completedAt: new Date(now - 2420000).toISOString(),
+            },
+          ];
+        }
         const adminUser = parsed.users.find((u) => u.employeeId === '88888888');
         const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
         if (!adminUser) {
@@ -464,6 +720,7 @@ class DataStore {
         completedDays: 0,
         createdAt: new Date().toISOString(),
       },
+      ...DEFAULT_EMPLOYEES,
     ];
 
     const challenges = generate30DaysChallenges();
@@ -569,8 +826,9 @@ class DataStore {
   }
 
   public isDayUnlocked(challenge: DailyChallengeItem): boolean {
-    if (challenge.dayNumber === 1) return true;
-    return new Date(challenge.unlockDate).getTime() <= Date.now() && challenge.isPublished;
+    if (!challenge.isPublished) return false;
+    if (this.forceLockedDays.has(challenge.dayNumber)) return false;
+    return new Date(challenge.unlockDate).getTime() <= Date.now();
   }
 
   public getDayEndDate(challenge: DailyChallengeItem): string {
@@ -660,7 +918,7 @@ class DataStore {
     this.pruneExpiredSessions();
     const user = this.findUserById(userId);
     const challenge = this.getChallengeByDay(dayNumber);
-    if (!user || !challenge) return null;
+    if (!user || !challenge || !this.isDayUnlocked(challenge)) return null;
 
     const now = Date.now();
     // Chụp lại bản sao bộ câu hỏi ngay thời điểm nhân viên bắt đầu làm bài & xáo trộn đáp án theo từng nhân viên
@@ -718,12 +976,11 @@ class DataStore {
     return counts;
   }
 
-  // Kiểm tra xem ngày thi có bị Admin khóa cưỡng chế (Force Lock) sau khi user bắt đầu làm bài hay không
+  // Kiểm tra xem ngày thi có bị Admin khóa cưỡng chế (Force Lock) hay không
   public isSessionForceLocked(dayNumber: number, sessionStartedAt?: number): boolean {
     const forceLockTime = this.forceLockedDays.get(dayNumber);
     if (!forceLockTime) return false;
-    if (!sessionStartedAt) return true;
-    return forceLockTime >= sessionStartedAt;
+    return true;
   }
 
   // Cập nhật thông tin ngày thi + Cơ chế Khóa Mềm (Graceful) hoặc Khóa Cưỡng Chế (Force)
@@ -764,8 +1021,10 @@ class DataStore {
           for (const s of activePlayers) {
             this.activeSessions.delete(`${s.userId}:${dayNumber}`);
           }
+        } else {
+          // Khóa mềm: Không hủy active sessions đang làm dở, nhưng xóa forceLock nếu có và ngăn người mới
+          this.forceLockedDays.delete(dayNumber);
         }
-        // Nếu mode === 'GRACEFUL' (Khóa mềm): Người mới không vào được, nhưng activeSessions cũ vẫn giữ nguyên để họ nộp bài nốt!
       }
     }
 

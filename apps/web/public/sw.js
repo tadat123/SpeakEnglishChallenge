@@ -34,13 +34,17 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const iconUrl = new URL(payload.icon || 'logo.png', self.registration.scope).href;
+  const badgeUrl = new URL(payload.badge || 'logo.png', self.registration.scope).href;
+
   const showPromise = self.registration.showNotification(payload.title, {
     body: payload.body,
-    icon: payload.icon || './logo.png',
-    badge: payload.badge || './logo.png',
+    icon: iconUrl,
+    badge: badgeUrl,
     tag: payload.tag || `sr-${Date.now()}`,
     renotify: true,
     vibrate: [200, 100, 200],
+    requireInteraction: false,
     data: {
       url: payload.url || './#challenges',
       type: payload.type,
@@ -68,14 +72,18 @@ self.addEventListener('message', (event) => {
 
   const payload = data.payload || {};
   if (self.Notification && self.Notification.permission === 'granted') {
+    const iconUrl = new URL(payload.icon || 'logo.png', self.registration.scope).href;
+    const badgeUrl = new URL(payload.badge || 'logo.png', self.registration.scope).href;
+
     event.waitUntil(
       self.registration.showNotification(payload.title || 'SPEAK RIGHT 2026', {
         body: payload.body || '',
-        icon: './logo.png',
-        badge: './logo.png',
+        icon: iconUrl,
+        badge: badgeUrl,
         tag: payload.tag || `sr-local-${Date.now()}`,
         renotify: true,
         vibrate: [200, 100, 200],
+        requireInteraction: false,
         data: {
           url: payload.targetUrl || payload.url || './#challenges',
           type: payload.type,

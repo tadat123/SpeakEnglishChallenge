@@ -1,113 +1,226 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Share, PlusSquare, X, CheckCircle2, MoreVertical } from 'lucide-react';
+import {
+  Download,
+  Share,
+  PlusSquare,
+  X,
+  CheckCircle2,
+  MoreVertical,
+  BellRing,
+  Smartphone,
+} from 'lucide-react';
 import { Lang } from '../utils/i18n';
+import {
+  getNotificationPermissionState,
+  syncAndSubscribePwaPush,
+  sendTestNativeNotification,
+  isRunningStandalonePwa,
+} from '../utils/pwaPush';
 
 interface InstallPwaModalProps {
   lang: Lang;
   darkMode: boolean;
+  user?: any;
+  token?: string | null;
+  onToast?: (msg: string, isError?: boolean) => void;
 }
 
 const PWA_I18N = {
   vi: {
-    bannerTitle: 'Thêm Speak Right 2026 ra Màn hình chính',
-    bannerSub: 'Mở nhanh 1 chạm trên Điện thoại & Tablet (Không cần cài APK)',
-    btnLabel: 'Hướng dẫn',
-    modalTitle: 'Thêm ra Màn hình chính',
-    modalSub: 'Tạo lối tắt mở nhanh kèm biểu tượng Shin-chan an toàn 100%',
+    // 1 Dòng thông báo cô đọng khi chưa thêm vào MH chính
+    oneLineAddTitle: 'Thêm vào Màn hình chính để nhận thông báo bài mới & Top 1 ngoài màn hình khóa!',
+    oneLineAddSub: 'Nhận bài mới lúc 8h sáng & Top 1 lúc 19h tối ngay cả khi tắt app (Không cần cài APK)',
+    btnAddScreen: 'Thêm vào MH chính',
+    btnEnablePush: 'Bật thông báo',
+
+    // 1 Dòng thông báo khi đã thêm vào màn hình chính nhưng chưa cấp quyền thông báo
+    standaloneTitle: 'Bật thông báo để nhận bài học mới (8h) & Top 1 (19h) ngoài màn hình khóa!',
+    standaloneSub: 'Thông báo sẽ hiện trực tiếp trên thanh trạng thái / màn hình khóa điện thoại của bạn',
+    btnEnablePushNow: 'Bật thông báo ngay',
+
+    // Modal hướng dẫn thêm vào màn hình chính
+    modalTitle: 'Thêm vào Màn hình chính để nhận thông báo',
+    modalSub: 'Chỉ mất 5 giây — Không cần tải file APK, nhận thông báo đẩy như ứng dụng gốc',
     androidTitle: '🤖 Điện thoại / Tablet Android (Samsung, Xiaomi, Oppo...)',
     androidStep1:
       'Bấm vào biểu tượng Menu 3 gạch (≡ ở góc dưới phải trên Samsung Internet) hoặc 3 chấm (⋮ ở góc trên phải trên Chrome).',
     androidStep2:
-      'Chọn "Thêm trang vào" (Add page to) → "Màn hình chính" (Home screen). Biểu tượng Speak Right sẽ hiện ngay ngoài màn hình!',
+      'Chọn "Thêm trang vào" (Add page to) → "Màn hình chính" (Home screen). Biểu tượng Speak Right sẽ xuất hiện ngoài màn hình!',
+    androidStep3:
+      'Mở app từ Màn hình chính và bấm "Cho phép" khi được hỏi để nhận thông báo ngoài màn hình khóa!',
     iosTitle: '🍎 iPhone / iPad (Trình duyệt Safari)',
     iosStep1:
       'Bấm vào nút Chia sẻ (Share) ở thanh công cụ dưới đáy màn hình Safari.',
     iosStep2:
       'Cuộn xuống chọn "Thêm vào MH chính" (Add to Home Screen) rồi bấm "Thêm" (Add) ở góc trên phải.',
-    doneBtn: 'Đã hiểu',
+    iosStep3:
+      'Mở icon Speak Right ngoài Màn hình chính và bấm "Bật thông báo" để nhận chuông báo bài mới.',
+    doneBtn: 'Đã hiểu & Bật ngay',
   },
   en: {
-    bannerTitle: 'Add Speak Right 2026 to Home Screen',
-    bannerSub: '1-tap quick launch on Mobile & Tablet (No APK needed)',
-    btnLabel: 'How to add',
-    modalTitle: 'Add to Home Screen',
-    modalSub: 'Create a 100% safe quick-launch shortcut on your device',
+    oneLineAddTitle: 'Add to Home Screen to get lesson alerts & Top 1 on lock screen!',
+    oneLineAddSub: 'Get alerts at 8 AM & 7 PM even when app is closed (No APK needed)',
+    btnAddScreen: 'Add to Home',
+    btnEnablePush: 'Enable Alerts',
+
+    standaloneTitle: 'Enable notifications for new lessons (8 AM) & Top 1 (7 PM) on lock screen!',
+    standaloneSub: 'Alerts will appear directly in your device notification center',
+    btnEnablePushNow: 'Enable Now',
+
+    modalTitle: 'Add to Home Screen for Notifications',
+    modalSub: 'Takes only 5 seconds — No APK download needed, works like a native app',
     androidTitle: '🤖 Android Phone / Tablet (Chrome & Samsung Internet)',
     androidStep1:
-      'Tap the Menu icon (≡ at bottom-right in Samsung Internet, or ⋮ at top-right in Chrome).',
+      'Tap Menu (≡ at bottom-right on Samsung Internet, or ⋮ at top-right on Chrome).',
     androidStep2:
-      'Select "Add page to" → "Home screen" (or "Add to Home screen"). The Speak Right icon will appear on your home screen!',
+      'Select "Add page to" → "Home screen". The Speak Right icon will appear on your home screen!',
+    androidStep3:
+      'Open app from Home screen and tap "Allow" to receive lock-screen notifications.',
     iosTitle: '🍎 iPhone / iPad (Safari Browser)',
     iosStep1: 'Tap the Share button on the bottom toolbar in Safari.',
     iosStep2: 'Scroll down and tap "Add to Home Screen", then tap "Add".',
+    iosStep3: 'Open the icon from Home screen and tap "Enable Alerts" for lock-screen push.',
     doneBtn: 'Got it',
   },
   ko: {
-    bannerTitle: 'Speak Right 2026 홈 화면에 추가',
-    bannerSub: '모바일 및 태블릿에서 원터치로 빠르게 실행하세요',
-    btnLabel: '추가 방법',
-    modalTitle: '홈 화면에 바로가기 추가',
-    modalSub: 'APK 설치 없이 안전하게 홈 화면 아이콘을 생성합니다',
+    oneLineAddTitle: '홈 화면에 추가하고 잠금화면에서 새 강의 및 1위 알림을 받으세요!',
+    oneLineAddSub: '앱을 닫아도 오전 8시 및 오후 7시 알림 수신 (APK 설치 불필요)',
+    btnAddScreen: '홈 화면에 추가',
+    btnEnablePush: '알림 켜기',
+
+    standaloneTitle: '새 강의(오전 8시) 및 1위(오후 7시) 알림을 잠금화면에서 받으세요!',
+    standaloneSub: '기기 상태 표시줄 및 잠금화면에 바로 알림이 표시됩니다',
+    btnEnablePushNow: '알림 켜기',
+
+    modalTitle: '알림 수신을 위해 홈 화면에 추가',
+    modalSub: '5초면 완료 — APK 설치 없이 안전하게 바로가기 생성',
     androidTitle: '🤖 안드로이드 스마트폰 / 태블릿 (삼성 인터넷 & 크롬)',
-    androidStep1:
-      '브라우저 메뉴 버튼(삼성 인터넷 하단 ≡ 또는 크롬 상단 ⋮)을 누릅니다.',
-    androidStep2:
-      '"현재 페이지 추가" → "홈 화면"을 선택하면 바탕화면에 아이콘이 생성됩니다!',
+    androidStep1: '브라우저 메뉴 버튼(삼성 인터넷 하단 ≡ 또는 크롬 상단 ⋮)을 누릅니다.',
+    androidStep2: '"현재 페이지 추가" → "홈 화면"을 선택합니다.',
+    androidStep3: '홈 화면 아이콘으로 앱을 열고 "알림 허용"을 누르면 잠금화면 알림이 활성화됩니다.',
     iosTitle: '🍎 iPhone / iPad (Safari 브라우저)',
     iosStep1: '하단 바에서 공유(Share) 버튼을 누릅니다.',
     iosStep2: '"홈 화면에 추가(Add to Home Screen)"를 선택한 후 "추가"를 누릅니다.',
+    iosStep3: '홈 화면 아이콘으로 앱을 열고 알림을 켜세요.',
     doneBtn: '확인',
   },
 };
 
-export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ lang, darkMode }) => {
+const DISMISS_KEY = 'sr_dismiss_add_screen_banner_v1';
+
+export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
+  lang,
+  darkMode,
+  user,
+  token,
+  onToast,
+}) => {
   const [showGuide, setShowGuide] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [permission, setPermission] = useState<string>('default');
+  const [isEnabling, setIsEnabling] = useState(false);
+
   const pt = PWA_I18N[lang];
   const baseUrl = import.meta.env.BASE_URL || '/';
 
   useEffect(() => {
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
-    setIsStandalone(standalone);
+    setIsStandalone(isRunningStandalonePwa());
+    setPermission(getNotificationPermissionState());
+    if (sessionStorage.getItem(DISMISS_KEY) === 'true') {
+      setDismissed(true);
+    }
   }, []);
 
-  if (isStandalone || dismissed) return null;
+  const handleDismiss = () => {
+    setDismissed(true);
+    sessionStorage.setItem(DISMISS_KEY, 'true');
+  };
+
+  const handleEnablePush = async () => {
+    setIsEnabling(true);
+    try {
+      const res = await syncAndSubscribePwaPush({
+        user,
+        token,
+        askPermission: true,
+        forcePwaFlag: true,
+      });
+      setPermission(res.permission);
+      if (res.permission === 'granted') {
+        onToast?.('🎉 Đã cấp quyền thông báo thành công! Đang gửi thông báo kiểm tra...');
+        await sendTestNativeNotification();
+      } else if (res.permission === 'denied') {
+        onToast?.('⚠️ Bạn đã chặn quyền thông báo. Hãy vào Cài đặt trình duyệt để Cho phép lại.', true);
+      }
+    } catch {
+      onToast?.('Lỗi kích hoạt thông báo hệ thống.', true);
+    } finally {
+      setIsEnabling(false);
+    }
+  };
+
+  // Nếu người dùng đã cấp quyền thông báo và đang ở PWA standalone, hoặc đã bấm tắt thì không cần hiện
+  if ((isStandalone && permission === 'granted') || dismissed) {
+    return null;
+  }
 
   return (
     <>
-      {/* Nút/Banner hiển thị trên Điện thoại & Tablet (lg:hidden), trong suốt nhẹ để thấy nền */}
+      {/* ================= 1 DÒNG THÔNG BÁO THÊM VÀO MÀN HÌNH ĐỂ NHẬN THÔNG BÁO ================= */}
       <div
-        className={`lg:hidden backdrop-blur-sm px-3.5 py-2.5 rounded-2xl shadow-md border flex items-center justify-between gap-2 mb-3.5 transition-colors ${
+        className={`backdrop-blur-md px-3.5 py-2.5 sm:py-3 rounded-2xl shadow-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3.5 transition-all animate-in fade-in slide-in-from-top-2 ${
           darkMode
-            ? 'bg-indigo-950/65 border-indigo-700/60 text-white'
-            : 'bg-blue-600/75 border-white/50 text-white'
+            ? 'bg-gradient-to-r from-blue-950/85 via-indigo-950/80 to-blue-900/85 border-blue-500/40 text-white shadow-blue-950/40'
+            : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white border-blue-400/50 shadow-blue-500/20'
         }`}
       >
+        {/* Cụm biểu tượng & 1 Dòng thông điệp duy nhất */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <img
-            src={`${baseUrl}logo.png`}
-            alt="Speak Right"
-            className="w-9 h-9 object-contain shrink-0 drop-shadow-sm"
-          />
+          <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 shadow-sm border border-white/20">
+            {isStandalone ? (
+              <BellRing className="w-4 h-4 text-amber-300 animate-bounce" />
+            ) : (
+              <Smartphone className="w-4 h-4 text-amber-300" />
+            )}
+          </div>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-extrabold truncate">{pt.bannerTitle}</p>
-            <p className="text-[11px] text-blue-100 truncate">{pt.bannerSub}</p>
+            <span className="text-xs sm:text-sm font-black leading-snug">
+              {isStandalone ? pt.standaloneTitle : pt.oneLineAddTitle}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+
+        {/* Các nút hành động ngay trên dòng */}
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+          {!isStandalone && (
+            <button
+              type="button"
+              onClick={() => setShowGuide(true)}
+              className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 active:scale-95 transition font-black text-xs shadow-sm flex items-center gap-1.5 shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {pt.btnAddScreen}
+            </button>
+          )}
+
+          {permission !== 'granted' && (
+            <button
+              type="button"
+              onClick={handleEnablePush}
+              disabled={isEnabling}
+              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 active:scale-95 transition font-black text-xs shadow-sm flex items-center gap-1.5 shrink-0 disabled:opacity-60"
+            >
+              <BellRing className="w-3.5 h-3.5" />
+              {isEnabling ? 'Đang bật...' : isStandalone ? pt.btnEnablePushNow : pt.btnEnablePush}
+            </button>
+          )}
+
           <button
-            onClick={() => setShowGuide(true)}
-            className="bg-white/90 text-blue-700 hover:bg-white active:scale-95 transition font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1"
-          >
-            <Download className="w-3.5 h-3.5" />
-            {pt.btnLabel}
-          </button>
-          <button
-            onClick={() => setDismissed(true)}
-            className="p-1.5 text-blue-100 hover:text-white rounded-lg"
+            type="button"
+            onClick={handleDismiss}
+            className="p-1.5 text-blue-100 hover:text-white hover:bg-white/10 rounded-lg transition"
+            title="Đóng thông báo"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -115,14 +228,14 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ lang, darkMode
         </div>
       </div>
 
-      {/* Modal hướng dẫn trực quan cho Android & iOS/iPadOS (Không sinh APK -> Không bao giờ bị Play Protect chặn) */}
+      {/* ================= MODAL HƯỚNG DẪN 3 BƯỚC THÊM RA MÀN HÌNH CHÍNH ================= */}
       {showGuide && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4">
           <div
             className={`w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl border backdrop-blur-md ${
               darkMode
-                ? 'bg-slate-900/90 border-slate-700 text-white'
-                : 'bg-white/90 border-white text-slate-900'
+                ? 'bg-slate-900/95 border-slate-700 text-white'
+                : 'bg-white/95 border-white text-slate-900'
             }`}
           >
             <div
@@ -137,8 +250,8 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ lang, darkMode
                   className="w-11 h-11 object-contain"
                 />
                 <div>
-                  <h3 className="font-black text-base">{pt.modalTitle}</h3>
-                  <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <h3 className="font-black text-base leading-tight">{pt.modalTitle}</h3>
+                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                     {pt.modalSub}
                   </p>
                 </div>
@@ -168,16 +281,9 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ lang, darkMode
                 </div>
                 <p className="leading-relaxed">1. {pt.androidStep1}</p>
                 <p className="leading-relaxed font-semibold">2. {pt.androidStep2}</p>
-
-                {/* Hướng dẫn vượt qua cảnh báo Google Play Protect trên Samsung / Android 14+ */}
-                <div className="mt-2.5 pt-2 border-t border-blue-200/70 dark:border-slate-700/80 text-[11px] space-y-1">
-                  <div className="font-black text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    <span>🛡️ Nếu Play Protect hiện "Đã chặn ứng dụng không an toàn":</span>
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-300 leading-snug">
-                    Chỉ cần bấm vào chữ <strong>"Tiếp tục cài đặt"</strong> (ngay trên nút "Tôi hiểu") là xong ngay an toàn 100%! Hoặc mở link bằng <strong>Google Chrome</strong> để thêm lối tắt mượt mà.
-                  </p>
-                </div>
+                <p className="leading-relaxed text-emerald-600 dark:text-emerald-400 font-bold">
+                  3. {pt.androidStep3}
+                </p>
               </div>
 
               {/* Hướng dẫn iOS / iPadOS */}
@@ -196,16 +302,25 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({ lang, darkMode
                 <p className="leading-relaxed font-semibold">
                   2. {pt.iosStep2} <PlusSquare className="w-3.5 h-3.5 inline text-blue-500 ml-0.5" />
                 </p>
+                <p className="leading-relaxed text-emerald-600 dark:text-emerald-400 font-bold">
+                  3. {pt.iosStep3}
+                </p>
               </div>
             </div>
 
-            <button
-              onClick={() => setShowGuide(false)}
-              className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              {pt.doneBtn}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowGuide(false);
+                  await handleEnablePush();
+                }}
+                className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 transition"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {pt.doneBtn}
+              </button>
+            </div>
           </div>
         </div>
       )}

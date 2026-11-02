@@ -466,6 +466,14 @@ app.get('/api/public/today', async () => {
 
 app.post('/api/public/challenges/:dayNumber/start', async (request: any, reply) => {
   const dayNumber = Number(request.params.dayNumber);
+  const challenge = store.getChallengeByDay(dayNumber);
+  if (!challenge || !store.isDayUnlocked(challenge)) {
+    return reply.status(403).send({
+      code: 'DAY_LOCKED',
+      message: 'Bài học hôm nay chưa được mở hoặc đang bị khóa bởi Ban tổ chức.',
+    });
+  }
+
   const today = store.getTodayChallenge();
   if (!today || today.dayNumber !== dayNumber) {
     return reply.status(403).send({
@@ -566,7 +574,8 @@ app.post(
 
     if (!store.isDayUnlocked(challenge)) {
       return reply.status(403).send({
-        message: `${challenge.title} hiện đang khóa! Vui lòng quay lại khi thử thách được mở.`,
+        code: 'DAY_LOCKED',
+        message: `${challenge.title} hiện đang khóa hoặc chưa được mở! Vui lòng quay lại sau khi Ban tổ chức mở khóa.`,
       });
     }
 

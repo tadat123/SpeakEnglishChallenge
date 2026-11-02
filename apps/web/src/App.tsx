@@ -45,6 +45,7 @@ import {
   Q11SubmissionData,
 } from './components/PronunciationChallengeQ11';
 import { SpeakRightEventsPopup } from './components/SpeakRightEventsPopup';
+import { InstallPwaModal } from './components/InstallPwaModal';
 import { playPronunciation } from './utils/audio';
 import { Lang, TRANSLATIONS } from './utils/i18n';
 import {
@@ -52,6 +53,8 @@ import {
   registerPwaServiceWorker,
   syncAndSubscribePwaPush,
   triggerLocalServiceWorkerNotification,
+  sendTestNativeNotification,
+  getNotificationPermissionState,
 } from './utils/pwaPush';
 
 type TabType = 'home' | 'challenges' | 'leaderboard' | 'profile' | 'admin';
@@ -399,6 +402,13 @@ export const App: React.FC = () => {
     };
 
     navigator.serviceWorker?.addEventListener('message', onSwMessage);
+
+    // Tự động đồng bộ Web Push ngầm nếu đã được cấp quyền thông báo ngoài app
+    registerPwaServiceWorker().then(() => {
+      if (getNotificationPermissionState() === 'granted') {
+        syncAndSubscribePwaPush({ user, token, askPermission: false });
+      }
+    });
 
     let lastPollTime = Date.now() - 2000;
     const seenIds = new Set<string>();
@@ -862,6 +872,7 @@ export const App: React.FC = () => {
     challenges.find((c) => c.status === 'OPEN') ||
     challenges.find((c) => c.status === 'COMPLETED') ||
     challenges[0];
+  const isTodayLocked = !todayChallenge || todayChallenge.status === 'LOCKED';
   const completedCount = profileData?.user?.completedDays ?? user?.completedDays ?? 0;
   const myTotalScore = profileData?.user?.totalScore ?? user?.totalScore ?? 0;
   const myRankNumber = leaderboardData?.myRank?.rank ?? profileData?.user?.rank ?? '-';
@@ -1122,6 +1133,15 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Banner Nhắc Cài PWA & Kích hoạt Thông Báo Đẩy Ngoài Màn Hình */}
+        <InstallPwaModal
+          lang={lang}
+          darkMode={darkMode}
+          user={user}
+          token={token}
+          onToast={showMessage}
+        />
 
         {/* Banner Thông Báo Đẩy PWA Thời Gian Thực (Nhận từ Staggered Push Queue) */}
         {livePushAlert && (
@@ -1745,8 +1765,11 @@ export const App: React.FC = () => {
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-0.5 rounded-full text-xs font-extrabold">
-                          🔥 {t.todayChallengeBadge} • {todayChallenge?.title || 'Day 1'} (
-                          {todayChallenge?.dateLabel || '04/11/2026'})
+                          {isTodayLocked ? (
+                            <>🔒 {L('Bài học đang khóa', 'Lesson is locked', '강의 잠김')} • {todayChallenge?.title || 'Day 1'} ({todayChallenge?.dateLabel || '04/11/2026'})</>
+                          ) : (
+                            <>🔥 {t.todayChallengeBadge} • {todayChallenge?.title || 'Day 1'} ({todayChallenge?.dateLabel || '04/11/2026'})</>
+                          )}
                         </div>
                         <div className="inline-flex items-center gap-1 bg-amber-400/90 text-slate-950 px-2.5 py-0.5 rounded-full text-[11px] font-black">
                           🕛 {t.newChallengeAtMidnight} {L(`(còn ${midnightCountdown})`, `(${midnightCountdown} left)`, `(${midnightCountdown} 남음)`)}
@@ -1767,14 +1790,22 @@ export const App: React.FC = () => {
                       <button
                         onClick={() => handleStartDay(todayChallenge)}
                         disabled={startingDay !== null}
-                        className="w-full md:w-auto px-6 py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-sm sm:text-base shadow-xl flex items-center justify-center gap-2 transition disabled:opacity-75"
+                        className={`w-full md:w-auto px-6 py-4 rounded-2xl active:scale-95 font-black text-sm sm:text-base shadow-xl flex items-center justify-center gap-2 transition disabled:opacity-75 ${
+                          isTodayLocked
+                            ? 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border-2 border-slate-600/80'
+                            : 'bg-amber-400 hover:bg-amber-300 text-slate-950'
+                        }`}
                       >
                         {startingDay === todayChallenge?.dayNumber ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : isTodayLocked ? (
+                          <Lock className="w-5 h-5 text-amber-300" />
                         ) : (
                           <Play className="w-5 h-5 fill-slate-950" />
                         )}
-                        {todayChallenge?.status === 'COMPLETED'
+                        {isTodayLocked
+                          ? `${todayChallenge?.title || 'Bài học'}: ${L('Bài học chưa được mở (Đang khóa)', 'Lesson not open (Locked)', '강의가 아직 열리지 않았습니다 (잠김)')}`
+                          : todayChallenge?.status === 'COMPLETED'
                           ? todayChallenge.resultsRevealed
                             ? `${t.retryTodayBtn} ${todayChallenge.title} (${todayChallenge.score}/100${t.pointsSuffix})`
                             : `${t.retryTodayBtn} ${todayChallenge.title} (⏳ ${t.waitingMidnightShort})`
@@ -2220,12 +2251,20 @@ export const App: React.FC = () => {
                   <button
                     onClick={() => handleStartDay(todayChallenge)}
                     disabled={startingDay !== null}
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-75"
+                    className={`px-4 py-2.5 rounded-xl font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-75 ${
+                      isTodayLocked
+                        ? 'bg-slate-700/90 hover:bg-slate-700 text-slate-200 border border-slate-600'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
-                    {startingDay === todayChallenge?.dayNumber && (
+                    {startingDay === todayChallenge?.dayNumber ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    )}
-                    {t.doTodayBtn}
+                    ) : isTodayLocked ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-300" />
+                    ) : null}
+                    {isTodayLocked
+                      ? L('Bài chưa mở / Đang khóa', 'Not open / Locked', '미오픈 / 잠김')
+                      : t.doTodayBtn}
                   </button>
                 </div>
 
@@ -2623,6 +2662,93 @@ export const App: React.FC = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Quản lý Thông Báo Ngoài Màn Hình (Native Lock Screen / System Push Notification) */}
+                <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-3 ${cardBg}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800 gap-2">
+                    <div>
+                      <h3 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
+                        <BellRing className="w-4 h-4 text-amber-500" />
+                        {L('Thông báo Ngoài Màn hình (Màn hình khóa & Banner hệ điều hành)', 'System Push Notifications (Lock Screen & OS Banner)', '잠금화면 및 시스템 푸시 알림')}
+                      </h3>
+                      <p className={`text-[11px] ${textSecondary}`}>
+                        {L(
+                          'Cho phép ứng dụng gửi thông báo bài mới (8h sáng) và Top 1 (19h tối) ra ngoài màn hình khóa ngay cả khi đã tắt app.',
+                          'Receive lesson alerts at 8 AM and Top 1 at 7 PM on your lock screen even when app is closed.',
+                          '앱을 종료해도 오전 8시 새 강의 및 오후 7시 1위 알림을 잠금화면에서 바로 수신합니다.'
+                        )}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-[11px] font-black px-2.5 py-1 rounded-xl self-start sm:self-auto shrink-0 ${
+                        getNotificationPermissionState() === 'granted'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                      }`}
+                    >
+                      {getNotificationPermissionState() === 'granted'
+                        ? L('✓ Đang bật ngoài màn hình', '✓ System Push Active', '✓ 시스템 알림 켜짐')
+                        : L('⚠️ Chưa cấp quyền ngoài app', '⚠️ Not enabled', '⚠️ 알림 권한 없음')}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    <div className="text-xs space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold">{L('Trạng thái:', 'Status:', '상태:')}</span>
+                        {getNotificationPermissionState() === 'granted' ? (
+                          <span className="text-emerald-600 font-bold">
+                            {L('Đã cấp quyền hiển thị ngoài màn hình (Native Notification)', 'Granted (Native OS notifications enabled)', '허용됨 (시스템 알림 수신 가능)')}
+                          </span>
+                        ) : (
+                          <span className="text-amber-600 font-bold">
+                            {L('Chỉ hiển thị pop-up khi đang mở app (Chưa cấp quyền ra ngoài)', 'In-app only (System notification permission needed)', '앱 내부 팝업만 표시됨')}
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-[11px] ${textSecondary}`}>
+                        {L(
+                          'Sau khi bấm Cho phép, hệ thống sẽ gửi 1 thông báo thử nghiệm ra ngoài khay thông báo của bạn.',
+                          'After granting permission, a test notification will be delivered to your device.',
+                          '권한 허용 시 기기 알림창으로 테스트 알림이 즉시 전송됩니다.'
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {getNotificationPermissionState() !== 'granted' ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const res = await syncAndSubscribePwaPush({ user, token, askPermission: true, forcePwaFlag: true });
+                            if (res.permission === 'granted') {
+                              showMessage('🎉 Đã cấp quyền thông báo thành công! Đang gửi thông báo kiểm tra...');
+                              await sendTestNativeNotification();
+                            } else {
+                              showMessage('⚠️ Chưa cấp quyền thông báo. Hãy bấm Cho phép trên hộp thoại trình duyệt.', true);
+                            }
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+                        >
+                          <BellRing className="w-4 h-4" />
+                          {L('Bật thông báo ngoài màn hình', 'Enable System Notifications', '시스템 알림 켜기')}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const res = await sendTestNativeNotification();
+                            showMessage(res.message, !res.ok);
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
+                        >
+                          <Send className="w-4 h-4" />
+                          {L('Gửi thử thông báo ra ngoài màn hình', 'Send Test Notification', '테스트 알림 전송')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </>
@@ -2669,8 +2795,18 @@ export const App: React.FC = () => {
             <h3 className={`text-xl font-black mt-3 ${textPrimary}`}>{lockedModalDay.title}</h3>
             <p className={`text-xs font-semibold ${textSecondary}`}>{lockedModalDay.dateLabel}</p>
 
-            <div className="bg-amber-50 rounded-2xl p-3.5 my-4 border border-amber-200 text-xs sm:text-sm font-extrabold text-amber-900">
-              📅 {t.lockedTomorrowMsg}
+            <div className="bg-amber-50 dark:bg-amber-950/60 rounded-2xl p-4 my-4 border border-amber-300 dark:border-amber-800 text-xs sm:text-sm font-extrabold text-amber-950 dark:text-amber-200 text-left space-y-1.5">
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-black text-sm">
+                <Lock className="w-4 h-4 shrink-0" />
+                <span>{L('Bài học chưa có sẵn hoặc đang bị khóa', 'Lesson not available or currently locked', '강의가 아직 준비되지 않았거나 잠겨 있습니다')}</span>
+              </div>
+              <p className="text-xs text-amber-900/90 dark:text-amber-300 font-medium leading-relaxed">
+                {L(
+                  'Ban tổ chức hiện đang khóa ngày thử thách này để chuẩn bị đề thi hoặc đã tạm đóng. Vui lòng quay lại sau khi Ban tổ chức mở khóa!',
+                  'The organizers have locked this challenge day for preparation or maintenance. Please check back when it is unlocked!',
+                  '운영진이 시험 준비 hoặc 점검을 위해 이 챌린지 날짜를 잠갔습니다. 잠금 해제 알림 후 다시 이용해 주세요!'
+                )}
+              </p>
             </div>
 
             <p className="text-xs font-bold italic text-blue-700">
