@@ -12,6 +12,10 @@ async function main() {
   await prisma.user.upsert({
     where: { employeeId: '88888888' },
     update: {
+      role: 'ADMIN',
+      passwordHash: adminPassHash,
+      fullName: 'Ban Tổ Chức (Admin)',
+      email: 'admin.speakright@gmail.com',
       totalScore: 0,
       totalTimeMs: 0,
       completedDays: 0,

@@ -286,6 +286,32 @@ class DataStore {
         if (!firstQ || !firstQ.questionType) {
           parsed.challenges = generate30DaysChallenges();
         }
+        // Đảm bảo luôn có tài khoản Admin GEN: 88888888 với mật khẩu Admin@2026 và role ADMIN
+        if (!Array.isArray(parsed.users)) parsed.users = [];
+        const adminUser = parsed.users.find((u) => u.employeeId === '88888888');
+        const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
+        if (!adminUser) {
+          parsed.users.unshift({
+            id: 'u-admin',
+            employeeId: '88888888',
+            fullName: 'Ban Tổ Chức (Admin)',
+            email: 'admin.speakright@gmail.com',
+            phone: '0901234567',
+            department: 'HR & Training',
+            avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
+            passwordHash: adminPassHash,
+            role: 'ADMIN',
+            totalScore: 0,
+            totalTimeMs: 0,
+            completedDays: 0,
+            createdAt: new Date().toISOString(),
+          });
+        } else {
+          adminUser.role = 'ADMIN';
+          if (!bcrypt.compareSync('Admin@2026', adminUser.passwordHash)) {
+            adminUser.passwordHash = adminPassHash;
+          }
+        }
         const hydrated = this.ensurePushState(parsed);
         fs.writeFileSync(DB_FILE, JSON.stringify(hydrated, null, 2), 'utf-8');
         return hydrated;

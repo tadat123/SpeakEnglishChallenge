@@ -829,6 +829,28 @@ function loadDb(): ClientDbShape {
     if (raw) {
       const parsed = JSON.parse(raw) as ClientDbShape;
       if (parsed?.users?.length && parsed?.challenges?.length) {
+        // Đảm bảo luôn có tài khoản Admin GEN: 88888888 với mật khẩu Admin@2026 và role ADMIN
+        const adminUser = parsed.users.find((u) => u.employeeId === '88888888');
+        if (!adminUser) {
+          parsed.users.unshift({
+            id: 'u-admin',
+            employeeId: '88888888',
+            fullName: 'Ban Tổ Chức (Admin)',
+            email: 'admin.speakright@gmail.com',
+            phone: '0901234567',
+            department: 'HR & Training',
+            avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
+            passwordPlain: 'Admin@2026',
+            role: 'ADMIN',
+            totalScore: 0,
+            totalTimeMs: 0,
+            completedDays: 0,
+            createdAt: new Date().toISOString(),
+          });
+        } else {
+          adminUser.role = 'ADMIN';
+          adminUser.passwordPlain = 'Admin@2026';
+        }
         return ensureClientPushState(parsed);
       }
     }
