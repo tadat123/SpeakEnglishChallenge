@@ -28,9 +28,15 @@ import {
   Laptop,
   Tablet,
   Trash2,
+  Users,
+  FileText,
+  Clapperboard,
+  CalendarDays,
+  Infinity as InfinityIcon,
+  Target,
+  Gift,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
-import { InstallPwaModal } from './components/InstallPwaModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ResponsiveBackground, PerfmonsterFooter } from './components/LayoutDecor';
 import {
@@ -109,6 +115,7 @@ export const App: React.FC = () => {
   const t = TRANSLATIONS[lang];
   /** Chọn nhanh chuỗi theo ngôn ngữ đang dùng (VI / EN / KO) */
   const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
+  const baseUrl = import.meta.env.BASE_URL || '/';
 
   useEffect(() => {
     const root = document.documentElement;
@@ -201,7 +208,7 @@ export const App: React.FC = () => {
 
   const handleRemoveDevice = async (deviceId: string) => {
     if (!token) return;
-    if (!window.confirm('Bạn có chắc muốn đăng xuất thiết bị này khỏi tài khoản?')) return;
+    if (!window.confirm(t.removeDeviceConfirm)) return;
     try {
       const res = await fetch(`/api/profile/devices/${deviceId}`, {
         method: 'DELETE',
@@ -968,11 +975,11 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigateToTab('admin')}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/25 active:scale-95 transition"
-                title="Vào Trang Quản trị (Admin Portal có Sidebar & Thống kê)"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/25 active:scale-95 transition"
+                title={L('Vào Trang Quản trị (Admin Portal có Sidebar & Thống kê)', 'Open Admin Portal (Sidebar & Dashboard)', '관리자 포털 열기')}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
-                <span className="hidden sm:inline">Trang Admin</span>
+                <span className="hidden sm:inline">{t.adminPortal}</span>
                 <span className="sm:hidden">Admin</span>
               </button>
             )}
@@ -1007,28 +1014,28 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDarkMode(false)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
+                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
                   !darkMode
                     ? 'bg-amber-400 text-slate-950 shadow-sm'
                     : 'text-slate-300 hover:text-white'
                 }`}
-                title="Chế độ Sáng"
+                title={t.lightMode}
               >
                 <Sun className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sáng</span>
+                <span className="hidden sm:inline">{t.lightMode}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDarkMode(true)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
+                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
                   darkMode
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-700 hover:text-slate-900'
                 }`}
-                title="Chế độ Tối"
+                title={t.darkMode}
               >
                 <Moon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Tối</span>
+                <span className="hidden sm:inline">{t.darkMode}</span>
               </button>
             </div>
 
@@ -1066,7 +1073,6 @@ export const App: React.FC = () => {
           onExternalClose={() => setShowEventsPopup(false)}
           onStartDailyChallenge={() => handleStartDay(todayChallenge)}
         />
-        <InstallPwaModal lang={lang} darkMode={darkMode} />
 
         {/* Thông báo tự động lưu điểm bài làm của khách sau khi đăng nhập */}
         {pendingSaveNotice && (
@@ -1091,12 +1097,8 @@ export const App: React.FC = () => {
             <div className="flex items-start sm:items-center gap-2.5 min-w-0">
               <span className="text-xl shrink-0">⚠️</span>
               <div className="text-xs sm:text-sm leading-snug">
-                <span className="font-black">{L('Chế độ Khách:', 'Guest Mode:', '게스트 모드:')}</span>{' '}
-                {L(
-                  'Bạn chỉ làm được bài thi của ngày hôm nay và điểm số sẽ KHÔNG được lưu trên hệ thống nếu chưa đăng nhập.',
-                  "You can only take today's challenge and your score will NOT be saved without an account.",
-                  '오늘의 챌린지만 가능하며 로그인하지 않으면 점수가 저장되지 않습니다.'
-                )}
+                <span className="font-black">{t.guestModeLabel}:</span>{' '}
+                {t.guestNotice}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
@@ -1362,7 +1364,7 @@ export const App: React.FC = () => {
                       const optAudioKey = `opt-${q.id}-${opt.id}`;
                       const displayLabel =
                         q.questionType === 'CHOOSE_AUDIO' && /^Audio [A-D]$/i.test(opt.text)
-                          ? `Mẫu phát âm ${optIdx + 1}`
+                          ? `${t.audioSamplePrefix} ${optIdx + 1}`
                           : opt.text;
 
                       return (
@@ -1464,7 +1466,7 @@ export const App: React.FC = () => {
                         }
                         className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition"
                       >
-                        🎙️ Sang Câu 11: Pronunciation Challenge →
+                        {t.goToQ11}
                       </button>
                     )}
                   </div>
@@ -1481,10 +1483,10 @@ export const App: React.FC = () => {
                   <Clock className="w-9 h-9" />
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-blue-600">
-                  🎉 Đã ghi nhận bài nộp Day {quizResult.dayNumber}!
+                  {L(`🎉 Đã ghi nhận bài nộp Day ${quizResult.dayNumber}!`, `🎉 Day ${quizResult.dayNumber} submission recorded!`, `🎉 Day ${quizResult.dayNumber} 제출 완료!`)}
                 </h2>
                 <p className={`text-xs sm:text-sm font-bold mt-1 ${textPrimary}`}>
-                  Thời gian hoàn thành: {formatTimeMmSs(Math.round(quizResult.timeSpentMs / 1000))}
+                  {L('Thời gian hoàn thành:', 'Completion time:', '소요 시간:')} {formatTimeMmSs(Math.round(quizResult.timeSpentMs / 1000))}
                 </p>
 
                 <div
@@ -1496,18 +1498,19 @@ export const App: React.FC = () => {
                 >
                   <div className="text-xs sm:text-sm font-black flex items-center gap-2">
                     <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Chế độ Bảo mật Đáp án & Kết quả khi Challenge đang diễn ra</span>
+                    <span>{L('Chế độ Bảo mật Đáp án & Kết quả khi Challenge đang diễn ra', 'Active Challenge Security Mode', '진행 중 챌린지 보안 모드')}</span>
                   </div>
                   <p className="text-xs leading-relaxed">
-                    Theo thể lệ chương trình, người chơi chưa biết ngay đáp án đúng/sai lúc vừa nộp bài để đảm bảo tính công bằng.{' '}
-                    <strong>
-                      Điểm số và giải thích đáp án chi tiết sẽ tự động được công bố ngay khi Challenge của ngày hôm nay kết thúc (lúc 00:00 đêm nay)!
-                    </strong>
+                    {L(
+                      'Theo thể lệ chương trình, người chơi chưa biết ngay đáp án đúng/sai lúc vừa nộp bài để đảm bảo tính công bằng. Điểm số và giải thích đáp án chi tiết sẽ tự động được công bố ngay khi Challenge của ngày hôm nay kết thúc (lúc 00:00 đêm nay)!',
+                      'To ensure competition fairness, correct/wrong answers remain hidden right after submission. Full scores and detailed explanations will be automatically published at midnight (00:00 tonight)!',
+                      '공정한 경쟁을 위해 제출 직후에는 정답 여부가 공개되지 않습니다. 최종 점수와 상세 해설은 오늘 자정(00:00) 챌린지 마감 후 자동 공개됩니다!'
+                    )}
                   </p>
                   <div className="pt-1 flex items-center justify-between text-xs font-extrabold">
-                    <span>⏳ Thời gian mở công bố kết quả & Challenge mới:</span>
+                    <span>{L('⏳ Thời gian mở công bố kết quả & Challenge mới:', '⏳ Results & New Challenge Release:', '⏳ 결과 및 새 챌린지 공개:')}</span>
                     <span className="px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-mono font-black">
-                      00:00 (còn {midnightCountdown})
+                      00:00 {L(`(còn ${midnightCountdown})`, `(${midnightCountdown} left)`, `(${midnightCountdown} 남음)`)}
                     </span>
                   </div>
                 </div>
@@ -1517,7 +1520,7 @@ export const App: React.FC = () => {
                     className={`mb-5 p-4 rounded-2xl border text-left text-xs space-y-1.5 ${subCardBg}`}
                   >
                     <div className="font-black text-indigo-600">
-                      🎙️ Nhận xét AI Câu 11 (Pronunciation Challenge – Không tính điểm):
+                      {L('🎙️ Nhận xét AI Câu 11 (Pronunciation Challenge – Không tính điểm):', '🎙️ AI Feedback for Q11 (Pronunciation Challenge – Practice):', '🎙️ 11번 문제 AI 피드백 (발음 챌린지 - 연습):')}
                     </div>
                     <p className={textSecondary}>{quizResult.q11Pronunciation.aiSummaryFeedback}</p>
                   </div>
@@ -1590,7 +1593,7 @@ export const App: React.FC = () => {
                       onClick={() => setAdminPreviewResult(true)}
                       className={`px-4 py-3.5 rounded-2xl font-bold text-xs border ${subCardBg}`}
                     >
-                      👁️ Xem trước kết quả (Quyền Admin)
+                      👁️ {L('Xem trước kết quả (Quyền Admin)', 'Preview Result (Admin)', '결과 미리보기 (관리자)')}
                     </button>
                   )}
                 </div>
@@ -1723,14 +1726,14 @@ export const App: React.FC = () => {
                           {todayChallenge?.dateLabel || '04/11/2026'})
                         </div>
                         <div className="inline-flex items-center gap-1 bg-amber-400/90 text-slate-950 px-2.5 py-0.5 rounded-full text-[11px] font-black">
-                          🕛 Mở bài mới 00:00 (còn {midnightCountdown})
+                          🕛 {t.newChallengeAtMidnight} {L(`(còn ${midnightCountdown})`, `(${midnightCountdown} left)`, `(${midnightCountdown} 남음)`)}
                         </div>
                         <button
                           type="button"
                           onClick={() => setShowEventsPopup(true)}
                           className="inline-flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2.5 py-0.5 rounded-full text-[11px] font-extrabold transition"
                         >
-                          🎉 Chuỗi sự kiện Speak Right
+                          🎉 {t.speakRightEventsBtn}
                         </button>
                       </div>
                       <h1 className="text-xl sm:text-2xl font-black">{t.todayTitle}</h1>
@@ -1746,9 +1749,13 @@ export const App: React.FC = () => {
                         {todayChallenge?.status === 'COMPLETED'
                           ? todayChallenge.resultsRevealed
                             ? `${t.retryTodayBtn} ${todayChallenge.title} (${todayChallenge.score}/100${t.pointsSuffix})`
-                            : `${t.retryTodayBtn} ${todayChallenge.title} (⏳ Chờ 00:00 công bố)`
+                            : `${t.retryTodayBtn} ${todayChallenge.title} (⏳ ${t.waitingMidnightShort})`
                           : isGuest && guestSubmittedDay?.dayNumber === todayChallenge?.dayNumber
-                          ? `Đã làm thử ${todayChallenge?.title || 'Day 1'} • Đăng nhập để lưu điểm`
+                          ? L(
+                              `Đã làm thử ${todayChallenge?.title || 'Day 1'} • Đăng nhập để lưu điểm`,
+                              `Practiced ${todayChallenge?.title || 'Day 1'} • Sign in to save`,
+                              `${todayChallenge?.title || 'Day 1'} 연습 완료 • 점수 저장하려면 로그인`
+                            )
                           : `${t.startTodayBtn} (${todayChallenge?.title || 'Day 1'})`}
                       </button>
                     </div>
@@ -1852,7 +1859,7 @@ export const App: React.FC = () => {
                                   </span>
                                 ) : (
                                   <span className="text-amber-600 dark:text-amber-400">
-                                    ⏳ Đã nộp • Chờ 00:00
+                                    ⏳ {t.submittedWaitingMidnight}
                                   </span>
                                 )
                               ) : isOpen ? (
@@ -1885,7 +1892,7 @@ export const App: React.FC = () => {
                       <div className={`divide-y ${darkMode ? 'divide-slate-700/60' : 'divide-slate-200/60'}`}>
                         {(leaderboardData.topList || []).length === 0 ? (
                           <div className="py-6 text-center text-xs font-semibold text-slate-400">
-                            Chưa có dữ liệu bảng xếp hạng. Hãy là người đầu tiên hoàn thành thử thách!
+                            {t.noLeaderboardData}
                           </div>
                         ) : (
                           (leaderboardData.topList || []).slice(0, 5).map((item: any) => (
@@ -1949,126 +1956,222 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 3 EXCITING ACTIVITIES — MATCHING IMAGE 2 DESIGN */}
-                <div className={`rounded-3xl p-5 sm:p-6 border shadow-md space-y-4 ${cardBg}`}>
+                {/* 3 EXCITING ACTIVITIES — MATCHING OFFICIAL POSTER DESIGN */}
+                <div className={`rounded-3xl p-4 sm:p-6 border shadow-md space-y-4 ${cardBg}`}>
                   <div className="text-center space-y-1">
                     <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-black text-amber-500 uppercase tracking-widest">
-                      <span>✦</span> 3 EXCITING ACTIVITIES <span>✦</span>
+                      <span>✦</span> {t.activitiesTitle} <span>✦</span>
                     </div>
-                    <h2 className={`text-base sm:text-lg font-black ${textPrimary}`}>
-                      Chuỗi Hoạt Động Bùng Nổ Cùng Speak Right 2026
+                    <h2 className={`text-base sm:text-xl font-black ${textPrimary}`}>
+                      {t.activitiesHeading}
                     </h2>
-                    <p className={`text-xs ${textSecondary}`}>
-                      Join the challenges, improve your English and make your voice heard!
+                    <p className={`text-xs sm:text-sm ${textSecondary}`}>
+                      {t.activitiesSub}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  <div className="space-y-3 sm:space-y-3.5">
                     {/* Activity 01: Ring The Golden Bell */}
                     <div
                       onClick={() => setShowEventsPopup(true)}
-                      className="group cursor-pointer rounded-2xl p-4 border border-amber-200 dark:border-amber-900/60 bg-gradient-to-br from-amber-50/80 via-white to-amber-100/50 dark:from-slate-900/90 dark:to-amber-950/30 shadow-sm hover:shadow-md hover:scale-[1.02] transition space-y-3"
+                      className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-amber-300 dark:border-amber-800/60 bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-100/50 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-500 text-white shadow-sm">
-                          01
-                        </span>
-                        <span className="text-xs font-black text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition flex items-center gap-0.5">
-                          Chi tiết →
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                          🔔 RING THE GOLDEN BELL
-                        </h3>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
-                          Test your English knowledge and be the last one standing!
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
-                          👥 ~100 offline
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
-                          📄 Trắc nghiệm
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
-                          🏆 1 Chung kết
-                        </span>
+                      <div className="flex flex-col sm:flex-row">
+                        {/* Illustration */}
+                        <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-amber-100 dark:bg-amber-950/60">
+                          <img
+                            src={`${baseUrl}events/golden-bell.jpg`}
+                            alt={t.bellTitle}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                          />
+                          <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-amber-500 shadow-md">
+                            01
+                          </span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-base sm:text-lg font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                                🔔 {t.bellTitle}
+                              </h3>
+                              <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition">
+                                {t.viewDetails}
+                              </span>
+                            </div>
+                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
+                              {t.bellDesc}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
+                              <Users className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[0]}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
+                              <FileText className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[1]}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
+                              <Trophy className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[2]}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/50 dark:border-amber-800/30">
+                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-amber-900/80 dark:text-amber-200/80 bg-amber-100/60 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg truncate">
+                              <Users className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span className="truncate">{t.deptNote}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-white flex items-center justify-center shadow-md shadow-amber-500/30 shrink-0 group-hover:scale-110 transition active:scale-95"
+                              title={t.viewDetails}
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* Activity 02: Dub It Right */}
                     <div
                       onClick={() => setShowEventsPopup(true)}
-                      className="group cursor-pointer rounded-2xl p-4 border border-blue-200 dark:border-blue-900/60 bg-gradient-to-br from-blue-50/80 via-white to-blue-100/50 dark:from-slate-900/90 dark:to-blue-950/30 shadow-sm hover:shadow-md hover:scale-[1.02] transition space-y-3"
+                      className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-sky-300 dark:border-sky-800/60 bg-gradient-to-r from-sky-50/90 via-blue-50/60 to-sky-100/50 dark:from-sky-950/40 dark:via-slate-900 dark:to-blue-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-blue-600 text-white shadow-sm">
-                          02
-                        </span>
-                        <span className="text-xs font-black text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition flex items-center gap-0.5">
-                          Chi tiết →
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                          🎬 DUB IT RIGHT
-                        </h3>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
-                          Team up, give the characters a voice, and bring the video to life!
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
-                        <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200">
-                          👥 ~3 bạn / đội
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200">
-                          🎬 Lồng tiếng video
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200">
-                          🏆 1 Chung kết
-                        </span>
+                      <div className="flex flex-col sm:flex-row">
+                        {/* Illustration */}
+                        <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-sky-100 dark:bg-sky-950/60">
+                          <img
+                            src={`${baseUrl}events/dub-it-right.jpg`}
+                            alt={t.dubTitle}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                          />
+                          <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-blue-600 shadow-md">
+                            02
+                          </span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-base sm:text-lg font-black text-blue-900 dark:text-sky-300 flex items-center gap-1.5">
+                                🎬 {t.dubTitle}
+                              </h3>
+                              <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition">
+                                {t.viewDetails}
+                              </span>
+                            </div>
+                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
+                              {t.dubDesc}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
+                              <Users className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[0]}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
+                              <Clapperboard className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[1]}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
+                              <Trophy className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[2]}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-sky-200/50 dark:border-sky-800/30">
+                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-blue-900/80 dark:text-sky-200/80 bg-sky-100/60 dark:bg-sky-950/60 px-2.5 py-1 rounded-lg truncate">
+                              <Users className="w-3 h-3 text-blue-600 shrink-0" />
+                              <span className="truncate">{t.deptNote}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md shadow-blue-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
+                              title={t.viewDetails}
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* Activity 03: Daily Challenge */}
                     <div
                       onClick={() => navigateToTab('challenges')}
-                      className="group cursor-pointer rounded-2xl p-4 border border-purple-200 dark:border-purple-900/60 bg-gradient-to-br from-purple-50/80 via-white to-purple-100/50 dark:from-slate-900/90 dark:to-purple-950/30 shadow-sm hover:shadow-md hover:scale-[1.02] transition space-y-3"
+                      className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-purple-300 dark:border-purple-800/60 bg-gradient-to-r from-purple-50/90 via-violet-50/60 to-purple-100/50 dark:from-purple-950/40 dark:via-slate-900 dark:to-violet-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-purple-600 text-white shadow-sm">
-                          03
-                        </span>
-                        <span className="text-xs font-black text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition flex items-center gap-0.5">
-                          Vào thi ngay →
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                          📅 DAILY CHALLENGE
-                        </h3>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
-                          Small steps every day, big progress ahead! (Pronunciation, vocabulary, accent)
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
-                        <span className="px-2 py-0.5 rounded-md bg-purple-100/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
-                          ♾️ Không giới hạn
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-purple-100/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
-                          🎯 30 ngày thi
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-purple-100/80 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200">
-                          🎁 Tích điểm & quà
-                        </span>
+                      <div className="flex flex-col sm:flex-row">
+                        {/* Illustration */}
+                        <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-purple-100 dark:bg-purple-950/60">
+                          <img
+                            src={`${baseUrl}events/daily-challenge.jpg`}
+                            alt={t.dailyTitle}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                          />
+                          <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-purple-600 shadow-md">
+                            03
+                          </span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-base sm:text-lg font-black text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                                📅 {t.dailyTitle}
+                              </h3>
+                              <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition">
+                                {t.joinDaily}
+                              </span>
+                            </div>
+                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
+                              {t.dailyDesc}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
+                              <InfinityIcon className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[0]}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
+                              <Target className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[1]}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
+                              <Gift className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[2]}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-purple-200/50 dark:border-purple-800/30">
+                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-purple-900/80 dark:text-purple-200/80 bg-purple-100/60 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg truncate">
+                              <CalendarDays className="w-3 h-3 text-purple-600 shrink-0" />
+                              <span className="truncate">Pronunciation • Vocabulary • Accent</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center shadow-md shadow-purple-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
+                              title={t.joinDaily}
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-center pt-2 text-xs font-bold text-slate-500 dark:text-slate-400">
-                    ⭐ "Be part of SPEAK RIGHT 2026 — Let's make English a part of our everyday success!"
+                  {/* Campaign Tagline Footer Banner */}
+                  <div className="relative rounded-2xl px-4 py-3 bg-gradient-to-r from-blue-700 via-blue-600 to-sky-500 text-white flex flex-col sm:flex-row items-center justify-between gap-2 shadow-sm">
+                    <div className="leading-tight text-center sm:text-left">
+                      <div className="text-xs sm:text-sm font-bold italic opacity-90">{t.bePartOf}</div>
+                      <div className="text-sm sm:text-base font-black text-amber-300 italic">
+                        SPEAK RIGHT 2026 ✦
+                      </div>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-white text-blue-700 text-xs font-black italic text-center shadow -rotate-1 max-w-full sm:max-w-[55%]">
+                      “{t.tagline}” 🙂
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2154,7 +2257,7 @@ export const App: React.FC = () => {
                               </div>
                             ) : (
                               <span className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400">
-                                ⏳ Chờ 00:00 công bố
+                                ⏳ {t.waitingMidnightShort}
                               </span>
                             )
                           ) : isOpen ? (
@@ -2191,7 +2294,7 @@ export const App: React.FC = () => {
                 >
                   {(leaderboardData.topList || []).length === 0 ? (
                     <div className="p-8 text-center text-sm font-semibold text-slate-400">
-                      Chưa có người chơi nào trên bảng xếp hạng.
+                      {t.noLeaderboardPlayers}
                     </div>
                   ) : (
                     (leaderboardData.topList || []).map((item: any) => {
@@ -2385,7 +2488,7 @@ export const App: React.FC = () => {
                       return (
                         <div className={`p-6 rounded-2xl border text-center ${subCardBg}`}>
                           <p className={`text-xs font-semibold ${textSecondary}`}>
-                            Chưa có dữ liệu bài thi. Hãy hoàn thành thử thách để xem thống kê đúng / sai!
+                            {L('Chưa có dữ liệu bài thi. Hãy hoàn thành thử thách để xem thống kê đúng / sai!', 'No quiz data yet. Complete daily challenges to see accuracy statistics!', '아직 데이터가 없습니다. 매일 챌린지를 풀고 정답/오답 통계를 확인하세요!')}
                           </p>
                         </div>
                       );
@@ -2397,12 +2500,12 @@ export const App: React.FC = () => {
                             <div className="flex items-end gap-1 w-full justify-center h-20">
                               <div
                                 className="w-2.5 bg-emerald-500 rounded-t"
-                                title={`Đúng: ${att.correctCount}`}
+                                title={`${L('Đúng', 'Correct', '정답')}: ${att.correctCount}`}
                                 style={{ height: `${Math.min(100, (att.correctCount || 0) * 10)}%` }}
                               />
                               <div
                                 className="w-2.5 bg-rose-400 rounded-t"
-                                title={`Sai: ${att.wrongCount}`}
+                                title={`${L('Sai', 'Wrong', '오답')}: ${att.wrongCount}`}
                                 style={{ height: `${Math.min(100, Math.max(8, (att.wrongCount || 0) * 10))}%` }}
                               />
                             </div>
@@ -2419,14 +2522,14 @@ export const App: React.FC = () => {
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
                     <div>
                       <h3 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
-                        <Smartphone className="w-4 h-4 text-blue-600" /> Thiết Bị Đã Đăng Nhập & Hoạt Động
+                        <Smartphone className="w-4 h-4 text-blue-600" /> {t.userDevicesTitle}
                       </h3>
                       <p className={`text-[11px] ${textSecondary}`}>
-                        Quản lý các điện thoại, máy tính hoặc máy tính bảng đã đăng nhập tài khoản của bạn.
+                        {t.userDevicesDesc}
                       </p>
                     </div>
                     <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 dark:bg-slate-800 dark:text-blue-300">
-                      {userDevices.length} thiết bị
+                      {userDevices.length} {t.devicesUnit}
                     </span>
                   </div>
 
@@ -2456,7 +2559,7 @@ export const App: React.FC = () => {
                               {dev.isCurrent && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  Thiết bị này
+                                  {t.thisDevice}
                                 </span>
                               )}
                               {dev.isPwaInstalled && (
@@ -2466,7 +2569,7 @@ export const App: React.FC = () => {
                               )}
                             </div>
                             <div className={`text-[10px] sm:text-[11px] truncate mt-0.5 ${textSecondary}`}>
-                              {dev.browser} • {dev.os} • Hoạt động: {new Date(dev.lastActiveAt).toLocaleString('vi-VN')}
+                              {dev.browser} • {dev.os} • {t.activeAt} {new Date(dev.lastActiveAt).toLocaleString(lang === 'ko' ? 'ko-KR' : lang === 'en' ? 'en-US' : 'vi-VN')}
                             </div>
                           </div>
                         </div>
@@ -2475,7 +2578,7 @@ export const App: React.FC = () => {
                           <button
                             onClick={() => handleRemoveDevice(dev.id)}
                             className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition shrink-0"
-                            title="Đăng xuất khỏi thiết bị này"
+                            title={t.removeDevice}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -2550,7 +2653,7 @@ export const App: React.FC = () => {
                   onClick={() => handleAdminToggleUnlock(lockedModalDay.dayNumber, true)}
                   className="w-full py-2.5 rounded-2xl bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center gap-1"
                 >
-                  <Unlock className="w-3.5 h-3.5" /> Mở khóa ngay {lockedModalDay.title} (Admin)
+                  <Unlock className="w-3.5 h-3.5" /> {L(`Mở khóa ngay ${lockedModalDay.title} (Admin)`, `Unlock ${lockedModalDay.title} now (Admin)`, `지금 ${lockedModalDay.title} 잠금 해제 (관리자)`)}
                 </button>
               )}
             </div>
@@ -2566,7 +2669,7 @@ export const App: React.FC = () => {
               <Lock className="w-7 h-7" />
             </div>
             <h3 className={`text-base font-black ${textPrimary}`}>
-              {L('Yêu cầu Đăng nhập', 'Login Required', '로그인 필요')}
+              {t.loginRequiredTitle}
             </h3>
             <p className="text-xs sm:text-sm leading-relaxed font-semibold">
               {loginPromptMsg}
@@ -2580,7 +2683,7 @@ export const App: React.FC = () => {
                 }}
                 className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-md"
               >
-                {L('Đăng nhập ngay', 'Log in now', '지금 로그인')}
+                {t.loginNowBtn}
               </button>
               <button
                 type="button"
@@ -2590,7 +2693,7 @@ export const App: React.FC = () => {
                 }}
                 className="w-full py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-sm"
               >
-                {L('Tạo tài khoản mới (Lưu điểm)', 'Register account (Save score)', '새 계정 만들기')}
+                {t.registerSaveScoreBtn}
               </button>
               <button
                 type="button"
@@ -2599,7 +2702,7 @@ export const App: React.FC = () => {
                   darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                {L('Để sau (Tiếp tục chế độ khách)', 'Later (Continue as guest)', '나중에')}
+                {t.laterGuestBtn}
               </button>
             </div>
           </div>

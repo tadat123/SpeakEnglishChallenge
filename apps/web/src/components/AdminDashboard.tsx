@@ -132,6 +132,18 @@ const ADMIN_I18N = {
         label: 'Nghĩa của từ / Từ viết tắt (Không bắt buộc có audio)',
       },
     ],
+    sidebarDashboard: 'Dashboard Thống Kê',
+    sidebarDashboardSub: 'Tỉ lệ hoàn thành & KPI',
+    sidebarUsers: 'Quản Lý Nhân Viên',
+    sidebarUsersSub: 'Danh sách, GEN & thiết bị',
+    sidebarChallenges: '30 Ngày & Đề Thi',
+    sidebarChallengesSub: 'Câu hỏi, Audio & Video',
+    sidebarNotifications: 'Thông Báo Cá Nhân',
+    sidebarNotificationsSub: 'Push PWA & Cá nhân hóa',
+    sidebarSecurity: 'An Ninh & Anti-Cheat',
+    sidebarSecuritySub: 'DDoS, WAF & IP Jail',
+    backToQuiz: 'Về Chỗ Làm Kiểm Tra',
+    backToQuizShort: 'Làm bài',
   },
   en: {
     headerTitle: 'Admin CMS — Manage 30 Days & Questions (Text / Audio / Video)',
@@ -210,6 +222,18 @@ const ADMIN_I18N = {
         label: 'Vocabulary Meaning / Acronym (Audio optional)',
       },
     ],
+    sidebarDashboard: 'Analytics Dashboard',
+    sidebarDashboardSub: 'Completion rate & KPIs',
+    sidebarUsers: 'User Management',
+    sidebarUsersSub: 'Employees, GEN & devices',
+    sidebarChallenges: '30 Days & Questions',
+    sidebarChallengesSub: 'Questions, audio & video',
+    sidebarNotifications: 'Push Notifications',
+    sidebarNotificationsSub: 'PWA push & targeted alerts',
+    sidebarSecurity: 'Security & Anti-Cheat',
+    sidebarSecuritySub: 'DDoS, WAF & IP jail',
+    backToQuiz: 'Back to Quiz View',
+    backToQuizShort: 'Quiz',
   },
   ko: {
     headerTitle: '관리자 CMS — 30일 챌린지 및 문제 관리 (텍스트 / 오디오 / 비디오)',
@@ -288,6 +312,18 @@ const ADMIN_I18N = {
         label: '단어 의미 / 약어 풀이 (오디오 선택 사항)',
       },
     ],
+    sidebarDashboard: '통계 대시보드',
+    sidebarDashboardSub: '완주율 및 핵심 KPI',
+    sidebarUsers: '임직원 관리',
+    sidebarUsersSub: '사번, 계정 및 기기 목록',
+    sidebarChallenges: '30일 챌린지 & 문제',
+    sidebarChallengesSub: '문제, 음원 및 영상',
+    sidebarNotifications: '맞춤형 알림',
+    sidebarNotificationsSub: 'PWA 푸시 & 개인화 알림',
+    sidebarSecurity: '보안 및 치팅 방지',
+    sidebarSecuritySub: 'DDoS, WAF & IP 차단',
+    backToQuiz: '시험 화면으로 돌아가기',
+    backToQuizShort: '시험',
   },
 };
 
@@ -861,36 +897,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }[] = [
     {
       id: 'dashboard',
-      label: 'Dashboard Thống Kê',
-      sub: 'Tỉ lệ hoàn thành & KPI',
+      label: at.sidebarDashboard,
+      sub: at.sidebarDashboardSub,
       icon: BarChart3,
       badge: null,
     },
     {
       id: 'users',
-      label: 'Quản Lý Nhân Viên',
-      sub: 'Danh sách, GEN & thiết bị',
+      label: at.sidebarUsers,
+      sub: at.sidebarUsersSub,
       icon: Users,
       badge: userList.length || null,
     },
     {
       id: 'challenges',
-      label: '30 Ngày & Đề Thi',
-      sub: 'Câu hỏi, Audio & Video',
+      label: at.sidebarChallenges,
+      sub: at.sidebarChallengesSub,
       icon: Edit3,
       badge: '30D',
     },
     {
       id: 'notifications',
-      label: 'Thông Báo Cá Nhân',
-      sub: 'Push PWA & Cá nhân hóa',
+      label: at.sidebarNotifications,
+      sub: at.sidebarNotificationsSub,
       icon: BellRing,
       badge: 'Push',
     },
     {
       id: 'security',
-      label: 'An Ninh & Anti-Cheat',
-      sub: 'DDoS, WAF & IP Jail',
+      label: at.sidebarSecurity,
+      sub: at.sidebarSecuritySub,
       icon: ShieldCheck,
       badge:
         (securityStats?.threatStats?.totalBannedCount || 0) > 0
@@ -1192,11 +1228,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               onClick={onBackToUserMode}
               className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs shadow-sm flex items-center gap-1.5 transition"
-              title="Quay lại giao diện người dùng làm bài kiểm tra"
+              title={at.backToQuiz}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Về Chỗ Làm Kiểm Tra</span>
-              <span className="sm:hidden">Làm bài</span>
+              <span className="hidden sm:inline">{at.backToQuiz}</span>
+              <span className="sm:hidden">{at.backToQuizShort}</span>
             </button>
           </div>
         </header>

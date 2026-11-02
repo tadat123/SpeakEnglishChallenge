@@ -411,15 +411,15 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
                         {a.desc}
                       </p>
 
-                      <div className="grid grid-cols-3 gap-1 mt-1.5">
+                      <div className="flex flex-wrap gap-1 mt-1.5">
                         {a.chips.map(({ Icon, text }) => (
                           <div
                             key={text}
-                            className={`flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-md border ${a.theme.chip}`}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${a.theme.chip}`}
                           >
                             <Icon className={`w-3 h-3 shrink-0 ${a.theme.chipIcon}`} />
                             <span
-                              className={`text-[8px] sm:text-[9px] leading-tight font-semibold truncate ${
+                              className={`text-[9px] sm:text-[10px] leading-tight font-semibold ${
                                 darkMode ? 'text-slate-200' : 'text-slate-700'
                               }`}
                             >

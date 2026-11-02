@@ -55,6 +55,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   guestNotice,
 }) => {
   const t = TRANSLATIONS[lang];
+  const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -82,7 +83,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       setEmail(emailFromUrl);
       setOtpOrToken(tokenFromUrl);
       setMode('reset');
-      setSuccessMsg('Đã xác thực liên kết từ Email! Hãy nhập mật khẩu mới.');
+      setSuccessMsg(L('Đã xác thực liên kết từ Email! Hãy nhập mật khẩu mới.', 'Email link verified! Please enter your new password.', '이메일 인증 완료! 새 비밀번호를 입력해주세요.'));
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -105,7 +106,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         body: JSON.stringify({ identifier: idToUse, password: passToUse }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Đăng nhập thất bại');
+      if (!res.ok) throw new Error(data.message || L('Đăng nhập thất bại', 'Login failed', '로그인 실패'));
       onAuthSuccess(data.accessToken, data.user);
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -118,7 +119,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     e.preventDefault();
     const identifier = employeeId || email;
     if (!identifier) {
-      setErrorMsg('Vui lòng nhập Số GEN (8 chữ số)');
+      setErrorMsg(L('Vui lòng nhập Số GEN (8 chữ số)', 'Please enter GEN ID (8 digits)', '사번 GEN (8자리)을 입력해주세요'));
       return;
     }
     await performLogin(identifier, password);
@@ -136,7 +137,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     if (!mailCheck.valid) return setErrorMsg(mailCheck.message);
 
     if (!pwdCriteria.isValid) {
-      return setErrorMsg('Mật khẩu cần đủ 8 ký tự: Chữ HOA, thường, số và ký tự đặc biệt!');
+      return setErrorMsg(L('Mật khẩu cần đủ 8 ký tự: Chữ HOA, thường, số và ký tự đặc biệt!', 'Password must be 8+ chars with uppercase, lowercase, number and special char!', '비밀번호는 대소문자, 숫자, 특수문자를 포함한 8자 이상이어야 합니다!'));
     }
 
     setLoading(true);
@@ -200,10 +201,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setSuccessMsg('');
 
     if (!otpOrToken.trim()) {
-      return setErrorMsg('Vui lòng nhập Mã OTP 6 số hoặc bấm nút từ trong Email');
+      return setErrorMsg(L('Vui lòng nhập Mã OTP 6 số hoặc bấm nút từ trong Email', 'Please enter 6-digit OTP or click the link in email', '6자리 OTP 코드를 입력하거나 이메일 링크를 클릭하세요'));
     }
     if (!pwdCriteria.isValid) {
-      return setErrorMsg('Mật khẩu mới cần đủ chữ HOA, thường, số và ký tự đặc biệt');
+      return setErrorMsg(L('Mật khẩu mới cần đủ chữ HOA, thường, số và ký tự đặc biệt', 'New password must contain uppercase, lowercase, number and special char', '새 비밀번호는 대소문자, 숫자, 특수문자를 포함해야 합니다'));
     }
 
     setLoading(true);
@@ -214,7 +215,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         body: JSON.stringify({ email, otpOrToken, newPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Đặt lại mật khẩu thất bại');
+      if (!res.ok) throw new Error(data.message || L('Đặt lại mật khẩu thất bại', 'Password reset failed', '비밀번호 재설정 실패'));
 
       setSuccessMsg(data.message);
       setPassword(newPassword);
@@ -295,7 +296,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Sun className="w-3.5 h-3.5" /> Sáng
+            <Sun className="w-3.5 h-3.5" /> {t.lightMode}
           </button>
           <button
             type="button"
@@ -306,7 +307,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Moon className="w-3.5 h-3.5" /> Tối
+            <Moon className="w-3.5 h-3.5" /> {t.darkMode}
           </button>
         </div>
       </div>
@@ -471,30 +472,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 >
                   {loading ? t.loggingIn : t.loginBtn}
                 </button>
-
-                <div className={`pt-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
-                  <button
-                    type="button"
-                    onClick={() => performLogin('88888888', 'Admin@2026')}
-                    className={`w-full p-2.5 rounded-2xl border text-left transition active:scale-98 flex items-center justify-between ${
-                      darkMode
-                        ? 'border-indigo-800 bg-indigo-950/50 hover:bg-indigo-900/60'
-                        : 'border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100'
-                    }`}
-                  >
-                    <div>
-                      <div className={`text-xs font-extrabold ${darkMode ? 'text-indigo-300' : 'text-indigo-800'}`}>
-                        🛡️ Đăng nhập Quản trị viên (Admin CMS)
-                      </div>
-                      <div className={`text-[10px] ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                        GEN: 88888888 • Mật khẩu: Admin@2026
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-bold text-blue-600 bg-white/80 dark:bg-slate-800 px-2.5 py-1 rounded-xl shadow-xs">
-                      1-Click →
-                    </span>
-                  </button>
-                </div>
               </form>
             )}
 
