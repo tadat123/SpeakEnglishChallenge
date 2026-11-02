@@ -854,7 +854,7 @@ export const App: React.FC = () => {
     challenges[0];
   const completedCount = profileData?.user?.completedDays ?? user?.completedDays ?? 0;
   const myTotalScore = profileData?.user?.totalScore ?? user?.totalScore ?? 0;
-  const myRankNumber = leaderboardData?.myRank?.rank ?? profileData?.user?.rank ?? 12;
+  const myRankNumber = leaderboardData?.myRank?.rank ?? profileData?.user?.rank ?? '-';
 
   // Khi tài khoản ADMIN mở trang Admin (#admin) -> Chuyển hoàn toàn sang Layout Admin CMS Portal (Có Sidebar + Main)
   if (activeTab === 'admin' && user?.role === 'ADMIN') {
@@ -1883,7 +1883,12 @@ export const App: React.FC = () => {
                       </div>
 
                       <div className={`divide-y ${darkMode ? 'divide-slate-700/60' : 'divide-slate-200/60'}`}>
-                        {(leaderboardData.topList || []).slice(0, 5).map((item: any) => (
+                        {(leaderboardData.topList || []).length === 0 ? (
+                          <div className="py-6 text-center text-xs font-semibold text-slate-400">
+                            Chưa có dữ liệu bảng xếp hạng. Hãy là người đầu tiên hoàn thành thử thách!
+                          </div>
+                        ) : (
+                          (leaderboardData.topList || []).slice(0, 5).map((item: any) => (
                           <div
                             key={item.id}
                             className="py-2.5 flex items-center justify-between gap-2"
@@ -1917,7 +1922,7 @@ export const App: React.FC = () => {
                               {t.pointsSuffix}
                             </span>
                           </div>
-                        ))}
+                        )))}
                       </div>
                     </div>
 
@@ -2184,7 +2189,12 @@ export const App: React.FC = () => {
                     darkMode ? 'divide-slate-800' : 'divide-slate-100'
                   }`}
                 >
-                  {(leaderboardData.topList || []).map((item: any) => {
+                  {(leaderboardData.topList || []).length === 0 ? (
+                    <div className="p-8 text-center text-sm font-semibold text-slate-400">
+                      Chưa có người chơi nào trên bảng xếp hạng.
+                    </div>
+                  ) : (
+                    (leaderboardData.topList || []).map((item: any) => {
                     const isMe = item.id === user?.id;
                     return (
                       <div
@@ -2242,7 +2252,7 @@ export const App: React.FC = () => {
                         </div>
                       </div>
                     );
-                  })}
+                  }))}
                 </div>
 
                 {leaderboardData.myRank && (
@@ -2369,31 +2379,39 @@ export const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className={`grid grid-cols-7 gap-2 items-end h-28 pt-4 px-2 rounded-2xl border ${subCardBg}`}>
-                    {[
-                      { day: 'D1', ok: 8, err: 2 },
-                      { day: 'D2', ok: 9, err: 1 },
-                      { day: 'D3', ok: 7, err: 3 },
-                      { day: 'D4', ok: 10, err: 0 },
-                      { day: 'D5', ok: 8, err: 2 },
-                      { day: 'D6', ok: 9, err: 1 },
-                      { day: 'D7', ok: 10, err: 0 },
-                    ].map((bar) => (
-                      <div key={bar.day} className="flex flex-col items-center gap-1 h-full justify-end">
-                        <div className="flex items-end gap-1 w-full justify-center h-20">
-                          <div
-                            className="w-2.5 bg-emerald-500 rounded-t"
-                            style={{ height: `${bar.ok * 10}%` }}
-                          />
-                          <div
-                            className="w-2.5 bg-rose-400 rounded-t"
-                            style={{ height: `${Math.max(8, bar.err * 10)}%` }}
-                          />
+                  {(() => {
+                    const realAttempts = (profileData?.attempts || []).slice(-7);
+                    if (realAttempts.length === 0) {
+                      return (
+                        <div className={`p-6 rounded-2xl border text-center ${subCardBg}`}>
+                          <p className={`text-xs font-semibold ${textSecondary}`}>
+                            Chưa có dữ liệu bài thi. Hãy hoàn thành thử thách để xem thống kê đúng / sai!
+                          </p>
                         </div>
-                        <span className={`text-[10px] font-bold ${textSecondary}`}>{bar.day}</span>
+                      );
+                    }
+                    return (
+                      <div className={`grid grid-cols-7 gap-2 items-end h-28 pt-4 px-2 rounded-2xl border ${subCardBg}`}>
+                        {realAttempts.map((att: any) => (
+                          <div key={att.id || att.dayNumber} className="flex flex-col items-center gap-1 h-full justify-end">
+                            <div className="flex items-end gap-1 w-full justify-center h-20">
+                              <div
+                                className="w-2.5 bg-emerald-500 rounded-t"
+                                title={`Đúng: ${att.correctCount}`}
+                                style={{ height: `${Math.min(100, (att.correctCount || 0) * 10)}%` }}
+                              />
+                              <div
+                                className="w-2.5 bg-rose-400 rounded-t"
+                                title={`Sai: ${att.wrongCount}`}
+                                style={{ height: `${Math.min(100, Math.max(8, (att.wrongCount || 0) * 10))}%` }}
+                              />
+                            </div>
+                            <span className={`text-[10px] font-bold ${textSecondary}`}>D{att.dayNumber}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Danh sách Thiết bị đã đăng nhập của người dùng */}

@@ -473,43 +473,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 </button>
 
                 <div className={`pt-3 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
-                  <p className="text-[11px] font-bold text-slate-400 mb-2 flex items-center gap-1">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" /> {t.quickDemo}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => performLogin('20261234', 'Speak@2026')}
-                      className={`p-2.5 rounded-2xl border text-left transition active:scale-95 ${
-                        darkMode
-                          ? 'border-blue-800 bg-blue-950/50 hover:bg-blue-900/60'
-                          : 'border-blue-200 bg-blue-50/90 hover:bg-blue-100'
-                      }`}
-                    >
-                      <div className={`text-xs font-extrabold ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>
-                        👩‍💼 Nguyễn Thị Thảo
-                      </div>
-                      <div className={`text-[10px] ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                        GEN 20261234
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => performLogin('88888888', 'Admin@2026')}
-                      className={`p-2.5 rounded-2xl border text-left transition active:scale-95 ${
-                        darkMode
-                          ? 'border-indigo-800 bg-indigo-950/50 hover:bg-indigo-900/60'
-                          : 'border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100'
-                      }`}
-                    >
+                  <button
+                    type="button"
+                    onClick={() => performLogin('88888888', 'Admin@2026')}
+                    className={`w-full p-2.5 rounded-2xl border text-left transition active:scale-98 flex items-center justify-between ${
+                      darkMode
+                        ? 'border-indigo-800 bg-indigo-950/50 hover:bg-indigo-900/60'
+                        : 'border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100'
+                    }`}
+                  >
+                    <div>
                       <div className={`text-xs font-extrabold ${darkMode ? 'text-indigo-300' : 'text-indigo-800'}`}>
-                        🛡️ Admin CMS
+                        🛡️ Đăng nhập Quản trị viên (Admin CMS)
                       </div>
                       <div className={`text-[10px] ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                        GEN 88888888
+                        GEN: 88888888 • Mật khẩu: Admin@2026
                       </div>
-                    </button>
-                  </div>
+                    </div>
+                    <span className="text-[11px] font-bold text-blue-600 bg-white/80 dark:bg-slate-800 px-2.5 py-1 rounded-xl shadow-xs">
+                      1-Click →
+                    </span>
+                  </button>
                 </div>
               </form>
             )}

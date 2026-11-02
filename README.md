@@ -68,22 +68,19 @@ npm run dev:api
 npm run dev:web
 ```
 
-### 🔑 Tài khoản mẫu có sẵn (Bấm 1 chạm trên màn hình Đăng nhập)
+### 🔑 Tài khoản Quản trị viên (Admin CMS) Mặc định
 | Vai trò | Số GEN (8 số) | Mật khẩu | Gmail |
 | :--- | :--- | :--- | :--- |
-| **Nhân viên (Nguyễn Thị Thảo)** | `20261234` | `Speak@2026` | `thaonguyen.work@gmail.com` |
 | **Quản trị viên (Admin CMS)** | `88888888` | `Admin@2026` | `admin.speakright@gmail.com` |
+
+> *Toàn bộ dữ liệu giả lập (mock data) nhân viên đã được dọn sạch. Nhân viên thật tham gia thi chỉ cần bấm tab **"Đăng ký"** trên giao diện.*
 
 ---
 
-## ☁️ Hướng dẫn Deploy Miễn Phí (0đ)
+## 📖 Hướng Dẫn Thiết Lập & Triển Khai Backend Chi Tiết
 
-1. **Frontend (`apps/web`) — Cloudflare Pages hoặc Vercel:**
-   - Root Directory: `apps/web`
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-2. **Backend (`apps/api`) — Render.com (Web Service Free):**
-   - Root Directory: `apps/api`
-   - Build Command: `npm install && npm run build`
-   - Start Command: `npm start`
-   - Biến môi trường tùy chọn (`.env`): Xem chi tiết trong `apps/api/.env.example` (hỗ trợ kết nối **Supabase PostgreSQL Free Tier** và **Gmail SMTP App Password** miễn phí 100%).
+Xem tài liệu đầy đủ tại: **[BACKEND_SETUP_GUIDE.md](./BACKEND_SETUP_GUIDE.md)**
+- Cài đặt chạy Local Node.js
+- Cụm Docker Compose (PostgreSQL + PgBouncer + Redis + Nginx) cho 20.000+ nhân viên
+- Deploy miễn phí lên Render.com + Supabase + Upstash Redis + Gmail SMTP
+- Bảng danh sách toàn bộ API Endpoints & Cấu hình `.env`

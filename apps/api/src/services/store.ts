@@ -178,7 +178,15 @@ interface DatabaseShape {
   pushConfig?: PushStaggerConfig;
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const resolveDataDir = () => {
+  const fromRepoRoot = path.resolve(process.cwd(), 'apps', 'api', 'data');
+  if (fs.existsSync(path.resolve(process.cwd(), 'apps', 'api'))) {
+    return fromRepoRoot;
+  }
+  return path.resolve(process.cwd(), 'data');
+};
+
+const DATA_DIR = resolveDataDir();
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 const T_MAX = 9999999;
@@ -250,7 +258,7 @@ class DataStore {
         lastMorningNotifiedDate: null,
         lastEveningTop1NotifiedDate: null,
         lastNightUnstudiedNotifiedDate: null,
-        lastTop1UserId: 'u-1',
+        lastTop1UserId: null,
         notifiedUnlockedDays: unlockedNow.length ? unlockedNow : [1],
         notifiedUnstudiedKeys: [],
       };
@@ -286,10 +294,9 @@ class DataStore {
       }
     }
 
-    const defaultPassHash = bcrypt.hashSync('Speak@2026', 10);
     const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
 
-    const sampleUsers: UserRecord[] = [
+    const initialUsers: UserRecord[] = [
       {
         id: 'u-admin',
         employeeId: '88888888',
@@ -300,111 +307,6 @@ class DataStore {
         avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
         passwordHash: adminPassHash,
         role: 'ADMIN',
-        totalScore: 2500,
-        totalTimeMs: 650000,
-        completedDays: 12,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u-thao',
-        employeeId: '20261234',
-        fullName: 'Nguyễn Thị Thảo',
-        email: 'thaonguyen.work@gmail.com',
-        phone: '0987654321',
-        department: 'Quality Assurance (QA)',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ThaoNguyen',
-        passwordHash: defaultPassHash,
-        role: 'USER',
-        totalScore: 2150,
-        totalTimeMs: 740000,
-        completedDays: 12,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u-1',
-        employeeId: '20260001',
-        fullName: 'Nguyễn Minh Anh',
-        email: 'minhanh.dev@gmail.com',
-        phone: '0912345001',
-        department: 'R&D Center',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=MinhAnh',
-        passwordHash: defaultPassHash,
-        role: 'USER',
-        totalScore: 2980,
-        totalTimeMs: 510000,
-        completedDays: 15,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u-2',
-        employeeId: '20260002',
-        fullName: 'Trần Quốc Huy',
-        email: 'quochuy.eng@gmail.com',
-        phone: '0912345002',
-        department: 'Production',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=QuocHuy',
-        passwordHash: defaultPassHash,
-        role: 'USER',
-        totalScore: 2850,
-        totalTimeMs: 540000,
-        completedDays: 14,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u-3',
-        employeeId: '20260003',
-        fullName: 'Lê Thu Hương',
-        email: 'thuhuong.qa@gmail.com',
-        phone: '0912345003',
-        department: 'Quality Assurance (QA)',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ThuHuong',
-        passwordHash: defaultPassHash,
-        role: 'USER',
-        totalScore: 2720,
-        totalTimeMs: 590000,
-        completedDays: 14,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u-4',
-        employeeId: '20260004',
-        fullName: 'Phạm Hoàng Nam',
-        email: 'hoangnam.it@gmail.com',
-        phone: '0912345004',
-        department: 'IT & System',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=HoangNam',
-        passwordHash: defaultPassHash,
-        role: 'USER',
-        totalScore: 2650,
-        totalTimeMs: 610000,
-        completedDays: 13,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u-5',
-        employeeId: '20260005',
-        fullName: 'Đỗ Mai Linh',
-        email: 'mailinh.hr@gmail.com',
-        phone: '0912345005',
-        department: 'HR & Training',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=MaiLinh',
-        passwordHash: defaultPassHash,
-        role: 'USER',
-        totalScore: 2600,
-        totalTimeMs: 630000,
-        completedDays: 13,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'u-6',
-        employeeId: '20260006',
-        fullName: 'Vũ Đức Trọng',
-        email: 'ductrong.eng@gmail.com',
-        phone: '0912345006',
-        department: 'Production',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DucTrong',
-        passwordHash: defaultPassHash,
-        role: 'USER',
         totalScore: 0,
         totalTimeMs: 0,
         completedDays: 0,
@@ -415,7 +317,7 @@ class DataStore {
     const challenges = generate30DaysChallenges();
 
     const initialData: DatabaseShape = this.ensurePushState({
-      users: sampleUsers,
+      users: initialUsers,
       challenges,
       attempts: [],
     });

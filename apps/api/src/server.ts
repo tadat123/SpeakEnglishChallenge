@@ -24,7 +24,15 @@ import {
 } from './utils/validators.js';
 import { sendPasswordResetEmail } from './services/mailer.js';
 
-const UPLOADS_DIR = path.resolve(process.cwd(), 'data', 'uploads');
+const resolveUploadsDir = () => {
+  const fromRepoRoot = path.resolve(process.cwd(), 'apps', 'api', 'data', 'uploads');
+  if (fs.existsSync(path.resolve(process.cwd(), 'apps', 'api'))) {
+    return fromRepoRoot;
+  }
+  return path.resolve(process.cwd(), 'data', 'uploads');
+};
+
+const UPLOADS_DIR = resolveUploadsDir();
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }

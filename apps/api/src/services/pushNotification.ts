@@ -30,7 +30,15 @@ interface QueuedPushTask {
   delayAfterMs: number;
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const resolveDataDir = () => {
+  const fromRepoRoot = path.resolve(process.cwd(), 'apps', 'api', 'data');
+  if (fs.existsSync(path.resolve(process.cwd(), 'apps', 'api'))) {
+    return fromRepoRoot;
+  }
+  return path.resolve(process.cwd(), 'data');
+};
+
+const DATA_DIR = resolveDataDir();
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
 
 function loadOrCreateVapidKeys(): VapidKeysFile {

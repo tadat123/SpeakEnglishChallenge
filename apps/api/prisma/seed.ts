@@ -8,11 +8,14 @@ async function main() {
   console.log('🌱 Đang seed dữ liệu BỘ 10 CÂU HỎI – DAILY PRONUNCIATION CHALLENGE 2026...');
 
   const adminPassHash = await bcrypt.hash('Admin@2026', 10);
-  const userPassHash = await bcrypt.hash('Speak@2026', 10);
 
   await prisma.user.upsert({
     where: { employeeId: '88888888' },
-    update: {},
+    update: {
+      totalScore: 0,
+      totalTimeMs: 0,
+      completedDays: 0,
+    },
     create: {
       employeeId: '88888888',
       fullName: 'Ban Tổ Chức (Admin)',
@@ -22,27 +25,9 @@ async function main() {
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
       passwordHash: adminPassHash,
       role: 'ADMIN',
-      totalScore: 2500,
-      totalTimeMs: 650000,
-      completedDays: 12,
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { employeeId: '20261234' },
-    update: {},
-    create: {
-      employeeId: '20261234',
-      fullName: 'Nguyễn Thị Thảo',
-      email: 'thaonguyen.work@gmail.com',
-      phone: '0987654321',
-      department: 'Quality Assurance (QA)',
-      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ThaoNguyen',
-      passwordHash: userPassHash,
-      role: 'USER',
-      totalScore: 2150,
-      totalTimeMs: 740000,
-      completedDays: 12,
+      totalScore: 0,
+      totalTimeMs: 0,
+      completedDays: 0,
     },
   });
 

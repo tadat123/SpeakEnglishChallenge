@@ -8,177 +8,12 @@
       "phone": "0901234567",
       "department": "HR & Training",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak",
-      "passwordHash": "$2a$10$Rgw8PgLNty/3RSvK1vb9n.xrhhcmGXGdGiP8NzzTRgDBbfy2sn3Be",
+      "passwordHash": "$2a$10$I.u59T.X3GRT2Ic6Bj3bvuFHhXp3BvIg/cfvLvp5bp4YveFhgxb/i",
       "role": "ADMIN",
-      "totalScore": 2500,
-      "totalTimeMs": 650000,
-      "completedDays": 12,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-thao",
-      "employeeId": "20261234",
-      "fullName": "Nguyễn Thị Thảo",
-      "email": "thaonguyen.work@gmail.com",
-      "phone": "0987654321",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=ThaoNguyen",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2150,
-      "totalTimeMs": 740000,
-      "completedDays": 12,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-1",
-      "employeeId": "20260001",
-      "fullName": "Nguyễn Minh Anh",
-      "email": "minhanh.dev@gmail.com",
-      "phone": "0912345001",
-      "department": "R&D Center",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=MinhAnh",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2980,
-      "totalTimeMs": 510000,
-      "completedDays": 15,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-2",
-      "employeeId": "20260002",
-      "fullName": "Trần Quốc Huy",
-      "email": "quochuy.eng@gmail.com",
-      "phone": "0912345002",
-      "department": "Production",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=QuocHuy",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2850,
-      "totalTimeMs": 540000,
-      "completedDays": 14,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-3",
-      "employeeId": "20260003",
-      "fullName": "Lê Thu Hương",
-      "email": "thuhuong.qa@gmail.com",
-      "phone": "0912345003",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=ThuHuong",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2720,
-      "totalTimeMs": 590000,
-      "completedDays": 14,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-4",
-      "employeeId": "20260004",
-      "fullName": "Phạm Hoàng Nam",
-      "email": "hoangnam.it@gmail.com",
-      "phone": "0912345004",
-      "department": "IT & System",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=HoangNam",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2650,
-      "totalTimeMs": 610000,
-      "completedDays": 13,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-5",
-      "employeeId": "20260005",
-      "fullName": "Đỗ Mai Linh",
-      "email": "mailinh.hr@gmail.com",
-      "phone": "0912345005",
-      "department": "HR & Training",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=MaiLinh",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2600,
-      "totalTimeMs": 630000,
-      "completedDays": 13,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-6",
-      "employeeId": "20260006",
-      "fullName": "Vũ Đức Thắng",
-      "email": "ducthang.eng@gmail.com",
-      "phone": "0912345006",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=DucThang",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2490,
-      "totalTimeMs": 660000,
-      "completedDays": 12,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-7",
-      "employeeId": "20260007",
-      "fullName": "Hoàng Bích Ngọc",
-      "email": "bichngoc.fin@gmail.com",
-      "phone": "0912345007",
-      "department": "Logistics & Supply",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=BichNgoc",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2410,
-      "totalTimeMs": 690000,
-      "completedDays": 12,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-8",
-      "employeeId": "20260008",
-      "fullName": "Bùi Tiến Dũng",
-      "email": "tiendung.pe@gmail.com",
-      "phone": "0912345008",
-      "department": "Production",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=TienDung",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2350,
-      "totalTimeMs": 700000,
-      "completedDays": 12,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-9",
-      "employeeId": "20260009",
-      "fullName": "Đặng Khánh Vy",
-      "email": "khanhvy.mkt@gmail.com",
-      "phone": "0912345009",
-      "department": "R&D Center",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=KhanhVy",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2290,
-      "totalTimeMs": 710000,
-      "completedDays": 12,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-10",
-      "employeeId": "20260010",
-      "fullName": "Ngô Quang Hải",
-      "email": "quanghai.qa@gmail.com",
-      "phone": "0912345010",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=QuangHai",
-      "passwordHash": "$2a$10$7hoxRDHcq4U8x/QTyuOssuNh7s0oK//AY3zmx52ItQP.PSktMYgh2",
-      "role": "USER",
-      "totalScore": 2210,
-      "totalTimeMs": 725000,
-      "completedDays": 12,
-      "createdAt": "2026-10-29T14:40:54.932Z"
+      "totalScore": 0,
+      "totalTimeMs": 0,
+      "completedDays": 0,
+      "createdAt": "2026-11-02T01:25:41.247Z"
     }
   ],
   "challenges": [
@@ -186,8 +21,8 @@
       "id": 1,
       "dayNumber": 1,
       "title": "Day 1",
-      "dateLabel": "04/11/2026",
-      "unlockDate": "2026-10-29T15:47:03.796Z",
+      "dateLabel": "02/11/2026",
+      "unlockDate": "2026-11-01T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -558,8 +393,8 @@
       "id": 2,
       "dayNumber": 2,
       "title": "Day 2",
-      "dateLabel": "05/11/2026",
-      "unlockDate": "2026-10-30T14:40:54.932Z",
+      "dateLabel": "03/11/2026",
+      "unlockDate": "2026-11-02T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -930,8 +765,8 @@
       "id": 3,
       "dayNumber": 3,
       "title": "Day 3",
-      "dateLabel": "06/11/2026",
-      "unlockDate": "2026-10-31T14:40:54.932Z",
+      "dateLabel": "04/11/2026",
+      "unlockDate": "2026-11-03T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -1302,8 +1137,8 @@
       "id": 4,
       "dayNumber": 4,
       "title": "Day 4",
-      "dateLabel": "07/11/2026",
-      "unlockDate": "2026-11-01T14:40:54.932Z",
+      "dateLabel": "05/11/2026",
+      "unlockDate": "2026-11-04T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -1674,8 +1509,8 @@
       "id": 5,
       "dayNumber": 5,
       "title": "Day 5",
-      "dateLabel": "08/11/2026",
-      "unlockDate": "2026-11-02T14:40:54.932Z",
+      "dateLabel": "06/11/2026",
+      "unlockDate": "2026-11-05T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -2046,8 +1881,8 @@
       "id": 6,
       "dayNumber": 6,
       "title": "Day 6",
-      "dateLabel": "09/11/2026",
-      "unlockDate": "2026-11-03T14:40:54.932Z",
+      "dateLabel": "07/11/2026",
+      "unlockDate": "2026-11-06T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -2418,8 +2253,8 @@
       "id": 7,
       "dayNumber": 7,
       "title": "Day 7",
-      "dateLabel": "10/11/2026",
-      "unlockDate": "2026-11-04T14:40:54.932Z",
+      "dateLabel": "08/11/2026",
+      "unlockDate": "2026-11-07T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -2790,8 +2625,8 @@
       "id": 8,
       "dayNumber": 8,
       "title": "Day 8",
-      "dateLabel": "11/11/2026",
-      "unlockDate": "2026-11-05T14:40:54.932Z",
+      "dateLabel": "09/11/2026",
+      "unlockDate": "2026-11-08T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -3162,8 +2997,8 @@
       "id": 9,
       "dayNumber": 9,
       "title": "Day 9",
-      "dateLabel": "12/11/2026",
-      "unlockDate": "2026-11-06T14:40:54.932Z",
+      "dateLabel": "10/11/2026",
+      "unlockDate": "2026-11-09T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -3534,8 +3369,8 @@
       "id": 10,
       "dayNumber": 10,
       "title": "Day 10",
-      "dateLabel": "13/11/2026",
-      "unlockDate": "2026-11-07T14:40:54.932Z",
+      "dateLabel": "11/11/2026",
+      "unlockDate": "2026-11-10T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -3906,8 +3741,8 @@
       "id": 11,
       "dayNumber": 11,
       "title": "Day 11",
-      "dateLabel": "14/11/2026",
-      "unlockDate": "2026-11-08T14:40:54.932Z",
+      "dateLabel": "12/11/2026",
+      "unlockDate": "2026-11-11T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -4278,8 +4113,8 @@
       "id": 12,
       "dayNumber": 12,
       "title": "Day 12",
-      "dateLabel": "15/11/2026",
-      "unlockDate": "2026-11-09T14:40:54.932Z",
+      "dateLabel": "13/11/2026",
+      "unlockDate": "2026-11-12T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -4650,8 +4485,8 @@
       "id": 13,
       "dayNumber": 13,
       "title": "Day 13",
-      "dateLabel": "16/11/2026",
-      "unlockDate": "2026-11-10T14:40:54.932Z",
+      "dateLabel": "14/11/2026",
+      "unlockDate": "2026-11-13T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -5022,8 +4857,8 @@
       "id": 14,
       "dayNumber": 14,
       "title": "Day 14",
-      "dateLabel": "17/11/2026",
-      "unlockDate": "2026-11-11T14:40:54.932Z",
+      "dateLabel": "15/11/2026",
+      "unlockDate": "2026-11-14T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -5394,8 +5229,8 @@
       "id": 15,
       "dayNumber": 15,
       "title": "Day 15",
-      "dateLabel": "18/11/2026",
-      "unlockDate": "2026-11-12T14:40:54.932Z",
+      "dateLabel": "16/11/2026",
+      "unlockDate": "2026-11-15T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -5766,8 +5601,8 @@
       "id": 16,
       "dayNumber": 16,
       "title": "Day 16",
-      "dateLabel": "19/11/2026",
-      "unlockDate": "2026-11-13T14:40:54.932Z",
+      "dateLabel": "17/11/2026",
+      "unlockDate": "2026-11-16T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -6138,8 +5973,8 @@
       "id": 17,
       "dayNumber": 17,
       "title": "Day 17",
-      "dateLabel": "20/11/2026",
-      "unlockDate": "2026-11-14T14:40:54.932Z",
+      "dateLabel": "18/11/2026",
+      "unlockDate": "2026-11-17T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -6510,8 +6345,8 @@
       "id": 18,
       "dayNumber": 18,
       "title": "Day 18",
-      "dateLabel": "21/11/2026",
-      "unlockDate": "2026-11-15T14:40:54.932Z",
+      "dateLabel": "19/11/2026",
+      "unlockDate": "2026-11-18T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -6882,8 +6717,8 @@
       "id": 19,
       "dayNumber": 19,
       "title": "Day 19",
-      "dateLabel": "22/11/2026",
-      "unlockDate": "2026-11-16T14:40:54.932Z",
+      "dateLabel": "20/11/2026",
+      "unlockDate": "2026-11-19T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -7254,8 +7089,8 @@
       "id": 20,
       "dayNumber": 20,
       "title": "Day 20",
-      "dateLabel": "23/11/2026",
-      "unlockDate": "2026-11-17T14:40:54.932Z",
+      "dateLabel": "21/11/2026",
+      "unlockDate": "2026-11-20T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -7626,8 +7461,8 @@
       "id": 21,
       "dayNumber": 21,
       "title": "Day 21",
-      "dateLabel": "24/11/2026",
-      "unlockDate": "2026-11-18T14:40:54.932Z",
+      "dateLabel": "22/11/2026",
+      "unlockDate": "2026-11-21T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -7998,8 +7833,8 @@
       "id": 22,
       "dayNumber": 22,
       "title": "Day 22",
-      "dateLabel": "25/11/2026",
-      "unlockDate": "2026-11-19T14:40:54.932Z",
+      "dateLabel": "23/11/2026",
+      "unlockDate": "2026-11-22T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -8370,8 +8205,8 @@
       "id": 23,
       "dayNumber": 23,
       "title": "Day 23",
-      "dateLabel": "26/11/2026",
-      "unlockDate": "2026-11-20T14:40:54.932Z",
+      "dateLabel": "24/11/2026",
+      "unlockDate": "2026-11-23T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -8742,8 +8577,8 @@
       "id": 24,
       "dayNumber": 24,
       "title": "Day 24",
-      "dateLabel": "27/11/2026",
-      "unlockDate": "2026-11-21T14:40:54.932Z",
+      "dateLabel": "25/11/2026",
+      "unlockDate": "2026-11-24T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -9114,8 +8949,8 @@
       "id": 25,
       "dayNumber": 25,
       "title": "Day 25",
-      "dateLabel": "28/11/2026",
-      "unlockDate": "2026-11-22T14:40:54.932Z",
+      "dateLabel": "26/11/2026",
+      "unlockDate": "2026-11-25T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -9486,8 +9321,8 @@
       "id": 26,
       "dayNumber": 26,
       "title": "Day 26",
-      "dateLabel": "29/11/2026",
-      "unlockDate": "2026-11-23T14:40:54.932Z",
+      "dateLabel": "27/11/2026",
+      "unlockDate": "2026-11-26T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -9858,8 +9693,8 @@
       "id": 27,
       "dayNumber": 27,
       "title": "Day 27",
-      "dateLabel": "30/11/2026",
-      "unlockDate": "2026-11-24T14:40:54.932Z",
+      "dateLabel": "28/11/2026",
+      "unlockDate": "2026-11-27T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -10230,8 +10065,8 @@
       "id": 28,
       "dayNumber": 28,
       "title": "Day 28",
-      "dateLabel": "01/12/2026",
-      "unlockDate": "2026-11-25T14:40:54.932Z",
+      "dateLabel": "29/11/2026",
+      "unlockDate": "2026-11-28T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -10602,8 +10437,8 @@
       "id": 29,
       "dayNumber": 29,
       "title": "Day 29",
-      "dateLabel": "02/12/2026",
-      "unlockDate": "2026-11-26T14:40:54.932Z",
+      "dateLabel": "30/11/2026",
+      "unlockDate": "2026-11-29T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -10974,8 +10809,8 @@
       "id": 30,
       "dayNumber": 30,
       "title": "Day 30",
-      "dateLabel": "03/12/2026",
-      "unlockDate": "2026-11-27T14:40:54.932Z",
+      "dateLabel": "01/12/2026",
+      "unlockDate": "2026-11-30T17:00:00.000Z",
       "isPublished": true,
       "questions": [
         {
@@ -11344,195 +11179,7 @@
     }
   ],
   "attempts": [],
-  "pwaSubscriptions": [
-    {
-      "id": "pwa-seed-u-thao",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20261234",
-      "keys": {
-        "p256dh": "seed_p256dh_20261234",
-        "auth": "seed_auth_20261234"
-      },
-      "userId": "u-thao",
-      "employeeId": "20261234",
-      "fullName": "Nguyễn Thị Thảo",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.194Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-1",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260001",
-      "keys": {
-        "p256dh": "seed_p256dh_20260001",
-        "auth": "seed_auth_20260001"
-      },
-      "userId": "u-1",
-      "employeeId": "20260001",
-      "fullName": "Nguyễn Minh Anh",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-2",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260002",
-      "keys": {
-        "p256dh": "seed_p256dh_20260002",
-        "auth": "seed_auth_20260002"
-      },
-      "userId": "u-2",
-      "employeeId": "20260002",
-      "fullName": "Trần Quốc Huy",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-3",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260003",
-      "keys": {
-        "p256dh": "seed_p256dh_20260003",
-        "auth": "seed_auth_20260003"
-      },
-      "userId": "u-3",
-      "employeeId": "20260003",
-      "fullName": "Lê Thu Hương",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-4",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260004",
-      "keys": {
-        "p256dh": "seed_p256dh_20260004",
-        "auth": "seed_auth_20260004"
-      },
-      "userId": "u-4",
-      "employeeId": "20260004",
-      "fullName": "Phạm Hoàng Nam",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-5",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260005",
-      "keys": {
-        "p256dh": "seed_p256dh_20260005",
-        "auth": "seed_auth_20260005"
-      },
-      "userId": "u-5",
-      "employeeId": "20260005",
-      "fullName": "Đỗ Mai Linh",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-6",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260006",
-      "keys": {
-        "p256dh": "seed_p256dh_20260006",
-        "auth": "seed_auth_20260006"
-      },
-      "userId": "u-6",
-      "employeeId": "20260006",
-      "fullName": "Vũ Đức Thắng",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-7",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260007",
-      "keys": {
-        "p256dh": "seed_p256dh_20260007",
-        "auth": "seed_auth_20260007"
-      },
-      "userId": "u-7",
-      "employeeId": "20260007",
-      "fullName": "Hoàng Bích Ngọc",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-8",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260008",
-      "keys": {
-        "p256dh": "seed_p256dh_20260008",
-        "auth": "seed_auth_20260008"
-      },
-      "userId": "u-8",
-      "employeeId": "20260008",
-      "fullName": "Bùi Tiến Dũng",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-9",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260009",
-      "keys": {
-        "p256dh": "seed_p256dh_20260009",
-        "auth": "seed_auth_20260009"
-      },
-      "userId": "u-9",
-      "employeeId": "20260009",
-      "fullName": "Đặng Khánh Vy",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-10",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260010",
-      "keys": {
-        "p256dh": "seed_p256dh_20260010",
-        "auth": "seed_auth_20260010"
-      },
-      "userId": "u-10",
-      "employeeId": "20260010",
-      "fullName": "Ngô Quang Hải",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-27T16:44:37.195Z",
-      "updatedAt": "2026-10-29T16:44:37.195Z",
-      "lastNotifiedAt": null
-    }
-  ],
+  "pwaSubscriptions": [],
   "pushCampaigns": [],
   "inAppNotifications": [],
   "pushConfig": {
@@ -11540,7 +11187,13 @@
     "minIntervalMs": 1200,
     "maxIntervalMs": 5000,
     "autoRemindUnstudied": true,
-    "lastTop1UserId": "u-1",
+    "morningHour": 8,
+    "eveningTop1Hour": 19,
+    "nightUnstudiedHour": 23,
+    "lastMorningNotifiedDate": null,
+    "lastEveningTop1NotifiedDate": null,
+    "lastNightUnstudiedNotifiedDate": null,
+    "lastTop1UserId": null,
     "notifiedUnlockedDays": [
       1
     ],
