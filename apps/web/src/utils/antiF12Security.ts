@@ -18,22 +18,11 @@ class AntiF12Security {
   private overlayElement: HTMLElement | null = null;
 
   /**
-   * Khởi động toàn bộ lá chắn bảo mật
+   * Khởi động toàn bộ lá chắn bảo mật (Đã tắt hoàn toàn để cho phép F12 & debug logs)
    */
   public init() {
-    if (typeof window === 'undefined') return;
-
-    // 1. Chặn phím tắt F12 & các tổ hợp phím mở Developer Tools
-    this.blockKeyCombinations();
-
-    // 2. Chặn chuột phải (Context Menu -> Inspect Element)
-    this.blockContextMenu();
-
-    // 3. Vô hiệu hóa Console logging & dọn dẹp console định kỳ
-    this.sanitizeConsole();
-
-    // 4. Bật máy quét phát hiện DevTools đang mở
-    this.startDevToolsDetection();
+    // Đã gỡ bỏ toàn bộ cơ chế chặn F12, chuột phải và chặn console
+    return;
   }
 
   /**
