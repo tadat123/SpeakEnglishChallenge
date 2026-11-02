@@ -2,7 +2,13 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { OFFICIAL_10_QUESTIONS } from '../src/services/seedData.js';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL || process.env.DATABASE_URL,
+    },
+  },
+});
 
 async function main() {
   console.log('🌱 Đang seed dữ liệu BỘ 10 CÂU HỎI – DAILY PRONUNCIATION CHALLENGE 2026...');
