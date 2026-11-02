@@ -228,34 +228,69 @@ class DataStore {
     this.syncFromPostgres();
   }
 
+  public getPrisma(): PrismaClient | null {
+    return prisma;
+  }
+
   public async syncFromPostgres() {
     if (!prisma) return;
     try {
-      const dbUsers = await prisma.user.findMany();
+      const [dbUsers, dbAttempts] = await Promise.all([
+        prisma.user.findMany(),
+        prisma.challengeAttempt.findMany().catch(() => []),
+      ]);
+
       if (dbUsers && dbUsers.length > 0) {
         for (const u of dbUsers) {
-          const existing = this.data.users.find(
+          const idx = this.data.users.findIndex(
             (local) => local.id === u.id || local.employeeId === u.employeeId
           );
-          if (!existing) {
-            this.data.users.push({
-              id: u.id,
-              employeeId: u.employeeId,
-              fullName: u.fullName,
-              email: u.email,
-              phone: u.phone || '',
-              department: u.department || '',
-              avatarUrl: u.avatarUrl || '',
-              passwordHash: u.passwordHash,
-              role: u.role as 'USER' | 'ADMIN',
-              totalScore: u.totalScore,
-              totalTimeMs: u.totalTimeMs,
-              completedDays: u.completedDays,
-              createdAt: u.createdAt.toISOString(),
+          const userRec: UserRecord = {
+            id: u.id,
+            employeeId: u.employeeId,
+            fullName: u.fullName,
+            email: u.email,
+            phone: u.phone || '',
+            department: u.department || '',
+            avatarUrl: u.avatarUrl || '',
+            passwordHash: u.passwordHash,
+            role: u.role as 'USER' | 'ADMIN',
+            totalScore: u.totalScore,
+            totalTimeMs: u.totalTimeMs,
+            completedDays: u.completedDays,
+            resetOtpCode: u.resetOtpCode || null,
+            resetToken: u.resetToken || null,
+            resetExpiresAt: u.resetExpiresAt ? u.resetExpiresAt.toISOString() : null,
+            createdAt: u.createdAt.toISOString(),
+          };
+
+          if (idx >= 0) {
+            this.data.users[idx] = { ...this.data.users[idx], ...userRec };
+          } else {
+            this.data.users.push(userRec);
+          }
+        }
+      }
+
+      if (dbAttempts && dbAttempts.length > 0) {
+        for (const a of dbAttempts) {
+          const exists = this.data.attempts.some((att) => att.id === a.id);
+          if (!exists) {
+            this.data.attempts.push({
+              id: a.id,
+              userId: a.userId,
+              challengeId: a.challengeId,
+              dayNumber: a.challengeId,
+              score: a.score,
+              correctCount: a.correctCount,
+              wrongCount: a.wrongCount,
+              timeSpentMs: a.timeSpentMs,
+              answersDetail: (a.answersDetail as any) || {},
+              startedAt: a.startedAt.toISOString(),
+              completedAt: a.completedAt.toISOString(),
             });
           }
         }
-        this.save();
       }
 
       // Hai chiều: Đồng bộ ngược toàn bộ users có trong local store lên PostgreSQL
@@ -294,7 +329,7 @@ class DataStore {
           // Bỏ qua nếu lỗi
         }
       }
-      console.log(`[DB] Đã đồng bộ hai chiều ${this.data.users.length} tài khoản với PostgreSQL thành công!`);
+      this.save();
     } catch (e: any) {
       console.warn('Prisma syncFromPostgres notice:', e?.message || e);
     }
@@ -473,7 +508,7 @@ class DataStore {
   public findUserByIdentifier(identifier: string): UserRecord | undefined {
     const clean = identifier.trim().toLowerCase();
     return this.data.users.find(
-      (u) => u.employeeId === clean || u.email.toLowerCase() === clean
+      (u) => u.employeeId.toLowerCase() === clean || u.email.toLowerCase() === clean
     );
   }
 
@@ -1223,7 +1258,8 @@ class DataStore {
 
   // ==================== ADMIN: DASHBOARD THỐNG KÊ TỶ LỆ HOÀN THÀNH ====================
 
-  public getDashboardStats(dayFilter?: number) {
+  public async getDashboardStats(dayFilter?: number) {
+    await this.syncFromPostgres();
     const totalUsers =
       this.data.users.filter((u) => u.role === 'USER').length || this.data.users.length;
     const usersList = this.data.users.filter((u) => u.role === 'USER');
@@ -1292,7 +1328,8 @@ class DataStore {
 
   // ==================== ADMIN: QUẢN LÝ NGƯỜI DÙNG & TÌM KIẾM ====================
 
-  public getAdminUsers(search = '', department = '') {
+  public async getAdminUsers(search = '', department = '') {
+    await this.syncFromPostgres();
     let users = this.data.users.map((u) => {
       const userAttempts = this.data.attempts.filter((a) => a.userId === u.id);
       const lastAttempt = userAttempts.sort(
@@ -1336,7 +1373,8 @@ class DataStore {
     return users.map((u, idx) => ({ ...u, rank: idx + 1 }));
   }
 
-  public getAdminUserDetails(userId: string) {
+  public async getAdminUserDetails(userId: string) {
+    await this.syncFromPostgres();
     const user = this.findUserById(userId);
     if (!user) return null;
     const attempts = this.data.attempts
@@ -1358,6 +1396,70 @@ class DataStore {
       attempts,
       devices,
     };
+  }
+
+  public async deleteUser(userId: string): Promise<boolean> {
+    const idx = this.data.users.findIndex((u) => u.id === userId || u.employeeId === userId);
+    if (idx === -1) return false;
+    const removed = this.data.users.splice(idx, 1)[0];
+    this.data.attempts = this.data.attempts.filter((a) => a.userId !== removed.id);
+    this.save();
+
+    if (prisma) {
+      try {
+        await prisma.challengeAttempt.deleteMany({ where: { userId: removed.id } });
+        await prisma.user.delete({ where: { id: removed.id } });
+        console.log(`[DB] Đã xóa user ${removed.employeeId} khỏi PostgreSQL!`);
+      } catch (err: any) {
+        console.error('[DB Error] Không thể xóa user trong PostgreSQL:', err?.message || err);
+      }
+    }
+    return true;
+  }
+
+  public async adminResetUserPassword(userId: string, newPassPlain: string): Promise<boolean> {
+    const user = this.findUserById(userId);
+    if (!user) return false;
+    const hash = await bcrypt.hash(newPassPlain, 10);
+    user.passwordHash = hash;
+    this.save();
+
+    if (prisma) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: hash },
+        });
+        console.log(`[DB] Đã đổi mật khẩu cho user ${user.employeeId} trong PostgreSQL!`);
+      } catch (err: any) {
+        console.error('[DB Error] Không thể update password user trong PostgreSQL:', err?.message || err);
+      }
+    }
+    return true;
+  }
+
+  public async adminResetUserProgress(userId: string): Promise<boolean> {
+    const user = this.findUserById(userId);
+    if (!user) return false;
+    user.totalScore = 0;
+    user.totalTimeMs = 0;
+    user.completedDays = 0;
+    this.data.attempts = this.data.attempts.filter((a) => a.userId !== user.id);
+    this.save();
+
+    if (prisma) {
+      try {
+        await prisma.challengeAttempt.deleteMany({ where: { userId: user.id } });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { totalScore: 0, totalTimeMs: 0, completedDays: 0 },
+        });
+        console.log(`[DB] Đã reset tiến độ cho user ${user.employeeId} trong PostgreSQL!`);
+      } catch (err: any) {
+        console.error('[DB Error] Không thể reset progress user trong PostgreSQL:', err?.message || err);
+      }
+    }
+    return true;
   }
 
   // ==================== ADMIN: GỬI THÔNG BÁO CÁ NHÂN HÓA ====================

@@ -177,6 +177,7 @@ app.post(
 
   const { employeeId, fullName, email, phone, department, password } = parsed.data;
 
+  await store.syncFromPostgres();
   if (store.findUserByIdentifier(employeeId)) {
     return reply.status(409).send({ message: `Số GEN ${employeeId} đã được đăng ký trên hệ thống!` });
   }
@@ -247,7 +248,11 @@ app.post(
     });
   }
 
-  const user = store.findUserByIdentifier(identifier);
+  let user = store.findUserByIdentifier(identifier);
+  if (!user) {
+    await store.syncFromPostgres();
+    user = store.findUserByIdentifier(identifier);
+  }
   if (!user) {
     return reply.status(401).send({ message: 'Không tìm thấy tài khoản với Số GEN hoặc Gmail này.' });
   }
@@ -300,7 +305,11 @@ app.post(
   }
 
   const { email, employeeId } = parsed.data;
-  const user = store.findUserByIdentifier(email);
+  let user = store.findUserByIdentifier(email);
+  if (!user) {
+    await store.syncFromPostgres();
+    user = store.findUserByIdentifier(email);
+  }
 
   if (!user) {
     return reply.status(404).send({
@@ -322,6 +331,19 @@ app.post(
   user.resetToken = resetToken;
   user.resetExpiresAt = expiresAt;
   store.save();
+
+  if (store.getPrisma()) {
+    try {
+      await store.getPrisma()!.user.update({
+        where: { id: user.id },
+        data: {
+          resetOtpCode: otpCode,
+          resetToken: resetToken,
+          resetExpiresAt: new Date(expiresAt),
+        },
+      });
+    } catch {}
+  }
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetLink = `${frontendUrl}/?resetToken=${resetToken}&email=${encodeURIComponent(user.email)}`;
@@ -367,7 +389,11 @@ app.post(
   }
 
   const { email, otpOrToken, newPassword } = parsed.data;
-  const user = store.findUserByIdentifier(email);
+  let user = store.findUserByIdentifier(email);
+  if (!user) {
+    await store.syncFromPostgres();
+    user = store.findUserByIdentifier(email);
+  }
 
   if (!user || !user.resetExpiresAt) {
     return reply.status(400).send({ message: 'Yêu cầu đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.' });
@@ -384,11 +410,26 @@ app.post(
     return reply.status(400).send({ message: 'Mã xác thực OTP hoặc đường dẫn khôi phục không chính xác!' });
   }
 
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  const newHash = await bcrypt.hash(newPassword, 10);
+  user.passwordHash = newHash;
   user.resetOtpCode = null;
   user.resetToken = null;
   user.resetExpiresAt = null;
   store.save();
+
+  if (store.getPrisma()) {
+    try {
+      await store.getPrisma()!.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: newHash,
+          resetOtpCode: null,
+          resetToken: null,
+          resetExpiresAt: null,
+        },
+      });
+    } catch {}
+  }
 
   return {
     message: 'Đặt lại mật khẩu thành công! Bạn có thể đăng nhập ngay bằng mật khẩu mới.',
@@ -732,7 +773,11 @@ app.post(
 
 app.get('/api/leaderboard', { preHandler: [(app as any).authenticate] }, async (request: any) => {
   const userId = request.user.sub;
-  const currentUser = store.findUserById(userId);
+  let currentUser = store.findUserById(userId);
+  if (!currentUser) {
+    await store.syncFromPostgres();
+    currentUser = store.findUserById(userId);
+  }
   const scope = (request.query?.scope as string) || 'company';
 
   const list =
@@ -752,7 +797,11 @@ app.get('/api/leaderboard', { preHandler: [(app as any).authenticate] }, async (
 
 app.get('/api/profile/me', { preHandler: [(app as any).authenticate] }, async (request: any, reply) => {
   const userId = request.user.sub;
-  const user = store.findUserById(userId);
+  let user = store.findUserById(userId);
+  if (!user) {
+    await store.syncFromPostgres();
+    user = store.findUserById(userId);
+  }
   if (!user) {
     return reply.status(404).send({ message: 'Không tìm thấy thông tin nhân viên.' });
   }
@@ -799,7 +848,7 @@ app.get(
   { preHandler: [(app as any).requireAdmin] },
   async (request: any) => {
     const day = request.query?.day ? parseInt(request.query.day, 10) : undefined;
-    return store.getDashboardStats(day);
+    return await store.getDashboardStats(day);
   }
 );
 
@@ -810,7 +859,7 @@ app.get(
   async (request: any) => {
     const search = (request.query?.search as string) || '';
     const department = (request.query?.department as string) || '';
-    return { users: store.getAdminUsers(search, department) };
+    return { users: await store.getAdminUsers(search, department) };
   }
 );
 
@@ -818,11 +867,54 @@ app.get(
   '/api/admin/users/:userId/details',
   { preHandler: [(app as any).requireAdmin] },
   async (request: any, reply) => {
-    const details = store.getAdminUserDetails(request.params.userId);
+    const details = await store.getAdminUserDetails(request.params.userId);
     if (!details) {
       return reply.status(404).send({ message: 'Không tìm thấy người dùng' });
     }
     return details;
+  }
+);
+
+// Xóa tài khoản người dùng khỏi hệ thống
+app.delete(
+  '/api/admin/users/:userId',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const ok = await store.deleteUser(request.params.userId);
+    if (!ok) {
+      return reply.status(404).send({ message: 'Không tìm thấy người dùng cần xóa.' });
+    }
+    return { message: 'Đã xóa tài khoản người dùng thành công!' };
+  }
+);
+
+// Đặt lại mật khẩu cho người dùng từ Admin
+app.post(
+  '/api/admin/users/:userId/reset-password',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const { newPassword } = request.body || {};
+    if (!newPassword || newPassword.length < 6) {
+      return reply.status(400).send({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
+    }
+    const ok = await store.adminResetUserPassword(request.params.userId, newPassword);
+    if (!ok) {
+      return reply.status(404).send({ message: 'Không tìm thấy người dùng cần đổi mật khẩu.' });
+    }
+    return { message: 'Đã đặt lại mật khẩu thành công cho người dùng!' };
+  }
+);
+
+// Reset tiến độ và điểm số của người dùng
+app.post(
+  '/api/admin/users/:userId/reset-progress',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const ok = await store.adminResetUserProgress(request.params.userId);
+    if (!ok) {
+      return reply.status(404).send({ message: 'Không tìm thấy người dùng cần reset tiến độ.' });
+    }
+    return { message: 'Đã xóa lịch sử bài thi và reset điểm của người dùng về 0!' };
   }
 );
 

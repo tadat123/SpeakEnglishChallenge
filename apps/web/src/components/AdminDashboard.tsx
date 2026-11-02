@@ -2831,6 +2831,77 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Các hành động quản trị với tài khoản */}
+            <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const newPass = prompt(`Nhập mật khẩu mới cho nhân viên ${inspectingUser.user.fullName}:`, 'Abc@1234');
+                  if (!newPass) return;
+                  try {
+                    const res = await fetch(`/api/admin/users/${inspectingUser.user.id}/reset-password`, {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ newPassword: newPass }),
+                    });
+                    const d = await res.json();
+                    showMessage(d.message || 'Đã đổi mật khẩu');
+                  } catch (e: any) {
+                    showMessage(e.message || 'Lỗi', true);
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm"
+              >
+                🔑 Đổi mật khẩu
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`Bạn có chắc chắn muốn RESET điểm và lịch sử thi của ${inspectingUser.user.fullName} về 0?`)) return;
+                  try {
+                    const res = await fetch(`/api/admin/users/${inspectingUser.user.id}/reset-progress`, {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    const d = await res.json();
+                    showMessage(d.message || 'Đã reset tiến độ');
+                    fetchUserDetails(inspectingUser.user.id);
+                    fetchAdminUsers();
+                    fetchDashboardStats();
+                  } catch (e: any) {
+                    showMessage(e.message || 'Lỗi', true);
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-sm"
+              >
+                🔄 Reset điểm về 0
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN tài khoản ${inspectingUser.user.fullName} (${inspectingUser.user.employeeId})?`)) return;
+                  try {
+                    const res = await fetch(`/api/admin/users/${inspectingUser.user.id}`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    const d = await res.json();
+                    showMessage(d.message || 'Đã xóa tài khoản');
+                    setInspectingUser(null);
+                    fetchAdminUsers();
+                    fetchDashboardStats();
+                  } catch (e: any) {
+                    showMessage(e.message || 'Lỗi', true);
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-sm"
+              >
+                🗑️ Xóa tài khoản
+              </button>
+            </div>
           </div>
         </div>
       )}
