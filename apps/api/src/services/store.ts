@@ -5,10 +5,18 @@ import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import { DailyChallengeItem, QuestionItem, generate30DaysChallenges } from './seedData.js';
 
+const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
 let prisma: PrismaClient | null = null;
-if (process.env.DATABASE_URL) {
+if (dbUrl) {
   try {
-    prisma = new PrismaClient();
+    prisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: dbUrl,
+        },
+      },
+    });
+    console.log('[DB] Đã khởi tạo Prisma Client kết nối tới PostgreSQL!');
   } catch (err) {
     console.warn('Prisma Client init warning:', err);
   }
@@ -249,6 +257,44 @@ class DataStore {
         }
         this.save();
       }
+
+      // Hai chiều: Đồng bộ ngược toàn bộ users có trong local store lên PostgreSQL
+      for (const local of this.data.users) {
+        try {
+          await prisma.user.upsert({
+            where: { employeeId: local.employeeId },
+            update: {
+              fullName: local.fullName,
+              email: local.email,
+              phone: local.phone || null,
+              department: local.department || null,
+              avatarUrl: local.avatarUrl || null,
+              passwordHash: local.passwordHash,
+              role: local.role,
+              totalScore: local.totalScore,
+              totalTimeMs: local.totalTimeMs,
+              completedDays: local.completedDays,
+            },
+            create: {
+              id: local.id,
+              employeeId: local.employeeId,
+              fullName: local.fullName,
+              email: local.email,
+              phone: local.phone || null,
+              department: local.department || null,
+              avatarUrl: local.avatarUrl || null,
+              passwordHash: local.passwordHash,
+              role: local.role,
+              totalScore: local.totalScore,
+              totalTimeMs: local.totalTimeMs,
+              completedDays: local.completedDays,
+            },
+          });
+        } catch (syncErr: any) {
+          // Bỏ qua nếu lỗi
+        }
+      }
+      console.log(`[DB] Đã đồng bộ hai chiều ${this.data.users.length} tài khoản với PostgreSQL thành công!`);
     } catch (e: any) {
       console.warn('Prisma syncFromPostgres notice:', e?.message || e);
     }
@@ -435,13 +481,13 @@ class DataStore {
     return this.data.users.find((u) => u.id === id);
   }
 
-  public createUser(user: UserRecord): UserRecord {
+  public async createUser(user: UserRecord): Promise<UserRecord> {
     this.data.users.push(user);
     this.save();
 
     if (prisma) {
-      prisma.user
-        .upsert({
+      try {
+        await prisma.user.upsert({
           where: { employeeId: user.employeeId },
           update: {
             fullName: user.fullName,
@@ -469,8 +515,11 @@ class DataStore {
             totalTimeMs: user.totalTimeMs,
             completedDays: user.completedDays,
           },
-        })
-        .catch((err: any) => console.warn('Prisma createUser sync warning:', err?.message || err));
+        });
+        console.log(`[DB] Đã lưu thành công user ${user.employeeId} (${user.fullName}) vào PostgreSQL!`);
+      } catch (err: any) {
+        console.error('[DB Error] Không thể lưu user vào PostgreSQL:', err?.message || err);
+      }
     }
 
     return user;
@@ -774,12 +823,12 @@ class DataStore {
     return updatedCount;
   }
 
-  public recordAttempt(attempt: AttemptRecord): {
+  public async recordAttempt(attempt: AttemptRecord): Promise<{
     isFirstOfficialAttempt: boolean;
     climbedToTop1: boolean;
     previousTop1: { id: string; fullName: string; employeeId: string; totalScore: number } | null;
     newTop1: { id: string; fullName: string; employeeId: string; totalScore: number } | null;
-  } {
+  }> {
     const existing = this.getAttempt(attempt.userId, attempt.dayNumber);
     if (existing) {
       return {
@@ -816,8 +865,8 @@ class DataStore {
     }
 
     if (prisma) {
-      prisma.challengeAttempt
-        .create({
+      try {
+        await prisma.challengeAttempt.create({
           data: {
             id: attempt.id,
             userId: attempt.userId,
@@ -830,18 +879,19 @@ class DataStore {
             startedAt: new Date(attempt.startedAt),
             completedAt: new Date(attempt.completedAt),
           },
-        })
-        .then(() => {
-          return prisma?.user.update({
-            where: { id: attempt.userId },
-            data: {
-              totalScore: { increment: attempt.score },
-              totalTimeMs: { increment: attempt.timeSpentMs },
-              completedDays: { increment: 1 },
-            },
-          });
-        })
-        .catch((err: any) => console.warn('Prisma recordAttempt sync warning:', err?.message || err));
+        });
+        await prisma.user.update({
+          where: { id: attempt.userId },
+          data: {
+            totalScore: { increment: attempt.score },
+            totalTimeMs: { increment: attempt.timeSpentMs },
+            completedDays: { increment: 1 },
+          },
+        });
+        console.log(`[DB] Đã lưu bài nộp Day ${attempt.dayNumber} của user ${attempt.userId} vào PostgreSQL!`);
+      } catch (err: any) {
+        console.error('[DB Error] Không thể lưu bài nộp vào PostgreSQL:', err?.message || err);
+      }
     }
 
     this.save();

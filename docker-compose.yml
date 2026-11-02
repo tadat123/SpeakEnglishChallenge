@@ -20,7 +20,7 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - INSTANCE_ID=api-1
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:6432/speakright?pgbouncer=true
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - DIRECT_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-speak-right-2026-super-secret-jwt-key}
@@ -31,7 +31,7 @@ services:
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-Speak Right Challenge 2026 <no-reply@speakright2026.com>}
     depends_on:
-      - pgbouncer
+      - postgres
       - redis
     restart: unless-stopped
 
@@ -41,7 +41,7 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - INSTANCE_ID=api-2
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:6432/speakright?pgbouncer=true
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - DIRECT_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-speak-right-2026-super-secret-jwt-key}
@@ -58,7 +58,7 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - INSTANCE_ID=api-3
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:6432/speakright?pgbouncer=true
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - DIRECT_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-speak-right-2026-super-secret-jwt-key}

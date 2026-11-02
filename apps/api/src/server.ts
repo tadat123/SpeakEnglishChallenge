@@ -185,7 +185,7 @@ app.post(
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const newUser = store.createUser({
+  const newUser = await store.createUser({
     id: crypto.randomUUID(),
     employeeId,
     fullName,
@@ -688,7 +688,7 @@ app.post(
     const {
       isFirstOfficialAttempt,
       climbedToTop1,
-    } = store.recordAttempt({
+    } = await store.recordAttempt({
       id: crypto.randomUUID(),
       userId,
       challengeId: challenge.id,
