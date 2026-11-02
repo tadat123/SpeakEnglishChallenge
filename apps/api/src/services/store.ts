@@ -485,14 +485,13 @@ class DataStore {
   }
 
   public isDayUnlocked(challenge: DailyChallengeItem): boolean {
+    if (challenge.dayNumber === 1) return true;
     return new Date(challenge.unlockDate).getTime() <= Date.now() && challenge.isPublished;
   }
 
   public getDayEndDate(challenge: DailyChallengeItem): string {
     const unlockMs = new Date(challenge.unlockDate).getTime();
-    const d = new Date(unlockMs);
-    const nextMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
-    return nextMidnight.toISOString();
+    return new Date(unlockMs + 24 * 60 * 60 * 1000).toISOString();
   }
 
   public isDayEnded(challenge: DailyChallengeItem): boolean {
@@ -547,12 +546,12 @@ class DataStore {
 
   // ==================== CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP) ====================
 
-  /** Thử thách của ngày hôm nay: đã mở khóa và chưa kết thúc (00:00 hôm sau) */
+  /** Thử thách của ngày hôm nay: đã mở khóa và chưa kết thúc (00:00 hôm sau), hoặc fallback về ngày mới nhất đã mở khóa / Day 1 */
   public getTodayChallenge(): DailyChallengeItem | undefined {
     const open = this.data.challenges
       .filter((c) => this.isDayUnlocked(c) && !this.isDayEnded(c))
       .sort((a, b) => b.dayNumber - a.dayNumber);
-    return open[0];
+    return open[0] || this.data.challenges.filter((c) => this.isDayUnlocked(c)).sort((a, b) => b.dayNumber - a.dayNumber)[0] || this.data.challenges[0];
   }
 
   /** Đề thi cho khách: xáo trộn đáp án nhưng KHÔNG tạo phiên thi & KHÔNG lưu điểm */
