@@ -2,7 +2,17 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
 import { DailyChallengeItem, QuestionItem, generate30DaysChallenges } from './seedData.js';
+
+let prisma: PrismaClient | null = null;
+if (process.env.DATABASE_URL) {
+  try {
+    prisma = new PrismaClient();
+  } catch (err) {
+    console.warn('Prisma Client init warning:', err);
+  }
+}
 
 export interface UserRecord {
   id: string;
@@ -207,6 +217,41 @@ class DataStore {
 
   constructor() {
     this.data = this.loadOrSeed();
+    this.syncFromPostgres();
+  }
+
+  public async syncFromPostgres() {
+    if (!prisma) return;
+    try {
+      const dbUsers = await prisma.user.findMany();
+      if (dbUsers && dbUsers.length > 0) {
+        for (const u of dbUsers) {
+          const existing = this.data.users.find(
+            (local) => local.id === u.id || local.employeeId === u.employeeId
+          );
+          if (!existing) {
+            this.data.users.push({
+              id: u.id,
+              employeeId: u.employeeId,
+              fullName: u.fullName,
+              email: u.email,
+              phone: u.phone || '',
+              department: u.department || '',
+              avatarUrl: u.avatarUrl || '',
+              passwordHash: u.passwordHash,
+              role: u.role as 'USER' | 'ADMIN',
+              totalScore: u.totalScore,
+              totalTimeMs: u.totalTimeMs,
+              completedDays: u.completedDays,
+              createdAt: u.createdAt.toISOString(),
+            });
+          }
+        }
+        this.save();
+      }
+    } catch (e: any) {
+      console.warn('Prisma syncFromPostgres notice:', e?.message || e);
+    }
   }
 
   private ensurePushState(parsed: DatabaseShape): DatabaseShape {
@@ -393,6 +438,41 @@ class DataStore {
   public createUser(user: UserRecord): UserRecord {
     this.data.users.push(user);
     this.save();
+
+    if (prisma) {
+      prisma.user
+        .upsert({
+          where: { employeeId: user.employeeId },
+          update: {
+            fullName: user.fullName,
+            email: user.email,
+            phone: user.phone || null,
+            department: user.department || null,
+            avatarUrl: user.avatarUrl || null,
+            passwordHash: user.passwordHash,
+            role: user.role,
+            totalScore: user.totalScore,
+            totalTimeMs: user.totalTimeMs,
+            completedDays: user.completedDays,
+          },
+          create: {
+            id: user.id,
+            employeeId: user.employeeId,
+            fullName: user.fullName,
+            email: user.email,
+            phone: user.phone || null,
+            department: user.department || null,
+            avatarUrl: user.avatarUrl || null,
+            passwordHash: user.passwordHash,
+            role: user.role,
+            totalScore: user.totalScore,
+            totalTimeMs: user.totalTimeMs,
+            completedDays: user.completedDays,
+          },
+        })
+        .catch((err: any) => console.warn('Prisma createUser sync warning:', err?.message || err));
+    }
+
     return user;
   }
 
@@ -734,6 +814,35 @@ class DataStore {
 
     if (newTop1) {
       cfg.lastTop1UserId = newTop1.id;
+    }
+
+    if (prisma) {
+      prisma.challengeAttempt
+        .create({
+          data: {
+            id: attempt.id,
+            userId: attempt.userId,
+            challengeId: attempt.challengeId,
+            score: attempt.score,
+            correctCount: attempt.correctCount,
+            wrongCount: attempt.wrongCount,
+            timeSpentMs: attempt.timeSpentMs,
+            answersDetail: attempt.answersDetail as any,
+            startedAt: new Date(attempt.startedAt),
+            completedAt: new Date(attempt.completedAt),
+          },
+        })
+        .then(() => {
+          return prisma?.user.update({
+            where: { id: attempt.userId },
+            data: {
+              totalScore: { increment: attempt.score },
+              totalTimeMs: { increment: attempt.timeSpentMs },
+              completedDays: { increment: 1 },
+            },
+          });
+        })
+        .catch((err: any) => console.warn('Prisma recordAttempt sync warning:', err?.message || err));
     }
 
     this.save();
