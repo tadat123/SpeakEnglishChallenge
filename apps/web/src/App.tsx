@@ -191,6 +191,20 @@ export const App: React.FC = () => {
     type?: string;
   } | null>(null);
 
+  // Toast thông báo người dùng
+  const [toast, setToast] = useState<string>('');
+  const [errorToast, setErrorToast] = useState<string>('');
+
+  const showMessage = (msg: string, isErr = false) => {
+    if (isErr) {
+      setErrorToast(msg);
+      setTimeout(() => setErrorToast(''), 4500);
+    } else {
+      setToast(msg);
+      setTimeout(() => setToast(''), 4500);
+    }
+  };
+
   // Quản lý các thiết bị đã đăng nhập của người dùng
   const [userDevices, setUserDevices] = useState<any[]>([]);
   const [loadingDevices, setLoadingDevices] = useState<boolean>(false);
@@ -909,6 +923,24 @@ export const App: React.FC = () => {
       }`}
     >
       <ResponsiveBackground darkMode={darkMode} />
+
+      {/* Toast thông báo chung cho người dùng */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-[9999] p-3.5 rounded-2xl bg-emerald-600 text-white text-xs sm:text-sm font-extrabold flex items-center gap-2 shadow-2xl animate-in fade-in slide-in-from-top-3">
+          <span>✅ {toast}</span>
+          <button onClick={() => setToast('')} className="text-white/80 hover:text-white p-0.5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      {errorToast && (
+        <div className="fixed top-4 right-4 z-[9999] p-3.5 rounded-2xl bg-rose-600 text-white text-xs sm:text-sm font-extrabold flex items-center gap-2 shadow-2xl animate-in fade-in slide-in-from-top-3">
+          <span>⚠️ {errorToast}</span>
+          <button onClick={() => setErrorToast('')} className="text-white/80 hover:text-white p-0.5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ================= TOP HEADER TRONG SUỐT NHẸ (GLASSMORPHISM) KHÔNG BỊ ĐẶC 2 BÊN DESKTOP ================= */}
       <header className="sticky top-0 z-30 px-2 sm:px-6 pt-2 pb-1">
