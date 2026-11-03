@@ -16,6 +16,8 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    volumes:
+      - apidata:/app/data
     environment:
       - NODE_ENV=production
       - PORT=4000
@@ -111,3 +113,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  apidata:

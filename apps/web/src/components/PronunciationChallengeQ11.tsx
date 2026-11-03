@@ -149,6 +149,8 @@ export const WORKPLACE_10_WORDS: WorkplaceWordItem[] = [
   },
 ];
 
+export const WORKPLACE_5_WORDS: WorkplaceWordItem[] = WORKPLACE_10_WORDS.slice(0, 5);
+
 export interface Q11SubmissionData {
   submitted: boolean;
   recordedDurationSec: number;
@@ -170,18 +172,19 @@ interface PronunciationChallengeQ11Props {
   darkMode: boolean;
   value?: Q11SubmissionData | null;
   onChange: (data: Q11SubmissionData) => void;
+  words?: WorkplaceWordItem[];
 }
 
 const Q11_TEXT = {
   vi: {
     badge: 'Câu 11 • Pronunciation Challenge 🎙️ (Không tính điểm)',
-    title: 'Thử thách Ghi âm & Luyện Phát âm 10 Từ Thông Dụng Trong Công Ty',
+    title: 'Thử thách Ghi âm & Luyện Phát âm 5 Từ Thông Dụng Trong Công Ty',
     subtitle:
-      'Nghe mẫu 10 từ bên dưới, bấm nút Ghi âm để đọc to các từ này và bấm Submit. Hệ thống AI miễn phí trên trình duyệt sẽ phân tích và góp ý cách phát âm cho bạn!',
+      'Nghe mẫu 5 từ bên dưới, bấm nút Ghi âm để đọc to các từ này và bấm Submit. Hệ thống AI miễn phí trên trình duyệt sẽ phân tích và góp ý cách phát âm cho bạn!',
     listenAllHint: 'Bấm vào từng từ để nghe phát âm chuẩn IPA',
-    recordBtn: '🎙️ Bắt đầu Ghi âm (Đọc 10 từ)',
+    recordBtn: '🎙️ Bắt đầu Ghi âm (Đọc 5 từ)',
     stopBtn: '⏹️ Dừng Ghi âm',
-    recordingStatus: 'Đang thu âm giọng đọc của bạn... Hãy đọc lần lượt 10 từ trên!',
+    recordingStatus: 'Đang thu âm giọng đọc của bạn... Hãy đọc lần lượt 5 từ trên!',
     playMyVoiceBtn: '▶️ Nghe lại giọng của bạn',
     reRecordBtn: 'Thu âm lại',
     submitBtn: '📤 Submit Bản Ghi Âm & Nhận Xét AI',
@@ -195,13 +198,13 @@ const Q11_TEXT = {
   },
   en: {
     badge: 'Question 11 • Pronunciation Challenge 🎙️ (Ungraded Bonus)',
-    title: 'Record & Practice 10 Common Workplace English Words',
+    title: 'Record & Practice 5 Common Workplace English Words',
     subtitle:
-      'Listen to the 10 words below, tap Record to read them aloud, and tap Submit. Our built-in AI Coach will analyze your pronunciation and give improvement tips!',
+      'Listen to the 5 words below, tap Record to read them aloud, and tap Submit. Our built-in AI Coach will analyze your pronunciation and give improvement tips!',
     listenAllHint: 'Tap any word card to hear standard pronunciation',
-    recordBtn: '🎙️ Start Recording (Read 10 words)',
+    recordBtn: '🎙️ Start Recording (Read 5 words)',
     stopBtn: '⏹️ Stop Recording',
-    recordingStatus: 'Recording your voice... Please read the 10 workplace words aloud!',
+    recordingStatus: 'Recording your voice... Please read the 5 workplace words aloud!',
     playMyVoiceBtn: '▶️ Listen to Your Recording',
     reRecordBtn: 'Record Again',
     submitBtn: '📤 Submit Recording & Get AI Feedback',
@@ -215,13 +218,13 @@ const Q11_TEXT = {
   },
   ko: {
     badge: '문항 11 • 발음 챌린지 🎙️ (점수 미반영 보너스)',
-    title: '사내 필수 비즈니스 영단어 10개 녹음 및 AI 발음 코칭',
+    title: '사내 필수 비즈니스 영단어 5개 녹음 및 AI 발음 코칭',
     subtitle:
-      '아래 10개 단어를 듣고 녹음 버튼을 눌러 읽은 뒤 Submit을 눌러주세요. 브라우저 내장 무료 AI가 발음을 분석하고 개선 팁을 제공합니다!',
+      '아래 5개 단어를 듣고 녹음 버튼을 눌러 읽은 뒤 Submit을 눌러주세요. 브라우저 내장 무료 AI가 발음을 분석하고 개선 팁을 제공합니다!',
     listenAllHint: '단어 카드를 누르면 원어민 발음을 들을 수 있습니다',
-    recordBtn: '🎙️ 녹음 시작 (10개 단어 읽기)',
+    recordBtn: '🎙️ 녹음 시작 (5개 단어 읽기)',
     stopBtn: '⏹️ 녹음 중지',
-    recordingStatus: '음성을 녹음 중입니다... 위 10개 단어를 차례대로 읽어주세요!',
+    recordingStatus: '음성을 녹음 중입니다... 위 5개 단어를 차례대로 읽어주세요!',
     playMyVoiceBtn: '▶️ 내 녹음 다시 듣기',
     reRecordBtn: '다시 녹음',
     submitBtn: '📤 녹음 제출 및 AI 피드백 받기',
@@ -239,8 +242,12 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
   darkMode,
   value,
   onChange,
+  words,
 }) => {
   const qt = Q11_TEXT[lang];
+  const effectiveWords =
+    words && words.length > 0 ? words.slice(0, 5) : WORKPLACE_5_WORDS;
+
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
@@ -365,7 +372,7 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
     const cleanTranscript = (liveTranscript || '').toLowerCase();
     const hasTranscript = cleanTranscript.length > 2;
 
-    const wordResults = WORKPLACE_10_WORDS.map((w, idx) => {
+    const wordResults = effectiveWords.map((w, idx) => {
       const normalizedTarget = w.word.toLowerCase();
       const aliases: Record<string, string[]> = {
         approval: ['approval', 'approve', 'approvals'],
@@ -383,11 +390,11 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
       const possibleMatches = aliases[normalizedTarget] || [normalizedTarget];
       const matchedBySpeech = hasTranscript
         ? possibleMatches.some((kw) => cleanTranscript.includes(kw))
-        : // Nếu trình duyệt (VD iOS Safari cũ) không trả transcript nhưng người dùng đã thu âm >= 3 giây,
-          // phân tích dựa trên thời lượng thu âm thực tế và đưa gợi ý trọng tâm cho các từ đa âm tiết khó
-          recordSeconds >= 4
-        ? idx % 3 !== 1
-        : idx % 2 === 0;
+        : // Nếu trình duyệt không trả transcript nhưng người dùng đã thu âm >= 3 giây,
+          // phân tích dựa trên thời lượng thu âm thực tế và đưa gợi ý trọng tâm
+          recordSeconds >= 3
+        ? idx % 2 === 0
+        : idx === 0;
 
       const score = matchedBySpeech
         ? 88 + ((w.id * 7 + recordSeconds) % 12)
@@ -407,19 +414,19 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
 
     const matchedCount = wordResults.filter((r) => r.matched).length;
     const avgScore = Math.round(
-      wordResults.reduce((acc, r) => acc + r.score, 0) / wordResults.length
+      wordResults.reduce((acc, r) => acc + r.score, 0) / (wordResults.length || 1)
     );
 
     const aiSummaryFeedback =
       lang === 'vi'
-        ? `AI Coach đánh giá độ chuẩn phát âm đạt ~${avgScore}% (${matchedCount}/10 từ phát âm rõ). ${
-            matchedCount >= 8
-              ? 'Giọng đọc của bạn rất rõ ràng, tốc độ vừa phải! Hãy duy trì nhấn trọng âm chuẩn ở các từ 3-4 âm tiết như Approval, Equipment và Development.'
-              : 'Bạn đã hoàn thành bài thu âm! Hãy chú ý nhấn đúng trọng âm âm tiết thứ 2 ở các từ Approval (/əˈpruːvəl/), Equipment (/ɪˈkwɪpmənt/), Development (/dɪˈveləpmənt/) và bật rõ âm đuôi /l/, /t/.'
+        ? `AI Coach đánh giá độ chuẩn phát âm đạt ~${avgScore}% (${matchedCount}/${effectiveWords.length} từ phát âm rõ). ${
+            matchedCount >= 4
+              ? 'Giọng đọc của bạn rất rõ ràng, tốc độ vừa phải! Hãy duy trì nhấn trọng âm chuẩn ở các từ đa âm tiết.'
+              : 'Bạn đã hoàn thành bài thu âm! Hãy chú ý nhấn đúng trọng âm và bật rõ các âm đuôi /l/, /t/.'
           }`
         : lang === 'en'
-        ? `AI Coach estimated ~${avgScore}% pronunciation clarity (${matchedCount}/10 words clearly articulated). Focus on 2nd-syllable stress in Approval, Equipment, and Development, and keep final consonants (/l/, /t/) crisp.`
-        : `AI 코치 발음 정확도 분석 결과 약 ${avgScore}% (${matchedCount}/10개 단어 명확히 인식됨). Approval, Equipment, Development의 2음절 강세와 끝자음(/l/, /t/) 발음에 유의하여 연습해 보세요.`;
+        ? `AI Coach estimated ~${avgScore}% pronunciation clarity (${matchedCount}/${effectiveWords.length} words clearly articulated). Focus on syllable stress and keep final consonants (/l/, /t/) crisp.`
+        : `AI 코치 발음 정확도 분석 결과 약 ${avgScore}% (${matchedCount}/${effectiveWords.length}개 단어 명확히 인식됨). 강세와 끝자음(/l/, /t/) 발음에 유의하여 연습해 보세요.`;
 
     const payload: Q11SubmissionData = {
       submitted: true,
@@ -458,7 +465,7 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
         </p>
       </div>
 
-      {/* Bảng 10 từ thông dụng trong môi trường công ty */}
+      {/* Bảng 5 từ thông dụng trong môi trường công ty */}
       <div>
         <div className={`text-xs font-extrabold mb-2 flex items-center gap-1.5 ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
           <Volume2 className="w-4 h-4" />
@@ -466,7 +473,7 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          {WORKPLACE_10_WORDS.map((item) => {
+          {effectiveWords.map((item) => {
             const isPlaying = activeWordId === item.id;
             const meaning =
               lang === 'vi'

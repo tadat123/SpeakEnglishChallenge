@@ -36,6 +36,7 @@ import {
   LogOut,
   Sun,
   Moon,
+  Loader2,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
 import { Lang } from '../utils/i18n';
@@ -676,21 +677,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     unlockNow: boolean,
     lockMode: 'GRACEFUL' | 'FORCE' = 'GRACEFUL'
   ) => {
-    const res = await fetch(`/api/admin/challenges/${selectedDay}/unlock`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({
-        unlockNow,
-        lockMode,
-      }),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/admin/challenges/${selectedDay}/unlock`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          unlockNow,
+          lockMode,
+        }),
+      });
       const data = await res.json();
-      showMessage(data.message);
-      setShowLockConfirmModal(false);
-      fetchDayDetail(selectedDay);
-      fetchPushStatus(false);
-      onRefreshGlobal();
+      if (res.ok) {
+        showMessage(data.message || 'Cập nhật trạng thái ngày thi thành công!');
+        setShowLockConfirmModal(false);
+        setDayDetail((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            isUnlocked: data.isUnlocked !== undefined ? data.isUnlocked : unlockNow,
+          };
+        });
+        fetchDayDetail(selectedDay);
+        fetchPushStatus(false);
+        onRefreshGlobal();
+      } else {
+        showMessage(data.message || 'Lỗi khi cập nhật trạng thái khóa ngày thi', true);
+      }
+    } catch (err: any) {
+      showMessage(err?.message || 'Lỗi mạng khi cập nhật trạng thái', true);
     }
   };
 
@@ -820,36 +834,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       : `/api/admin/challenges/${selectedDay}/questions/${editingQuestion.id}`;
     const method = isCreatingNew ? 'POST' : 'PUT';
 
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: JSON.stringify(editingQuestion),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      showMessage(data.message || 'Error saving question', true);
-      return;
-    }
+    try {
+      const res = await fetch(url, {
+        method,
+        headers,
+        body: JSON.stringify(editingQuestion),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.message || 'Error saving question', true);
+        return;
+      }
 
-    showMessage(data.message);
-    setEditingQuestion(null);
-    fetchDayDetail(selectedDay);
-    onRefreshGlobal();
+      showMessage(data.message || 'Đã lưu câu hỏi thành công!');
+      const savedQuestion = data.question;
+      if (savedQuestion) {
+        setDayDetail((prev: any) => {
+          if (!prev) return prev;
+          const currentList = prev.questions || [];
+          const exists = currentList.some(
+            (q: any) => q.id === savedQuestion.id || q.orderIndex === savedQuestion.orderIndex
+          );
+          const updatedQuestions = exists
+            ? currentList.map((q: any) =>
+                q.id === savedQuestion.id || q.orderIndex === savedQuestion.orderIndex
+                  ? savedQuestion
+                  : q
+              )
+            : [...currentList, savedQuestion];
+          return {
+            ...prev,
+            questions: updatedQuestions,
+          };
+        });
+      }
+      setEditingQuestion(null);
+      fetchDayDetail(selectedDay);
+      onRefreshGlobal();
+    } catch (err: any) {
+      showMessage(err?.message || 'Lỗi mạng khi lưu câu hỏi', true);
+    }
   };
 
   const handleDeleteQuestion = async (questionId: string, orderIndex: number) => {
     if (!window.confirm(`Delete #${orderIndex} from Day ${selectedDay}?`)) {
       return;
     }
-    const res = await fetch(`/api/admin/challenges/${selectedDay}/questions/${questionId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/admin/challenges/${selectedDay}/questions/${questionId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
-      showMessage(data.message);
-      fetchDayDetail(selectedDay);
-      onRefreshGlobal();
+      if (res.ok) {
+        showMessage(data.message || 'Đã xóa câu hỏi thành công!');
+        setDayDetail((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            questions: (prev.questions || []).filter(
+              (q: any) => q.id !== questionId && q.orderIndex !== orderIndex
+            ),
+          };
+        });
+        fetchDayDetail(selectedDay);
+        onRefreshGlobal();
+      } else {
+        showMessage(data.message || 'Lỗi khi xóa câu hỏi', true);
+      }
+    } catch (err: any) {
+      showMessage(err?.message || 'Lỗi mạng khi xóa câu hỏi', true);
     }
   };
 
@@ -1640,8 +1694,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Chi tiết Ngày đang chọn */}
-      {dayDetail && !loadingDay && (
-        <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 ${cardBg}`}>
+      {dayDetail ? (
+        <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 relative ${cardBg}`}>
+          {loadingDay && (
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 text-xs font-bold animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang đồng bộ...
+            </div>
+          )}
           {/* Phần A: Thông tin Ngày & Trạng thái Mở/Khóa thông minh */}
           <div
             className={`flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b ${
@@ -1856,7 +1915,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         </div>
-      )}
+      ) : loadingDay ? (
+        <div className={`rounded-3xl p-12 border shadow-sm backdrop-blur-md text-center space-y-3 ${cardBg}`}>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+          <p className={`text-sm font-bold ${textSecondary}`}>Đang tải chi tiết Day {selectedDay}...</p>
+        </div>
+      ) : null}
       </div>
       )}
 

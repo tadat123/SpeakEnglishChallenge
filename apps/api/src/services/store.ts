@@ -3,7 +3,14 @@ import path from 'path';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
-import { DailyChallengeItem, QuestionItem, generate30DaysChallenges } from './seedData.js';
+import {
+  DailyChallengeItem,
+  QuestionItem,
+  WorkplaceWordItem,
+  DEFAULT_Q11_5_WORDS,
+  generate21DaysChallenges,
+  generate30DaysChallenges,
+} from './seedData.js';
 
 const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
 let prisma: PrismaClient | null = null;
@@ -175,8 +182,11 @@ export interface PushStaggerConfig {
   maxIntervalMs: number;       // Khoảng cách tối đa giữa 2 request liên tiếp (ms), VD: 6000ms
   autoRemindUnstudied: boolean;
   morningHour: number;         // Giờ thông báo buổi sáng (mặc định 8h sáng): Có bài mới (1 lần/ngày)
+  morningMinute?: number;      // Phút thông báo buổi sáng (0-59)
   eveningTop1Hour: number;     // Giờ thông báo Top 1 hiện tại (mặc định 19h tối, 1 lần/ngày)
+  eveningTop1Minute?: number;  // Phút thông báo Top 1 hiện tại (0-59)
   nightUnstudiedHour: number;  // Giờ nhắc những ai là USER mà chưa làm bài (mặc định 23h tối, 1 lần/ngày)
+  nightUnstudiedMinute?: number; // Phút nhắc USER chưa làm bài (0-59)
   lastMorningNotifiedDate: string | null;       // YYYY-MM-DD đã gửi thông báo buổi sáng
   lastEveningTop1NotifiedDate: string | null;   // YYYY-MM-DD đã gửi thông báo Top 1 lúc 19h
   lastNightUnstudiedNotifiedDate: string | null;// YYYY-MM-DD đã gửi nhắc USER chưa làm lúc 23h
@@ -391,10 +401,28 @@ class DataStore {
   private activeSessions = new Map<string, ActiveQuizSession>();
   // Lưu thời điểm Admin thực hiện Force Lock cho từng ngày
   private forceLockedDays = new Map<number, number>();
+  private lastLoadedMtime = 0;
 
   constructor() {
     this.data = this.loadOrSeed();
     this.syncFromPostgres();
+  }
+
+  private reloadIfChanged(): void {
+    try {
+      if (!fs.existsSync(DB_FILE)) return;
+      const stat = fs.statSync(DB_FILE);
+      if (stat.mtimeMs > this.lastLoadedMtime) {
+        const raw = fs.readFileSync(DB_FILE, 'utf-8');
+        const parsed = JSON.parse(raw) as DatabaseShape;
+        if (parsed && Array.isArray(parsed.challenges) && Array.isArray(parsed.users)) {
+          this.data = this.ensurePushState(parsed);
+          this.lastLoadedMtime = stat.mtimeMs;
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi đọc tức thời khi tiến trình khác đang ghi
+    }
   }
 
   public getPrisma(): PrismaClient | null {
@@ -548,8 +576,11 @@ class DataStore {
         maxIntervalMs: 5000,
         autoRemindUnstudied: true,
         morningHour: 8,
+        morningMinute: 0,
         eveningTop1Hour: 19,
+        eveningTop1Minute: 0,
         nightUnstudiedHour: 23,
+        nightUnstudiedMinute: 0,
         lastMorningNotifiedDate: null,
         lastEveningTop1NotifiedDate: null,
         lastNightUnstudiedNotifiedDate: null,
@@ -559,8 +590,11 @@ class DataStore {
       };
     } else {
       parsed.pushConfig.morningHour = parsed.pushConfig.morningHour ?? 8;
+      parsed.pushConfig.morningMinute = parsed.pushConfig.morningMinute ?? 0;
       parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 19;
+      parsed.pushConfig.eveningTop1Minute = parsed.pushConfig.eveningTop1Minute ?? 0;
       parsed.pushConfig.nightUnstudiedHour = parsed.pushConfig.nightUnstudiedHour ?? 23;
+      parsed.pushConfig.nightUnstudiedMinute = parsed.pushConfig.nightUnstudiedMinute ?? 0;
       parsed.pushConfig.lastMorningNotifiedDate = parsed.pushConfig.lastMorningNotifiedDate ?? null;
       parsed.pushConfig.lastEveningTop1NotifiedDate = parsed.pushConfig.lastEveningTop1NotifiedDate ?? null;
       parsed.pushConfig.lastNightUnstudiedNotifiedDate = parsed.pushConfig.lastNightUnstudiedNotifiedDate ?? null;
@@ -575,11 +609,41 @@ class DataStore {
     }
     if (fs.existsSync(DB_FILE)) {
       try {
+        this.lastLoadedMtime = fs.statSync(DB_FILE).mtimeMs;
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw) as DatabaseShape;
         const firstQ = parsed.challenges?.[0]?.questions?.[0] as any;
-        if (!firstQ || !firstQ.questionType) {
-          parsed.challenges = generate30DaysChallenges();
+        if (!firstQ || !firstQ.questionType || !parsed.challenges || parsed.challenges.length === 0) {
+          parsed.challenges = generate21DaysChallenges();
+        } else {
+          // Cập nhật số ngày từ 30 ngày sang 21 ngày theo yêu cầu
+          parsed.challenges = parsed.challenges.filter((c) => c.dayNumber <= 21);
+          for (const c of parsed.challenges) {
+            if (!c.q11Words || !c.q11Words.length) {
+              c.q11Words = JSON.parse(JSON.stringify(DEFAULT_Q11_5_WORDS));
+            } else if (c.q11Words.length > 5) {
+              c.q11Words = c.q11Words.slice(0, 5);
+            }
+            // Dạng Multiple choice chỉ hiện 3 đáp án (A, B, C)
+            for (const q of c.questions || []) {
+              if (
+                q.questionType !== 'TRUE_FALSE' &&
+                q.questionType !== 'FILL_IN_THE_BLANK' &&
+                q.options &&
+                q.options.length > 3
+              ) {
+                const correct = q.options.find((o: any) => o.id === q.correctOptionId);
+                const others = q.options.filter((o: any) => o.id !== q.correctOptionId);
+                if (correct) {
+                  q.options = [correct, ...others.slice(0, 2)].sort((a: any, b: any) =>
+                    a.id.localeCompare(b.id)
+                  );
+                } else {
+                  q.options = q.options.slice(0, 3);
+                }
+              }
+            }
+          }
         }
         // Đảm bảo luôn có tài khoản Admin GEN: 88888888 với mật khẩu Admin@2026 và role ADMIN
         if (!Array.isArray(parsed.users)) parsed.users = [];
@@ -723,7 +787,7 @@ class DataStore {
       ...DEFAULT_EMPLOYEES,
     ];
 
-    const challenges = generate30DaysChallenges();
+    const challenges = generate21DaysChallenges();
 
     const initialData: DatabaseShape = this.ensurePushState({
       users: initialUsers,
@@ -732,11 +796,21 @@ class DataStore {
     });
 
     fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
+    if (fs.existsSync(DB_FILE)) {
+      this.lastLoadedMtime = fs.statSync(DB_FILE).mtimeMs;
+    }
     return initialData;
   }
 
   public save() {
-    fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+      if (fs.existsSync(DB_FILE)) {
+        this.lastLoadedMtime = fs.statSync(DB_FILE).mtimeMs;
+      }
+    } catch (err) {
+      console.error('[Store] Failed to write DB_FILE:', err);
+    }
   }
 
   public resetAndReseed(): DatabaseShape {
@@ -818,15 +892,18 @@ class DataStore {
   }
 
   public getChallenges(): DailyChallengeItem[] {
+    this.reloadIfChanged();
     return this.data.challenges;
   }
 
   public getChallengeByDay(dayNumber: number): DailyChallengeItem | undefined {
+    this.reloadIfChanged();
     return this.data.challenges.find((c) => c.dayNumber === dayNumber);
   }
 
   public isDayUnlocked(challenge: DailyChallengeItem): boolean {
     if (!challenge.isPublished) return false;
+    if (challenge.forceLockedAt != null) return false;
     if (this.forceLockedDays.has(challenge.dayNumber)) return false;
     return new Date(challenge.unlockDate).getTime() <= Date.now();
   }
@@ -850,14 +927,9 @@ class DataStore {
     );
   }
 
-  // Xáo trộn đáp án ngẫu nhiên khác nhau cho từng người chơi & bỏ ký hiệu Audio A/B/C/D
-  private shuffleOptionsForUser(
-    options: QuestionItem['options'],
-    questionType: QuestionItem['questionType'],
-    seedStr: string
-  ): QuestionItem['options'] {
-    const cloned = JSON.parse(JSON.stringify(options)) as QuestionItem['options'];
-    // Kết hợp seed theo userId + questionId + random salt nhẹ để mỗi người chơi có thứ tự khác nhau
+  // Xáo trộn mảng ngẫu nhiên theo PRNG với seed xác định
+  private shuffleArray<T>(items: T[], seedStr: string): T[] {
+    const cloned = JSON.parse(JSON.stringify(items)) as T[];
     let hash = 2166136261;
     for (let i = 0; i < seedStr.length; i++) {
       hash ^= seedStr.charCodeAt(i);
@@ -875,6 +947,46 @@ class DataStore {
       cloned[i] = cloned[j];
       cloned[j] = tmp;
     }
+    return cloned;
+  }
+
+  // Chuẩn bị và xáo trộn đáp án cho từng câu hỏi:
+  // - Multiple choice chỉ giữ đúng 3 đáp án (1 đúng + 2 nhiễu)
+  // - Bỏ ký hiệu Audio A/B/C/D cứng nhắc
+  private prepareOptionsForQuiz(
+    options: QuestionItem['options'],
+    questionType: QuestionItem['questionType'],
+    correctOptionId: string,
+    seedStr: string
+  ): QuestionItem['options'] {
+    if (questionType === 'FILL_IN_THE_BLANK') {
+      return [];
+    }
+
+    let candidateOptions = JSON.parse(JSON.stringify(options || [])) as QuestionItem['options'];
+
+    // Dạng multiple choice chỉ hiện 3 đáp án:
+    if (questionType !== 'TRUE_FALSE' && candidateOptions.length > 3) {
+      const correctOpt = candidateOptions.find((o) => o.id === correctOptionId);
+      const otherOpts = candidateOptions.filter((o) => o.id !== correctOptionId);
+      if (correctOpt) {
+        candidateOptions = [correctOpt, ...otherOpts.slice(0, 2)];
+      } else {
+        candidateOptions = candidateOptions.slice(0, 3);
+      }
+    }
+
+    return this.shuffleOptionsForUser(candidateOptions, questionType, seedStr);
+  }
+
+  // Xáo trộn đáp án ngẫu nhiên khác nhau cho từng người chơi & bỏ ký hiệu Audio A/B/C/D
+  private shuffleOptionsForUser(
+    options: QuestionItem['options'],
+    questionType: QuestionItem['questionType'],
+    seedStr: string
+  ): QuestionItem['options'] {
+    if (questionType === 'FILL_IN_THE_BLANK') return [];
+    const cloned = this.shuffleArray(options, seedStr);
 
     if (questionType === 'CHOOSE_AUDIO') {
       return cloned.map((opt, idx) => ({
@@ -896,17 +1008,25 @@ class DataStore {
     return open[0] || this.data.challenges.filter((c) => this.isDayUnlocked(c)).sort((a, b) => b.dayNumber - a.dayNumber)[0] || this.data.challenges[0];
   }
 
-  /** Đề thi cho khách: xáo trộn đáp án nhưng KHÔNG tạo phiên thi & KHÔNG lưu điểm */
+  /** Đề thi cho khách: xáo trộn CẢ câu hỏi VÀ đáp án, multiple choice chỉ hiện 3 đáp án */
   public buildGuestQuestions(dayNumber: number, guestSeed: string): QuestionItem[] {
     const challenge = this.getChallengeByDay(dayNumber);
     if (!challenge) return [];
     const now = Date.now();
     const rawQuestions: QuestionItem[] = JSON.parse(JSON.stringify(challenge.questions));
-    return rawQuestions.map((q) => ({
+    // Đảo câu hỏi ngẫu nhiên cho khách
+    const shuffledQuestions = this.shuffleArray(
+      rawQuestions,
+      `guest-${guestSeed}-day${dayNumber}-questions-${now}`
+    );
+    // Đảo đáp án & chỉ giữ 3 phương án cho multiple choice
+    return shuffledQuestions.map((q, idx) => ({
       ...q,
-      options: this.shuffleOptionsForUser(
+      orderIndex: idx + 1,
+      options: this.prepareOptionsForQuiz(
         q.options,
         q.questionType,
+        q.correctOptionId,
         `guest-${guestSeed}-day${dayNumber}-${q.id}-${now}`
       ),
     }));
@@ -921,15 +1041,22 @@ class DataStore {
     if (!user || !challenge || !this.isDayUnlocked(challenge)) return null;
 
     const now = Date.now();
-    // Chụp lại bản sao bộ câu hỏi ngay thời điểm nhân viên bắt đầu làm bài & xáo trộn đáp án theo từng nhân viên
+    // Chụp lại bản sao bộ câu hỏi ngay thời điểm nhân viên bắt đầu làm bài
+    // Đảo CẢ câu hỏi VÀ đáp án theo từng người chơi; Multiple choice chỉ 3 đáp án
     const rawQuestions: QuestionItem[] = JSON.parse(
       JSON.stringify(challenge.questions)
     );
-    const questionsSnapshot: QuestionItem[] = rawQuestions.map((q) => ({
+    const shuffledQuestions = this.shuffleArray(
+      rawQuestions,
+      `${user.id}-${user.employeeId}-day${dayNumber}-questions-${now}`
+    );
+    const questionsSnapshot: QuestionItem[] = shuffledQuestions.map((q, idx) => ({
       ...q,
-      options: this.shuffleOptionsForUser(
+      orderIndex: idx + 1,
+      options: this.prepareOptionsForQuiz(
         q.options,
         q.questionType,
+        q.correctOptionId,
         `${user.id}-${user.employeeId}-day${dayNumber}-${q.id}-${now}`
       ),
     }));
@@ -978,6 +1105,9 @@ class DataStore {
 
   // Kiểm tra xem ngày thi có bị Admin khóa cưỡng chế (Force Lock) hay không
   public isSessionForceLocked(dayNumber: number, sessionStartedAt?: number): boolean {
+    this.reloadIfChanged();
+    const challenge = this.getChallengeByDay(dayNumber);
+    if (challenge && (challenge.forceLockedAt != null || !challenge.isPublished)) return true;
     const forceLockTime = this.forceLockedDays.get(dayNumber);
     if (!forceLockTime) return false;
     return true;
@@ -996,9 +1126,11 @@ class DataStore {
     challenge: DailyChallengeItem | undefined;
     activePlayersAffected: number;
     lockModeUsed?: 'GRACEFUL' | 'FORCE';
+    isUnlocked: boolean;
   } {
+    this.reloadIfChanged();
     const challenge = this.getChallengeByDay(dayNumber);
-    if (!challenge) return { challenge: undefined, activePlayersAffected: 0 };
+    if (!challenge) return { challenge: undefined, activePlayersAffected: 0, isUnlocked: false };
 
     if (payload.title !== undefined) challenge.title = payload.title.trim();
     if (payload.dateLabel !== undefined) challenge.dateLabel = payload.dateLabel.trim();
@@ -1010,19 +1142,23 @@ class DataStore {
         // Mở khóa ngày thi
         challenge.unlockDate = new Date(Date.now() - 60000).toISOString();
         challenge.isPublished = true;
+        challenge.forceLockedAt = null;
         this.forceLockedDays.delete(dayNumber);
       } else {
         // Khóa ngày thi
-        challenge.unlockDate = new Date(Date.now() + 86400000 * 30).toISOString();
+        challenge.unlockDate = new Date(Date.now() + 86400000 * 365).toISOString();
+        challenge.isPublished = false;
         const mode = payload.lockMode || 'GRACEFUL';
         if (mode === 'FORCE') {
           // Khóa cưỡng chế: Hủy toàn bộ phiên đang làm dở của ngày này ngay lập tức
+          challenge.forceLockedAt = Date.now();
           this.forceLockedDays.set(dayNumber, Date.now());
           for (const s of activePlayers) {
             this.activeSessions.delete(`${s.userId}:${dayNumber}`);
           }
         } else {
           // Khóa mềm: Không hủy active sessions đang làm dở, nhưng xóa forceLock nếu có và ngăn người mới
+          challenge.forceLockedAt = null;
           this.forceLockedDays.delete(dayNumber);
         }
       }
@@ -1033,6 +1169,7 @@ class DataStore {
       challenge,
       activePlayersAffected: activePlayers.length,
       lockModeUsed: payload.lockMode || 'GRACEFUL',
+      isUnlocked: this.isDayUnlocked(challenge),
     };
   }
 
@@ -1042,6 +1179,7 @@ class DataStore {
     dayNumber: number,
     qData: Omit<QuestionItem, 'id' | 'challengeId' | 'orderIndex'>
   ): QuestionItem | null {
+    this.reloadIfChanged();
     const challenge = this.getChallengeByDay(dayNumber);
     if (!challenge) return null;
 
@@ -1063,10 +1201,17 @@ class DataStore {
     questionId: string,
     qData: Partial<QuestionItem>
   ): QuestionItem | null {
+    this.reloadIfChanged();
     const challenge = this.getChallengeByDay(dayNumber);
     if (!challenge) return null;
 
-    const idx = challenge.questions.findIndex((q) => q.id === questionId);
+    const cleanId = String(questionId).trim();
+    const idx = challenge.questions.findIndex(
+      (q) =>
+        q.id === cleanId ||
+        String(q.orderIndex) === cleanId ||
+        q.id.toLowerCase() === cleanId.toLowerCase()
+    );
     if (idx === -1) return null;
 
     challenge.questions[idx] = {
@@ -1082,12 +1227,19 @@ class DataStore {
   }
 
   public deleteQuestionFromDay(dayNumber: number, questionId: string): boolean {
+    this.reloadIfChanged();
     const challenge = this.getChallengeByDay(dayNumber);
     if (!challenge) return false;
 
+    const cleanId = String(questionId).trim();
     const beforeLen = challenge.questions.length;
     challenge.questions = challenge.questions
-      .filter((q) => q.id !== questionId)
+      .filter(
+        (q) =>
+          q.id !== cleanId &&
+          String(q.orderIndex) !== cleanId &&
+          q.id.toLowerCase() !== cleanId.toLowerCase()
+      )
       .map((q, index) => ({
         ...q,
         orderIndex: index + 1,
@@ -1099,6 +1251,7 @@ class DataStore {
   }
 
   public copyQuestionsToAllDays(sourceDayNumber: number): number {
+    this.reloadIfChanged();
     const source = this.getChallengeByDay(sourceDayNumber);
     if (!source) return 0;
 
@@ -1115,6 +1268,30 @@ class DataStore {
     }
     this.save();
     return updatedCount;
+  }
+
+  // Quản lý bộ 5 từ vựng luyện đọc trong Câu 11 của ngày thi
+  public updateDayQ11Words(
+    dayNumber: number,
+    words: WorkplaceWordItem[],
+    cloneToAllDays = false
+  ): DailyChallengeItem | null {
+    this.reloadIfChanged();
+    const cleanWords = (words || []).slice(0, 5).map((w, idx) => ({
+      ...w,
+      id: idx + 1,
+    }));
+    const challenge = this.getChallengeByDay(dayNumber);
+    if (!challenge) return null;
+
+    challenge.q11Words = cleanWords;
+    if (cloneToAllDays) {
+      for (const c of this.data.challenges) {
+        c.q11Words = JSON.parse(JSON.stringify(cleanWords));
+      }
+    }
+    this.save();
+    return challenge;
   }
 
   public async recordAttempt(attempt: AttemptRecord): Promise<{

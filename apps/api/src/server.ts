@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { store } from './services/store.js';
 import { pushService } from './services/pushNotification.js';
+import { DEFAULT_Q11_5_WORDS } from './services/seedData.js';
 import {
   ddosAndBotProtection,
   ipThreatManager,
@@ -506,6 +507,7 @@ app.post('/api/public/challenges/:dayNumber/start', async (request: any, reply) 
     startedAt: Date.now(),
     isGuest: true,
     questions,
+    q11Words: challenge?.q11Words || DEFAULT_Q11_5_WORDS,
   };
 });
 
@@ -606,6 +608,7 @@ app.post(
       dateLabel: challenge.dateLabel,
       startedAt: session.startedAt,
       questions: sanitizedQuestions,
+      q11Words: challenge.q11Words || DEFAULT_Q11_5_WORDS,
     };
   }
 );
@@ -707,7 +710,22 @@ app.post(
 
     const detailedReview = questionsToGrade.map((q) => {
       const selectedOptionId = body.answers?.[q.id] || null;
-      const isCorrect = selectedOptionId === q.correctOptionId;
+      let isCorrect = false;
+
+      if (q.questionType === 'FILL_IN_THE_BLANK') {
+        const userText = String(body.answers?.[q.id] || '')
+          .trim()
+          .toLowerCase()
+          .replace(/['’]/g, "'");
+        const expected = String(q.targetWord || '')
+          .trim()
+          .toLowerCase()
+          .replace(/['’]/g, "'");
+        isCorrect = userText.length > 0 && userText === expected;
+      } else {
+        isCorrect = selectedOptionId === q.correctOptionId;
+      }
+
       if (isCorrect) {
         score += q.points;
         correctCount += 1;
@@ -715,21 +733,29 @@ app.post(
         wrongCount += 1;
       }
 
-      const correctOption = q.options.find((o) => o.id === q.correctOptionId);
-      const selectedOption = q.options.find((o) => o.id === selectedOptionId);
+      const correctOption = q.options?.find((o) => o.id === q.correctOptionId);
+      const selectedOption = q.options?.find((o) => o.id === selectedOptionId);
 
       return {
         questionId: q.id,
         orderIndex: q.orderIndex,
+        questionType: q.questionType,
         promptText: q.promptText,
+        statementText: q.statementText,
         targetWord: q.targetWord,
         promptAudioUrl: q.promptAudioUrl,
         promptVideoUrl: q.promptVideoUrl,
-        options: q.options,
+        options: q.options || [],
         selectedOptionId,
-        selectedOptionText: selectedOption?.text || 'Chưa chọn',
+        selectedOptionText:
+          q.questionType === 'FILL_IN_THE_BLANK'
+            ? (body.answers?.[q.id] || 'Chưa điền')
+            : (selectedOption?.text || 'Chưa chọn'),
         correctOptionId: q.correctOptionId,
-        correctOptionText: correctOption?.text || '',
+        correctOptionText:
+          q.questionType === 'FILL_IN_THE_BLANK'
+            ? q.targetWord
+            : (correctOption?.text || ''),
         isCorrect,
         explanation: q.explanation,
       };
@@ -1018,6 +1044,7 @@ app.put(
     return {
       message: msg,
       challenge: result.challenge,
+      isUnlocked: result.isUnlocked,
       activePlayersAffected: result.activePlayersAffected,
       pushCampaign,
     };
@@ -1118,7 +1145,7 @@ app.delete(
   }
 );
 
-// Sao chép bộ câu hỏi của Day X sang toàn bộ 30 ngày
+// Sao chép bộ câu hỏi của Day X sang toàn bộ 21 ngày
 app.post(
   '/api/admin/challenges/:dayNumber/clone-to-all',
   { preHandler: [(app as any).requireAdmin] },
@@ -1127,6 +1154,29 @@ app.post(
     const count = store.copyQuestionsToAllDays(dayNumber);
     return {
       message: `Đã đồng bộ bộ câu hỏi của Day ${dayNumber} sang ${count} ngày còn lại!`,
+    };
+  }
+);
+
+// Quản lý bộ 5 từ vựng luyện đọc trong Câu 11 của ngày thi
+app.put(
+  '/api/challenges/:dayNumber/q11-words',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const { q11Words, cloneToAllDays } = request.body || {};
+    if (!Array.isArray(q11Words)) {
+      return reply.status(400).send({ message: 'Danh sách từ vựng Câu 11 không hợp lệ.' });
+    }
+    const updated = store.updateDayQ11Words(dayNumber, q11Words, Boolean(cloneToAllDays));
+    if (!updated) {
+      return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
+    }
+    return {
+      message: cloneToAllDays
+        ? `Đã cập nhật bộ 5 từ vựng Câu 11 cho toàn bộ 21 ngày thử thách!`
+        : `Đã cập nhật bộ 5 từ vựng Câu 11 cho Day ${dayNumber}!`,
+      challenge: updated,
     };
   }
 );
@@ -1168,7 +1218,7 @@ app.post(
   async () => {
     store.resetAndReseed();
     return {
-      message: 'Đã nạp lại (Re-seed) toàn bộ 30 ngày thử thách và Bộ 10 Câu Hỏi chuẩn thành công!',
+      message: 'Đã nạp lại (Re-seed) toàn bộ 21 ngày thử thách và Bộ 10 Câu Hỏi chuẩn thành công!',
     };
   }
 );
@@ -1305,8 +1355,11 @@ app.put(
       maxIntervalMs?: number;
       autoRemindUnstudied?: boolean;
       morningHour?: number;
+      morningMinute?: number;
       eveningTop1Hour?: number;
+      eveningTop1Minute?: number;
       nightUnstudiedHour?: number;
+      nightUnstudiedMinute?: number;
       resetTodayQuota?: boolean;
     };
 
@@ -1326,11 +1379,20 @@ app.put(
       ...(body.morningHour !== undefined
         ? { morningHour: Math.max(0, Math.min(23, Number(body.morningHour))) }
         : {}),
+      ...(body.morningMinute !== undefined
+        ? { morningMinute: Math.max(0, Math.min(59, Number(body.morningMinute))) }
+        : {}),
       ...(body.eveningTop1Hour !== undefined
         ? { eveningTop1Hour: Math.max(0, Math.min(23, Number(body.eveningTop1Hour))) }
         : {}),
+      ...(body.eveningTop1Minute !== undefined
+        ? { eveningTop1Minute: Math.max(0, Math.min(59, Number(body.eveningTop1Minute))) }
+        : {}),
       ...(body.nightUnstudiedHour !== undefined
         ? { nightUnstudiedHour: Math.max(0, Math.min(23, Number(body.nightUnstudiedHour))) }
+        : {}),
+      ...(body.nightUnstudiedMinute !== undefined
+        ? { nightUnstudiedMinute: Math.max(0, Math.min(59, Number(body.nightUnstudiedMinute))) }
         : {}),
       ...(body.resetTodayQuota
         ? {
@@ -1341,8 +1403,12 @@ app.put(
         : {}),
     });
 
+    const mTime = `${String(updated.morningHour).padStart(2, '0')}:${String(updated.morningMinute || 0).padStart(2, '0')}`;
+    const eTime = `${String(updated.eveningTop1Hour).padStart(2, '0')}:${String(updated.eveningTop1Minute || 0).padStart(2, '0')}`;
+    const nTime = `${String(updated.nightUnstudiedHour).padStart(2, '0')}:${String(updated.nightUnstudiedMinute || 0).padStart(2, '0')}`;
+
     return {
-      message: `Đã lưu cấu hình lịch thông báo ngày (${updated.morningHour}h sáng bài mới • ${updated.eveningTop1Hour}h tối Top 1 • ${updated.nightUnstudiedHour}h tối nhắc USER chưa làm) & chia đều ${updated.spreadWindowSeconds}s!`,
+      message: `Đã lưu cấu hình lịch thông báo ngày (${mTime} sáng bài mới • ${eTime} tối Top 1 • ${nTime} tối nhắc USER chưa làm) & chia đều ${updated.spreadWindowSeconds}s!`,
       config: updated,
     };
   }

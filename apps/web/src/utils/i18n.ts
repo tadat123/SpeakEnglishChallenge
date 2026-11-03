@@ -4,7 +4,7 @@ export const TRANSLATIONS = {
   vi: {
     // Nav & Header
     home: 'Trang chủ',
-    challenges: '30 Ngày',
+    challenges: '21 Ngày',
     leaderboard: 'Xếp hạng',
     profile: 'Cá nhân',
     admin: 'Quản trị',
@@ -41,7 +41,7 @@ export const TRANSLATIONS = {
     totalScoreLabel: 'Tổng điểm',
     rankLabel: 'Xếp hạng',
     progressTitle: 'Tiến độ Thử thách',
-    viewAll30Days: 'Xem đủ 30 ngày',
+    viewAll30Days: 'Xem đủ 21 ngày',
     topLeaderboardTitle: 'Bảng xếp hạng nổi bật',
     viewTop50: 'Xem Top 50',
     todayBadge: 'Hôm nay',
@@ -50,7 +50,7 @@ export const TRANSLATIONS = {
     youBadge: 'Bạn',
 
     // Challenge Grid
-    journey30Days: 'Hành trình 30 Ngày Phát Âm',
+    journey30Days: 'Hành trình 21 Ngày Phát Âm',
     doTodayBtn: 'Làm bài hôm nay',
     openBadge: 'Mở',
     lockedShort: 'Khóa',
@@ -98,7 +98,7 @@ export const TRANSLATIONS = {
     deptNote: 'Mỗi bộ phận tự tổng hợp danh sách đăng ký và tổ chức vòng sơ loại.',
     dailyTitle: 'DAILY CHALLENGE',
     dailyDesc: 'Mỗi ngày một bước nhỏ, tiến bộ lớn phía trước!',
-    dailyChips: ['Không giới hạn', '30 ngày thi', 'Tích điểm & quà'],
+    dailyChips: ['Không giới hạn', '21 ngày thi', 'Tích điểm & quà'],
     viewDetails: 'Chi tiết →',
     joinDaily: 'Vào thi ngay →',
     bePartOf: 'Hãy là một phần của',
@@ -135,7 +135,7 @@ export const TRANSLATIONS = {
   en: {
     // Nav & Header
     home: 'Home',
-    challenges: '30 Days',
+    challenges: '21 Days',
     leaderboard: 'Ranking',
     profile: 'Profile',
     admin: 'Admin',
@@ -172,7 +172,7 @@ export const TRANSLATIONS = {
     totalScoreLabel: 'Total Score',
     rankLabel: 'Rank',
     progressTitle: 'Challenge Progress',
-    viewAll30Days: 'View all 30 days',
+    viewAll30Days: 'View all 21 days',
     topLeaderboardTitle: 'Top Leaderboard',
     viewTop50: 'View Top 50',
     todayBadge: 'Today',
@@ -181,7 +181,7 @@ export const TRANSLATIONS = {
     youBadge: 'You',
 
     // Challenge Grid
-    journey30Days: '30-Day Pronunciation Journey',
+    journey30Days: '21-Day Pronunciation Journey',
     doTodayBtn: "Play Today's Quiz",
     openBadge: 'Open',
     lockedShort: 'Locked',
@@ -229,7 +229,7 @@ export const TRANSLATIONS = {
     deptNote: 'Each department will compile the registration list and organize the preliminary round.',
     dailyTitle: 'DAILY CHALLENGE',
     dailyDesc: 'Small steps every day, big progress ahead!',
-    dailyChips: ['No limit on participants', '30-Day quiz', 'Earn points and recognition'],
+    dailyChips: ['No limit on participants', '21-Day quiz', 'Earn points and recognition'],
     viewDetails: 'Details →',
     joinDaily: 'Start now →',
     bePartOf: 'Be part of',
@@ -266,7 +266,7 @@ export const TRANSLATIONS = {
   ko: {
     // Nav & Header
     home: '홈',
-    challenges: '30일 챌린지',
+    challenges: '21일 챌린지',
     leaderboard: '랭킹',
     profile: '프로필',
     admin: '관리자',
@@ -303,7 +303,7 @@ export const TRANSLATIONS = {
     totalScoreLabel: '총점',
     rankLabel: '현재 순위',
     progressTitle: '챌린지 진행 현황',
-    viewAll30Days: '30일 전체 보기',
+    viewAll30Days: '21일 전체 보기',
     topLeaderboardTitle: '실시간 TOP 랭킹',
     viewTop50: 'TOP 50 보기',
     todayBadge: '오늘',
@@ -312,7 +312,7 @@ export const TRANSLATIONS = {
     youBadge: '나',
 
     // Challenge Grid
-    journey30Days: '30일 영어 발음 마스터 여정',
+    journey30Days: '21일 영어 발음 마스터 여정',
     doTodayBtn: '오늘의 문제 풀기',
     openBadge: '열림',
     lockedShort: '잠김',
@@ -360,7 +360,7 @@ export const TRANSLATIONS = {
     deptNote: '각 부서에서 참가자 명단을 취합하고 예선을 진행합니다.',
     dailyTitle: 'DAILY CHALLENGE',
     dailyDesc: '매일 작은 한 걸음, 큰 성장으로!',
-    dailyChips: ['참가 무제한', '30일 챌린지', '포인트 및 리워드'],
+    dailyChips: ['참가 무제한', '21일 챌린지', '포인트 및 리워드'],
     viewDetails: '자세히 →',
     joinDaily: '지금 도전 →',
     bePartOf: '함께해요',

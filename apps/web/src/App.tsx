@@ -155,8 +155,9 @@ export const App: React.FC = () => {
     dateLabel: string;
     questions: any[];
     currentIndex: number;
-    answers: Record<string, 'A' | 'B' | 'C' | 'D'>;
+    answers: Record<string, string>;
     elapsedSeconds: number;
+    q11Words?: any[];
   } | null>(null);
   const [quizResult, setQuizResult] = useState<any | null>(null);
   const [showDetailedReview, setShowDetailedReview] = useState(false);
@@ -297,9 +298,9 @@ export const App: React.FC = () => {
     if (isGuest && !GUEST_TABS.includes(tab)) {
       setLoginPromptMsg(
         L(
-          'Tính năng này chỉ dành cho tài khoản đã đăng nhập. Đăng nhập hoặc tạo tài khoản để xem lộ trình 30 ngày, làm bù bài các ngày trước và theo dõi điểm của bạn.',
-          'This feature requires an account. Log in or sign up to see the 30-day journey, catch up on previous days and track your score.',
-          '로그인한 계정만 이용할 수 있습니다. 로그인 또는 회원가입 후 30일 여정, 지난 챌린지, 내 점수를 확인하세요.'
+          'Tính năng này chỉ dành cho tài khoản đã đăng nhập. Đăng nhập hoặc tạo tài khoản để xem lộ trình 21 ngày, làm bù bài các ngày trước và theo dõi điểm của bạn.',
+          'This feature requires an account. Log in or sign up to see the 21-day journey, catch up on previous days and track your score.',
+          '로그인한 계정만 이용할 수 있습니다. 로그인 또는 회원가입 후 21일 여정, 지난 챌린지, 내 점수를 확인하세요.'
         )
       );
       return;
@@ -625,6 +626,7 @@ export const App: React.FC = () => {
           currentIndex: 0,
           answers: {},
           elapsedSeconds: 0,
+          q11Words: data.q11Words,
         });
         window.location.hash = `#quiz/${data.dayNumber}`;
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -656,6 +658,7 @@ export const App: React.FC = () => {
         currentIndex: 0,
         answers: {},
         elapsedSeconds: 0,
+        q11Words: data.q11Words,
       });
       window.location.hash = `#quiz/${data.dayNumber}`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -671,7 +674,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSelectOption = (question: any, optionId: 'A' | 'B' | 'C' | 'D') => {
+  const handleSelectOption = (question: any, optionId: string) => {
     if (!activeQuiz) return;
 
     setActiveQuiz((prev) => {
@@ -712,27 +715,50 @@ export const App: React.FC = () => {
 
         const detailedReview = questionsToGrade.map((q: any) => {
           const selectedOptionId = activeQuiz.answers?.[q.id] || null;
-          const isCorrect = selectedOptionId === q.correctOptionId;
+          let isCorrect = false;
+
+          if (q.questionType === 'FILL_IN_THE_BLANK') {
+            const userText = String(activeQuiz.answers?.[q.id] || '')
+              .trim()
+              .toLowerCase()
+              .replace(/['’]/g, "'");
+            const expected = String(q.targetWord || '')
+              .trim()
+              .toLowerCase()
+              .replace(/['’]/g, "'");
+            isCorrect = userText.length > 0 && userText === expected;
+          } else {
+            isCorrect = selectedOptionId === q.correctOptionId;
+          }
+
           if (isCorrect) {
             score += q.points;
             correctCount += 1;
           } else {
             wrongCount += 1;
           }
-          const correctOption = q.options.find((o: any) => o.id === q.correctOptionId);
-          const selectedOption = q.options.find((o: any) => o.id === selectedOptionId);
+          const correctOption = q.options?.find((o: any) => o.id === q.correctOptionId);
+          const selectedOption = q.options?.find((o: any) => o.id === selectedOptionId);
           return {
             questionId: q.id,
             orderIndex: q.orderIndex,
+            questionType: q.questionType,
             promptText: q.promptText,
+            statementText: q.statementText,
             targetWord: q.targetWord,
             promptAudioUrl: q.promptAudioUrl,
             promptVideoUrl: q.promptVideoUrl,
-            options: q.options,
+            options: q.options || [],
             selectedOptionId,
-            selectedOptionText: selectedOption?.text || 'Chưa chọn',
+            selectedOptionText:
+              q.questionType === 'FILL_IN_THE_BLANK'
+                ? (activeQuiz.answers?.[q.id] || 'Chưa điền')
+                : (selectedOption?.text || 'Chưa chọn'),
             correctOptionId: q.correctOptionId,
-            correctOptionText: correctOption?.text || '',
+            correctOptionText:
+              q.questionType === 'FILL_IN_THE_BLANK'
+                ? q.targetWord
+                : (correctOption?.text || ''),
             isCorrect,
             explanation: q.explanation,
           };
@@ -837,13 +863,15 @@ export const App: React.FC = () => {
 
   const handleExportLeaderboardCsv = () => {
     const rows = [
-      ['Hạng', 'Số GEN (8 số)', 'Họ và Tên', 'Tổng Điểm', 'Số Ngày Hoàn Thành'],
+      ['Hạng', 'Số GEN (8 số)', 'Họ và Tên', 'Phòng Ban', 'Tổng Điểm', 'Số Ngày Hoàn Thành', 'Tổng Thời Gian Hoàn Thành'],
       ...(leaderboardData.topList || []).map((u: any) => [
         u.rank,
         `="${u.employeeId}"`,
         `"${u.fullName}"`,
+        `"${u.department || ''}"`,
         u.totalScore,
         u.completedDays,
+        `"${formatTimeMmSs(Math.round((u.totalTimeMs || 0) / 1000))}"`,
       ]),
     ];
     const csvContent =
@@ -1334,6 +1362,7 @@ export const App: React.FC = () => {
                       darkMode={darkMode}
                       value={q11Data}
                       onChange={setQ11Data}
+                      words={activeQuiz.q11Words}
                     />
 
                     <div className="flex items-center justify-between gap-2.5 mt-5 pt-3.5 border-t border-slate-200/60">
@@ -1415,7 +1444,7 @@ export const App: React.FC = () => {
                     </div>
 
                     {q.statementText && (
-                      <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs sm:text-sm font-extrabold">
+                      <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-amber-50/95 dark:bg-amber-950/60 border-2 border-amber-300 dark:border-amber-600 text-amber-950 dark:text-amber-100 text-base sm:text-lg md:text-xl font-black leading-relaxed shadow-sm">
                         📌 {q.statementText}
                       </div>
                     )}
@@ -1432,73 +1461,147 @@ export const App: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Danh sách đáp án đã được xáo trộn ngẫu nhiên theo từng người chơi & KHÔNG hiển thị A, B, C, D */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
-                    {q.options.map((opt: any, optIdx: number) => {
-                      const isSelected = selectedOpt === opt.id;
-                      const optAudioKey = `opt-${q.id}-${opt.id}`;
-                      const displayLabel =
-                        q.questionType === 'CHOOSE_AUDIO' && /^Audio [A-D]$/i.test(opt.text)
-                          ? `${t.audioSamplePrefix} ${optIdx + 1}`
-                          : opt.text;
-
-                      return (
-                        <div
-                          key={opt.id}
-                          onClick={() => handleSelectOption(q, opt.id)}
-                          className={`flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl border-2 cursor-pointer transition select-none active:scale-[0.99] ${
-                            isSelected
-                              ? darkMode
-                                ? 'border-blue-500 bg-blue-950/60 shadow-sm'
-                                : 'border-blue-600 bg-blue-50/90 shadow-sm'
-                              : darkMode
-                              ? 'border-slate-700 bg-slate-800/75 hover:border-blue-400'
-                              : 'border-white/80 bg-white/80 hover:border-blue-300'
-                          }`}
-                        >
-                          {opt.hasOptionAudio && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSpeak(
-                                  optAudioKey,
-                                  opt.spokenText || q.targetWord,
-                                  opt.audioUrl
-                                );
-                              }}
-                              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition ${
-                                playingAudioId === optAudioKey
-                                  ? 'bg-blue-700 text-white ring-4 ring-blue-200 scale-105'
-                                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                              }`}
-                            >
-                              <Volume2 className="w-5 h-5" />
-                            </button>
+                  {/* Dạng câu hỏi điền từ (FILL_IN_THE_BLANK) */}
+                  {q.questionType === 'FILL_IN_THE_BLANK' ? (
+                    <div
+                      className={`mt-4 p-5 rounded-3xl border-2 space-y-3.5 shadow-sm ${
+                        darkMode
+                          ? 'bg-slate-800/80 border-blue-500/50'
+                          : 'bg-white border-blue-200'
+                      }`}
+                    >
+                      <label className={`block text-xs sm:text-sm font-black ${textPrimary}`}>
+                        ✍️ {L(
+                          'Nhập từ vựng tiếng Anh chính xác vào ô bên dưới:',
+                          'Type the correct English word below:',
+                          '아래 입력란에 정확한 영어 단어를 입력하세요:'
+                        )}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          autoFocus
+                          autoComplete="off"
+                          spellCheck="false"
+                          placeholder={L(
+                            'Gõ từ tiếng Anh tại đây (VD: registration)...',
+                            'Type English word here (e.g. registration)...',
+                            '영단어를 입력하세요 (예: registration)...'
                           )}
+                          value={activeQuiz.answers[q.id] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setActiveQuiz((prev) =>
+                              prev ? { ...prev, answers: { ...prev.answers, [q.id]: val } } : null
+                            );
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (activeQuiz.currentIndex < activeQuiz.questions.length - 1) {
+                                setActiveQuiz((prev) =>
+                                  prev ? { ...prev, currentIndex: prev.currentIndex + 1 } : null
+                                );
+                              } else {
+                                setActiveQuiz((prev) =>
+                                  prev ? { ...prev, currentIndex: prev.questions.length } : null
+                                );
+                              }
+                            }
+                          }}
+                          className={`w-full px-4 py-3.5 text-base sm:text-lg font-black rounded-2xl border-2 outline-none transition ${
+                            activeQuiz.answers[q.id]
+                              ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100'
+                              : darkMode
+                              ? 'border-slate-700 bg-slate-900/60 text-white'
+                              : 'border-slate-300 bg-slate-50 text-slate-900'
+                          } focus:ring-4 focus:ring-blue-400/30`}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className={`font-semibold ${textSecondary}`}>
+                          💡 {L(
+                            'Gợi ý: Xem phiên âm & nghĩa ở khung trên, gõ từ rồi bấm "Tiếp theo"',
+                            'Hint: Check phonetic & meaning above, type the word and tap "Next"',
+                            '힌트: 위 발음기호와 뜻을 보고 단어를 입력한 뒤 "다음"을 누르세요'
+                          )}
+                        </span>
+                        {activeQuiz.answers[q.id] && (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 inline" />
+                            {L('Đã nhập', 'Entered', '입력됨')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Danh sách đáp án đã được xáo trộn ngẫu nhiên theo từng người chơi & KHÔNG hiển thị A, B, C, D */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
+                      {q.options.map((opt: any, optIdx: number) => {
+                        const isSelected = selectedOpt === opt.id;
+                        const optAudioKey = `opt-${q.id}-${opt.id}`;
+                        const displayLabel =
+                          q.questionType === 'CHOOSE_AUDIO' && /^Audio [A-D]$/i.test(opt.text)
+                            ? `${t.audioSamplePrefix} ${optIdx + 1}`
+                            : opt.text;
 
-                          <div className="flex-1 min-w-0">
-                            <span className={`text-sm sm:text-base font-bold block ${textPrimary}`}>
-                              {displayLabel}
-                            </span>
-                            {opt.hasOptionAudio && (
-                              <span className="text-[11px] text-blue-600 font-semibold">
-                                {t.tapSpeakerHint}
-                              </span>
-                            )}
-                          </div>
-
+                        return (
                           <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                              isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                            key={opt.id}
+                            onClick={() => handleSelectOption(q, opt.id)}
+                            className={`flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl border-2 cursor-pointer transition select-none active:scale-[0.99] ${
+                              isSelected
+                                ? darkMode
+                                  ? 'border-blue-500 bg-blue-950/60 shadow-sm'
+                                  : 'border-blue-600 bg-blue-50/90 shadow-sm'
+                                : darkMode
+                                ? 'border-slate-700 bg-slate-800/75 hover:border-blue-400'
+                                : 'border-white/80 bg-white/80 hover:border-blue-300'
                             }`}
                           >
-                            {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                            {opt.hasOptionAudio && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSpeak(
+                                    optAudioKey,
+                                    opt.spokenText || q.targetWord,
+                                    opt.audioUrl
+                                  );
+                                }}
+                                className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition ${
+                                  playingAudioId === optAudioKey
+                                    ? 'bg-blue-700 text-white ring-4 ring-blue-200 scale-105'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                                }`}
+                              >
+                                <Volume2 className="w-5 h-5" />
+                              </button>
+                            )}
+
+                            <div className="flex-1 min-w-0">
+                              <span className={`text-sm sm:text-base font-bold block ${textPrimary}`}>
+                                {displayLabel}
+                              </span>
+                              {opt.hasOptionAudio && (
+                                <span className="text-[11px] text-blue-600 font-semibold">
+                                  {t.tapSpeakerHint}
+                                </span>
+                              )}
+                            </div>
+
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                              }`}
+                            >
+                              {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between gap-2.5 mt-5 pt-3.5 border-t border-slate-200/60">
                     <button
@@ -1612,9 +1715,9 @@ export const App: React.FC = () => {
                       </h3>
                       <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
                         {L(
-                          'Bài làm của bạn đã được ghi nhận tạm thời. Để lưu điểm vào hệ thống, tính vào tiến độ 30 ngày và tham gia Bảng xếp hạng Samsung, vui lòng đăng nhập hoặc tạo tài khoản ngay!',
-                          'Your submission was temporarily recorded. To save your score, count towards 30 days and join the Samsung leaderboard, please log in or create an account!',
-                          '제출이 임시 기록되었습니다. 30일 진행도 및 랭킹에 반영하려면 지금 로그인하거나 가입하세요!'
+                          'Bài làm của bạn đã được ghi nhận tạm thời. Để lưu điểm vào hệ thống, tính vào tiến độ 21 ngày và tham gia Bảng xếp hạng Samsung, vui lòng đăng nhập hoặc tạo tài khoản ngay!',
+                          'Your submission was temporarily recorded. To save your score, count towards 21 days and join the Samsung leaderboard, please log in or create an account!',
+                          '제출이 임시 기록되었습니다. 21일 진행도 및 랭킹에 반영하려면 지금 로그인하거나 가입하세요!'
                         )}
                       </p>
                     </div>
@@ -1858,7 +1961,7 @@ export const App: React.FC = () => {
                       className="bg-white/15 hover:bg-white/25 rounded-2xl p-2.5 cursor-pointer transition"
                     >
                       <div className="text-lg sm:text-2xl font-black text-amber-300">
-                        {isGuest ? '0/30' : `${completedCount}/30`} {t.daysUnit}
+                        {isGuest ? '0/21' : `${completedCount}/21`} {t.daysUnit}
                       </div>
                       <div className="text-[11px] text-blue-100 font-semibold">
                         {t.completedDaysLabel}

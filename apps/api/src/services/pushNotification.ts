@@ -469,13 +469,23 @@ class StaggeredPushService {
         const cfg = store.getPushConfig();
         if (!cfg.autoRemindUnstudied) return;
 
-        const { dateKey, hour } = getVietnamDateAndHour();
+        const { dateKey, hour, minute } = getVietnamDateAndHour();
+        const currentMinutes = hour * 60 + minute;
+
         const morningHour = cfg.morningHour ?? 8;
+        const morningMinute = cfg.morningMinute ?? 0;
+        const morningTargetMinutes = morningHour * 60 + morningMinute;
+
         const eveningTop1Hour = cfg.eveningTop1Hour ?? 19;
+        const eveningTop1Minute = cfg.eveningTop1Minute ?? 0;
+        const eveningTargetMinutes = eveningTop1Hour * 60 + eveningTop1Minute;
+
         const nightUnstudiedHour = cfg.nightUnstudiedHour ?? 23;
+        const nightUnstudiedMinute = cfg.nightUnstudiedMinute ?? 0;
+        const nightTargetMinutes = nightUnstudiedHour * 60 + nightUnstudiedMinute;
 
         // 1. Khung buổi sáng (1 lần/ngày): Thông báo Có bài mới
-        if (hour === morningHour && cfg.lastMorningNotifiedDate !== dateKey) {
+        if (currentMinutes >= morningTargetMinutes && cfg.lastMorningNotifiedDate !== dateKey) {
           const latestDay = store.getLatestUnlockedChallenge();
           if (latestDay && store.isDayUnlocked(latestDay)) {
             this.enqueueNewDayUnlocked(latestDay);
@@ -483,8 +493,8 @@ class StaggeredPushService {
           }
         }
 
-        // 2. Khung 19h tối (1 lần/ngày): Thông báo Top 1 hiện tại
-        if (hour === eveningTop1Hour && cfg.lastEveningTop1NotifiedDate !== dateKey) {
+        // 2. Khung tối (1 lần/ngày): Thông báo Top 1 hiện tại
+        if (currentMinutes >= eveningTargetMinutes && cfg.lastEveningTop1NotifiedDate !== dateKey) {
           const leaderboard = store.getLeaderboard();
           const currentTop1 = leaderboard[0];
           const runnerUp = leaderboard[1] || null;
@@ -494,8 +504,8 @@ class StaggeredPushService {
           }
         }
 
-        // 3. Khung 23h tối (1 lần/ngày): Thông báo cho những ai là USER mà chưa làm bài
-        if (hour === nightUnstudiedHour && cfg.lastNightUnstudiedNotifiedDate !== dateKey) {
+        // 3. Khung đêm (1 lần/ngày): Thông báo cho những ai là USER mà chưa làm bài
+        if (currentMinutes >= nightTargetMinutes && cfg.lastNightUnstudiedNotifiedDate !== dateKey) {
           const unstudied = store.getUnstudiedAccountsWithPwa();
           if (unstudied.length > 0) {
             this.enqueueUnstudiedAccountsReminder();

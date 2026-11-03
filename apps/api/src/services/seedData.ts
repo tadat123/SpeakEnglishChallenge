@@ -1,8 +1,9 @@
 export type QuestionType =
-  | 'CHOOSE_AUDIO'      // Câu 1, 5: Nghe 4 phương án audio A/B/C/D và chọn cách phát âm đúng
-  | 'TRUE_FALSE'        // Câu 2, 6: Nghe audio câu hỏi và xác định nhận định True / False
-  | 'LISTEN_AND_CHOOSE' // Câu 3, 7, 9: Nghe audio câu hỏi và chọn từ đúng
-  | 'VOCAB_MEANING';    // Câu 4, 8, 10: Nghĩa của từ / từ viết tắt (Không bắt buộc có audio)
+  | 'CHOOSE_AUDIO'      // Chọn audio phát âm đúng (3 phương án A/B/C)
+  | 'TRUE_FALSE'        // Nghe audio câu hỏi và xác định nhận định True / False (2 phương án)
+  | 'LISTEN_AND_CHOOSE' // Nghe audio câu hỏi và chọn từ đúng (3 phương án A/B/C)
+  | 'VOCAB_MEANING'     // Nghĩa của từ / từ viết tắt (3 phương án A/B/C)
+  | 'FILL_IN_THE_BLANK'; // Điền từ vựng theo phiên âm & nghĩa
 
 export interface QuestionOption {
   id: 'A' | 'B' | 'C' | 'D';
@@ -19,17 +20,93 @@ export interface QuestionItem {
   questionType: QuestionType;
   categoryLabel: string;
   promptText: string;
-  statementText?: string;  // Dành cho câu True/False (VD: Nhận định: “Audio vừa nghe là DOE.”)
-  targetWord: string;      // Từ/cụm từ phát âm của câu hỏi
+  statementText?: string;  // Dành cho câu True/False hoặc Phiên âm & nghĩa của câu Điền từ
+  targetWord: string;      // Từ/cụm từ phát âm của câu hỏi hoặc Từ cần điền
   hasPromptAudio: boolean; // Câu hỏi có nút Loa lớn ở đề bài hay không
   audioNote: string;       // Ghi chú chuẩn bị file audio cho Admin
   promptAudioUrl?: string; // Link CDN / Upload file MP3 của câu hỏi
   promptVideoUrl?: string; // Link Video MP4 / YouTube tình huống hội thoại của câu hỏi
   options: QuestionOption[];
-  correctOptionId: 'A' | 'B' | 'C' | 'D';
+  correctOptionId: 'A' | 'B' | 'C' | 'D' | string;
   explanation: string;
   points: number;
 }
+
+export interface WorkplaceWordItem {
+  id: number;
+  word: string;
+  spokenText: string;
+  ipa: string;
+  meaningVi: string;
+  meaningEn: string;
+  meaningKo: string;
+  tipVi: string;
+  tipEn: string;
+  tipKo: string;
+}
+
+export const DEFAULT_Q11_5_WORDS: WorkplaceWordItem[] = [
+  {
+    id: 1,
+    word: 'Approval',
+    spokenText: 'Approval',
+    ipa: '/əˈpruːvəl/',
+    meaningVi: 'Sự phê duyệt',
+    meaningEn: 'Official permission',
+    meaningKo: '승인 / 결재',
+    tipVi: 'Nhấn trọng âm ở âm tiết thứ 2 (-proo-), âm đầu đọc nhẹ là /ə/, cong lưỡi nhẹ ở âm cuối /l/.',
+    tipEn: 'Stress the 2nd syllable (-proo-), start with a soft schwa /ə/, and finish with a clear dark /l/.',
+    tipKo: '두 번째 음절(-proo-)에 강세를 두고 첫 음은 약한 /ə/로 발음하세요.',
+  },
+  {
+    id: 2,
+    word: 'Equipment',
+    spokenText: 'Equipment',
+    ipa: '/ɪˈkwɪpmənt/',
+    meaningVi: 'Trang thiết bị',
+    meaningEn: 'Tools & machinery',
+    meaningKo: '장비 / 설비',
+    tipVi: 'Trọng âm rơi vào -quip- (/ˈkwɪp/), khép môi nhẹ ở âm /p/ trước khi đọc -ment và bật nhẹ âm cuối /t/.',
+    tipEn: 'Stress the 2nd syllable (-quip-), keep /p/ crisp, and pronounce final /t/.',
+    tipKo: '두 번째 음절(-quip-)에 강세를 두고 끝소리 /t/를 가볍게 발음하세요.',
+  },
+  {
+    id: 3,
+    word: 'Measurement',
+    spokenText: 'Measurement',
+    ipa: '/ˈmeʒərmənt/',
+    meaningVi: 'Sự đo lường',
+    meaningEn: 'Act of measuring',
+    meaningKo: '측정 / 계측',
+    tipVi: 'Nhấn âm đầu /ˈmeʒ/, chú ý phụ âm giữa là /ʒ/ (giống chữ "s" trong "vision"), không đọc thành /s/.',
+    tipEn: 'Stress the 1st syllable /ˈmeʒ/, using the voiced /ʒ/ sound (like in "vision").',
+    tipKo: '첫 음절 /ˈmeʒ/에 강세를 두고 중간의 /ʒ/ 발음에 유의하세요.',
+  },
+  {
+    id: 4,
+    word: 'Development',
+    spokenText: 'Development',
+    ipa: '/dɪˈveləpmənt/',
+    meaningVi: 'Sự phát triển (R&D)',
+    meaningEn: 'Growth & advancement',
+    meaningKo: '개발 / 발전',
+    tipVi: 'Nhấn trọng âm vào âm tiết thứ 2 (-vel-), không nhấn vào âm đầu de- hoặc âm thứ 3 -op-.',
+    tipEn: 'Put primary stress on the 2nd syllable (-vel-), reducing -op- to /əp/.',
+    tipKo: '두 번째 음절(-vel-)에 강세를 두어 발음하세요.',
+  },
+  {
+    id: 5,
+    word: 'Yield rate',
+    spokenText: 'Yield rate',
+    ipa: '/jiːld reɪt/',
+    meaningVi: 'Tỷ lệ đạt chuẩn',
+    meaningEn: 'Good product ratio',
+    meaningKo: '수율 / 양품률',
+    tipVi: 'Từ "Yield" bắt đầu bằng âm /j/ (như "yes") kéo dài /iː/, kết thúc có /ld/; "rate" nguyên âm đôi /eɪ/.',
+    tipEn: 'Start "Yield" with a smooth /j/ (not /dʒ/), hold /iː/, and finish "rate" with /eɪt/.',
+    tipKo: '"Yield"는 /j/로 시작하여 /iːld/로 발음하고 "rate"는 /reɪt/로 발음하세요.',
+  },
+];
 
 export interface DailyChallengeItem {
   id: number;
@@ -39,17 +116,19 @@ export interface DailyChallengeItem {
   unlockDate: string;
   isPublished: boolean;
   questions: QuestionItem[];
+  q11Words?: WorkplaceWordItem[];
+  forceLockedAt?: number | null;
 }
 
 export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'orderIndex'>[] = [
-  // CÂU 1
+  // CÂU 1 (Multiple Choice 3 options)
   {
     questionType: 'CHOOSE_AUDIO',
     categoryLabel: 'Multiple Choice – Chọn audio phát âm đúng',
-    promptText: 'Từ “Approval” được phát âm như thế nào? Nghe 4 phương án audio và chọn cách phát âm đúng.',
+    promptText: 'Từ “Approval” được phát âm như thế nào? Nghe các phương án audio và chọn cách phát âm đúng.',
     targetWord: 'Approval',
     hasPromptAudio: false,
-    audioNote: '1 bản phát âm chuẩn của “Approval” (/əˈpruːvəl/) và 3 bản có lỗi phát âm.',
+    audioNote: '1 bản phát âm chuẩn của “Approval” (/əˈpruːvəl/) và 2 bản có lỗi phát âm.',
     options: [
       {
         id: 'A',
@@ -69,12 +148,6 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
         spokenText: 'uh proval', // Lỗi phát âm /əˈprɒvəl/
         hasOptionAudio: true,
       },
-      {
-        id: 'D',
-        text: 'Audio D',
-        spokenText: 'ah proovul', // Lỗi phát âm
-        hasOptionAudio: true,
-      },
     ],
     correctOptionId: 'A',
     explanation:
@@ -82,7 +155,7 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
     points: 10,
   },
 
-  // CÂU 2
+  // CÂU 2 (True / False 2 options)
   {
     questionType: 'TRUE_FALSE',
     categoryLabel: 'True / False – Nghe và xác định nhận định',
@@ -101,7 +174,7 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
     points: 10,
   },
 
-  // CÂU 3
+  // CÂU 3 (Listen and Choose 3 options)
   {
     questionType: 'LISTEN_AND_CHOOSE',
     categoryLabel: 'Nghe audio – Chọn từ đúng',
@@ -113,41 +186,39 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
       { id: 'A', text: 'Yield rate', spokenText: 'Yield rate', hasOptionAudio: false },
       { id: 'B', text: 'Development', spokenText: 'Development', hasOptionAudio: false },
       { id: 'C', text: 'Measurement', spokenText: 'Measurement', hasOptionAudio: false },
-      { id: 'D', text: 'Metal', spokenText: 'Metal', hasOptionAudio: false },
     ],
     correctOptionId: 'A',
     explanation: 'Đáp án: A. Yield rate (Audio đọc từ “Yield rate” /jiːld reɪt/ - Tỷ lệ đạt yêu cầu).',
     points: 10,
   },
 
-  // CÂU 4
+  // CÂU 4 (Vocab Meaning 3 options)
   {
     questionType: 'VOCAB_MEANING',
     categoryLabel: 'Nghĩa của từ viết tắt',
     promptText: 'Trong môi trường công việc, “DOE” thường có thể là viết tắt của cụm từ nào?',
     targetWord: 'D. O. E.',
     hasPromptAudio: false,
-    audioNote: 'Không bắt buộc có audio. Lưu ý: xác nhận ý nghĩa DOE theo quy ước tại công ty/bộ phận.',
+    audioNote: 'Không bắt buộc có audio.',
     options: [
       { id: 'A', text: 'Design of Equipment', hasOptionAudio: false },
       { id: 'B', text: 'Design of Experiments', hasOptionAudio: false },
       { id: 'C', text: 'Department of Engineering', hasOptionAudio: false },
-      { id: 'D', text: 'Development of Electronics', hasOptionAudio: false },
     ],
     correctOptionId: 'B',
     explanation:
-      'Đáp án dự kiến: B. Design of Experiments (Thiết kế thực nghiệm). Lưu ý: xác nhận ý nghĩa DOE theo quy ước tại công ty/bộ phận trước khi phát hành.',
+      'Đáp án dự kiến: B. Design of Experiments (Thiết kế thực nghiệm).',
     points: 10,
   },
 
-  // CÂU 5
+  // CÂU 5 (Choose Audio 3 options)
   {
     questionType: 'CHOOSE_AUDIO',
     categoryLabel: 'Multiple Choice – Chọn audio phát âm đúng',
-    promptText: 'Từ “Equipment” được phát âm như thế nào? Nghe 4 phương án audio và chọn cách phát âm đúng.',
+    promptText: 'Từ “Equipment” được phát âm như thế nào? Nghe các phương án audio và chọn cách phát âm đúng.',
     targetWord: 'Equipment',
     hasPromptAudio: false,
-    audioNote: '1 bản phát âm chuẩn của “Equipment” (/ɪˈkwɪpmənt/) và 3 bản có lỗi phát âm.',
+    audioNote: '1 bản phát âm chuẩn của “Equipment” (/ɪˈkwɪpmənt/) và 2 bản có lỗi phát âm.',
     options: [
       {
         id: 'A',
@@ -167,12 +238,6 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
         spokenText: 'equibment', // Lỗi phát âm /ɪˈkwɪbmənt/
         hasOptionAudio: true,
       },
-      {
-        id: 'D',
-        text: 'Audio D',
-        spokenText: 'equip man', // Lỗi phát âm /ɪˈkwɪpmæn/
-        hasOptionAudio: true,
-      },
     ],
     correctOptionId: 'A',
     explanation:
@@ -180,7 +245,7 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
     points: 10,
   },
 
-  // CÂU 6
+  // CÂU 6 (True / False 2 options)
   {
     questionType: 'TRUE_FALSE',
     categoryLabel: 'True / False – Nghe và xác định nhận định',
@@ -199,7 +264,7 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
     points: 10,
   },
 
-  // CÂU 7
+  // CÂU 7 (Listen and Choose 3 options)
   {
     questionType: 'LISTEN_AND_CHOOSE',
     categoryLabel: 'Nghe audio – Chọn từ đúng',
@@ -211,14 +276,13 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
       { id: 'A', text: 'Metal', spokenText: 'Metal', hasOptionAudio: false },
       { id: 'B', text: 'Measurement', spokenText: 'Measurement', hasOptionAudio: false },
       { id: 'C', text: 'Model', spokenText: 'Model', hasOptionAudio: false },
-      { id: 'D', text: 'MEG', spokenText: 'M. E. G.', hasOptionAudio: false },
     ],
     correctOptionId: 'B',
     explanation: 'Đáp án: B. Measurement (Audio đọc từ “Measurement” /ˈmeʒərmənt/ - Đo lường).',
     points: 10,
   },
 
-  // CÂU 8
+  // CÂU 8 (Vocab Meaning 3 options)
   {
     questionType: 'VOCAB_MEANING',
     categoryLabel: 'Nghĩa của từ',
@@ -230,14 +294,13 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
       { id: 'A', text: 'Mẫu sản phẩm', hasOptionAudio: false },
       { id: 'B', text: 'Kim loại', hasOptionAudio: false },
       { id: 'C', text: 'Dụng cụ', hasOptionAudio: false },
-      { id: 'D', text: 'Tỷ lệ đạt yêu cầu', hasOptionAudio: false },
     ],
     correctOptionId: 'B',
     explanation: 'Đáp án: B. Kim loại (“Metal” /ˈmetl/ có nghĩa là kim loại).',
     points: 10,
   },
 
-  // CÂU 9
+  // CÂU 9 (Listen and Choose 3 options)
   {
     questionType: 'LISTEN_AND_CHOOSE',
     categoryLabel: 'Nghe audio – Chọn từ đúng',
@@ -249,40 +312,35 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
       { id: 'A', text: 'Approval', spokenText: 'Approval', hasOptionAudio: false },
       { id: 'B', text: 'Equipment', spokenText: 'Equipment', hasOptionAudio: false },
       { id: 'C', text: 'Development', spokenText: 'Development', hasOptionAudio: false },
-      { id: 'D', text: 'Yield rate', spokenText: 'Yield rate', hasOptionAudio: false },
     ],
     correctOptionId: 'C',
     explanation: 'Đáp án: C. Development (Audio đọc từ “Development” /dɪˈveləpmənt/ - Sự phát triển).',
     points: 10,
   },
 
-  // CÂU 10
+  // CÂU 10 (Dạng điền từ theo phiên âm & nghĩa - Yêu cầu mới của người dùng)
   {
-    questionType: 'VOCAB_MEANING',
-    categoryLabel: 'Nghĩa của từ',
-    promptText: 'Trong môi trường công việc, “Model” thường có nghĩa là gì?',
-    targetWord: 'Model',
-    hasPromptAudio: false,
-    audioNote: 'Không bắt buộc có audio.',
-    options: [
-      { id: 'A', text: 'Sự phê duyệt', hasOptionAudio: false },
-      { id: 'B', text: 'Thiết bị', hasOptionAudio: false },
-      { id: 'C', text: 'Mẫu mã hoặc dòng sản phẩm', hasOptionAudio: false },
-      { id: 'D', text: 'Đo lường', hasOptionAudio: false },
-    ],
-    correctOptionId: 'C',
-    explanation: 'Đáp án: C. Mẫu mã hoặc dòng sản phẩm (“Model” /ˈmɑːdl/).',
+    questionType: 'FILL_IN_THE_BLANK',
+    categoryLabel: 'Điền từ vựng – Nhập từ theo phiên âm & nghĩa',
+    promptText: 'Hãy điền Từ vựng có phiên âm và nghĩa như sau:',
+    statementText: '/ˌredʒɪˈstreɪʃn/ - Đăng ký',
+    targetWord: 'registration',
+    hasPromptAudio: true,
+    audioNote: 'Phát âm chuẩn của registration (/ˌredʒɪˈstreɪʃn/)',
+    options: [],
+    correctOptionId: 'registration',
+    explanation: 'Đáp án: registration (Phiên âm: /ˌredʒɪˈstreɪʃn/ - Nghĩa: Đăng ký).',
     points: 10,
   },
 ];
 
-export function generate30DaysChallenges(): DailyChallengeItem[] {
+export function generate21DaysChallenges(): DailyChallengeItem[] {
   const days: DailyChallengeItem[] = [];
   const now = new Date();
   // Căn mốc 00:00:00 (Nửa đêm) của ngày hôm nay để mỗi ngày mới tự động mở đúng 00:00
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
-  for (let day = 1; day <= 30; day++) {
+  for (let day = 1; day <= 21; day++) {
     const unlockDateObj = new Date(todayMidnight.getTime() + (day - 1) * 86400 * 1000);
     const dd = String(unlockDateObj.getDate()).padStart(2, '0');
     const mm = String(unlockDateObj.getMonth() + 1).padStart(2, '0');
@@ -305,8 +363,11 @@ export function generate30DaysChallenges(): DailyChallengeItem[] {
       unlockDate,
       isPublished: true,
       questions,
+      q11Words: JSON.parse(JSON.stringify(DEFAULT_Q11_5_WORDS)),
     });
   }
 
   return days;
 }
+
+export const generate30DaysChallenges = generate21DaysChallenges;
