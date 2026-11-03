@@ -24,6 +24,7 @@ export interface WorkplaceWordItem {
   tipVi: string;
   tipEn: string;
   tipKo: string;
+  tip?: string;
 }
 
 export const WORKPLACE_10_WORDS: WorkplaceWordItem[] = [

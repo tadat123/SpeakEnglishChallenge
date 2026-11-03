@@ -277,6 +277,181 @@ class StaggeredPushService {
     );
   }
 
+  /**
+   * SOẠN & GỬI THÔNG BÁO CÁ NHÂN HÓA (PUSH & IN-APP)
+   * Đồng thời tạo In-App Notification VÀ dispatch Web Push tới tất cả thiết bị PWA của người nhận.
+   */
+  public enqueuePersonalizedNotification(payload: {
+    targetType: 'all' | 'department' | 'user';
+    targetValue?: string;
+    title: string;
+    body: string;
+    targetUrl?: string;
+  }): {
+    success: boolean;
+    message: string;
+    sentCount: number;
+    pwaDevicesCount: number;
+    campaign?: PushCampaignRecord;
+  } {
+    let targets: any[] = [];
+    const allUsers = store.getUsers();
+
+    if (payload.targetType === 'user') {
+      if (!payload.targetValue) {
+        return {
+          success: false,
+          message: 'Vui lòng chọn một nhân viên cụ thể.',
+          sentCount: 0,
+          pwaDevicesCount: 0,
+        };
+      }
+      const u = allUsers.find(
+        (user) => user.id === payload.targetValue || user.employeeId === payload.targetValue
+      );
+      if (!u) {
+        return {
+          success: false,
+          message: 'Không tìm thấy nhân viên được chỉ định.',
+          sentCount: 0,
+          pwaDevicesCount: 0,
+        };
+      }
+      targets = [u];
+    } else if (payload.targetType === 'department') {
+      if (!payload.targetValue) {
+        return {
+          success: false,
+          message: 'Vui lòng chọn một phòng ban.',
+          sentCount: 0,
+          pwaDevicesCount: 0,
+        };
+      }
+      targets = allUsers.filter((u) => u.department === payload.targetValue);
+      if (targets.length === 0) {
+        return {
+          success: false,
+          message: `Không có nhân viên nào thuộc phòng ban "${payload.targetValue}".`,
+          sentCount: 0,
+          pwaDevicesCount: 0,
+        };
+      }
+    } else {
+      targets = allUsers;
+    }
+
+    if (targets.length === 0) {
+      return {
+        success: false,
+        message: 'Không có nhân viên nào trong danh sách nhận thông báo.',
+        sentCount: 0,
+        pwaDevicesCount: 0,
+      };
+    }
+
+    const campaignId = `camp-custom-${Date.now()}`;
+    const targetUrl = payload.targetUrl || '/#challenges';
+    const allPwaSubs = store.getPwaSubscriptions(true);
+
+    const tasks: {
+      subscription: PwaPushSubscriptionRecord;
+      userId: string | null;
+      recipientName: string;
+      employeeId: string;
+      title: string;
+      body: string;
+      targetUrl: string;
+    }[] = [];
+
+    const inAppList: any[] = [];
+
+    targets.forEach((user) => {
+      const personalTitle = payload.title
+        .replace(/\{name\}/gi, user.fullName)
+        .replace(/\{gen\}/gi, user.employeeId)
+        .replace(/\{score\}/gi, String(user.totalScore || 0));
+
+      const personalBody = payload.body
+        .replace(/\{name\}/gi, user.fullName)
+        .replace(/\{gen\}/gi, user.employeeId)
+        .replace(/\{score\}/gi, String(user.totalScore || 0));
+
+      inAppList.push({
+        id: `inapp-${Date.now()}-${user.id}-${crypto.randomBytes(2).toString('hex')}`,
+        campaignId,
+        type: 'PERSONALIZED',
+        userId: user.id,
+        title: personalTitle,
+        body: personalBody,
+        targetUrl,
+        deliveredAt: new Date().toISOString(),
+      });
+
+      // Tìm thiết bị PWA của user này
+      const userSubs = allPwaSubs.filter(
+        (s) => s.userId === user.id || (s.employeeId && s.employeeId === user.employeeId)
+      );
+
+      for (const sub of userSubs) {
+        tasks.push({
+          subscription: sub,
+          userId: user.id,
+          recipientName: user.fullName,
+          employeeId: user.employeeId,
+          title: personalTitle,
+          body: personalBody,
+          targetUrl,
+        });
+      }
+    });
+
+    // Thêm đồng loạt In-App Notification (ghi file 1 lần duy nhất)
+    store.addBatchInAppNotifications(inAppList);
+
+    // Kích hoạt hàng đợi Web Push nếu có thiết bị PWA
+    let campaign: PushCampaignRecord;
+    if (tasks.length > 0) {
+      campaign = this.createAndDispatchStaggeredCampaign(
+        'PERSONALIZED',
+        payload.title,
+        payload.body,
+        targetUrl,
+        tasks
+      );
+    } else {
+      campaign = {
+        id: campaignId,
+        type: 'PERSONALIZED',
+        title: payload.title,
+        body: payload.body,
+        targetUrl,
+        totalTargets: 0,
+        sentCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        staggerIntervalMs: 0,
+        totalSpreadMs: 0,
+        status: 'COMPLETED',
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        recentLogs: [],
+      };
+      store.addPushCampaign(campaign);
+    }
+
+    console.log(
+      `[PERSONALIZED NOTIF] 📢 Đã gửi thông báo cá nhân hóa tới ${targets.length} nhân viên (${tasks.length} thiết bị PWA)`
+    );
+
+    return {
+      success: true,
+      message: `Đã gửi thành công thông báo cá nhân hóa tới ${targets.length} nhân viên (${tasks.length} thiết bị PWA)!`,
+      sentCount: targets.length,
+      pwaDevicesCount: tasks.length,
+      campaign,
+    };
+  }
+
   private createAndDispatchStaggeredCampaign(
     type: PushNotificationType,
     title: string,
@@ -315,6 +490,10 @@ class StaggeredPushService {
     };
 
     store.addPushCampaign(campaign);
+
+    console.log(
+      `[PUSH QUEUE] 🚀 Khởi tạo chiến dịch [${type}] "${title}" cho ${totalTargets} thiết bị | Chia đều: ${staggerIntervalMs}ms/request (Tổng thời gian: ${(totalSpreadMs / 1000).toFixed(1)}s)`
+    );
 
     if (totalTargets === 0) {
       return campaign;
@@ -392,12 +571,20 @@ class StaggeredPushService {
             );
             deliveryStatus = 'SENT';
           } catch (err: any) {
+            console.error(
+              `[PUSH ERROR] Lỗi gửi tới ${task.recipientName} (${task.subscription.endpoint.slice(0, 45)}...):`,
+              err?.message || err
+            );
             if (err?.statusCode === 404 || err?.statusCode === 410) {
               store.removePwaSubscription(task.subscription.endpoint);
             }
             deliveryStatus = 'FAILED';
           }
         }
+
+        console.log(
+          `[PUSH DISPATCH] 📨 [${task.orderIndex}/${task.totalInCampaign}] ${task.recipientName} (GEN ${task.employeeId}) -> Trạng thái: ${deliveryStatus} | Đợi tiếp: ${task.delayAfterMs}ms`
+        );
 
         // Lưu thông báo vào In-App / Service Worker Sync đúng thời điểm request của người này được gửi
         if (task.orderIndex === 1 || task.userId !== null) {
@@ -439,6 +626,9 @@ class StaggeredPushService {
           if (campaign.sentCount >= campaign.totalTargets) {
             campaign.status = 'COMPLETED';
             campaign.completedAt = new Date().toISOString();
+            console.log(
+              `[PUSH COMPLETED] ✅ Hoàn tất chiến dịch ${campaign.id}: Tổng ${campaign.totalTargets}, Thành công: ${campaign.successCount}, Lỗi: ${campaign.failedCount}`
+            );
           }
           store.save();
         }

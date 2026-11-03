@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
 import { Lang } from '../utils/i18n';
+import { WORKPLACE_5_WORDS, WorkplaceWordItem } from './PronunciationChallengeQ11';
 
 interface AdminDashboardProps {
   token: string;
@@ -57,12 +58,12 @@ interface AdminDashboardProps {
 
 const ADMIN_I18N = {
   vi: {
-    headerTitle: 'Quản trị viên (Admin CMS) — Quản lý 30 Ngày & Câu hỏi (Chữ / Audio / Video)',
+    headerTitle: 'Quản trị viên (Admin CMS) — Quản lý 21 Ngày & Câu hỏi (Chữ / Audio / Video)',
     headerSub:
       'Chọn bất kỳ ngày nào bên dưới để sửa thông tin ngày, thêm/sửa/xóa câu hỏi hoặc khóa an toàn khi đang có người thi.',
     reseedBtn: 'Reset Seed Gốc',
     exportBtn: 'Xuất Excel Trao Giải',
-    selectDayTitle: '1. Chọn Ngày Thử Thách Cần Chỉnh Sửa (Day 1 → Day 30):',
+    selectDayTitle: '1. Chọn Ngày Thử Thách Cần Chỉnh Sửa (Day 1 → Day 21):',
     openStatus: '🔓 Mở',
     lockedStatus: '🔒 Khóa',
     dayTitleLabel: 'Tên ngày thi',
@@ -77,7 +78,7 @@ const ADMIN_I18N = {
     questionListTitle: '2. Danh sách câu hỏi của',
     questionsCountUnit: 'câu',
     questionListSub: 'Hỗ trợ thêm/sửa câu hỏi Chữ, tải file Âm thanh (.mp3/.wav) và Video (.mp4/.webm)',
-    cloneAllBtn: 'Áp dụng bộ câu này cho cả 30 ngày',
+    cloneAllBtn: 'Áp dụng bộ câu này cho cả 21 ngày',
     addQuestionBtn: 'Thêm Câu Hỏi Mới',
     questionPrefix: 'Câu',
     correctAnsBadge: 'Đáp án đúng',
@@ -118,7 +119,7 @@ const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice – Chọn audio phát âm đúng (4 nút Audio A/B/C/D)',
+        label: 'Multiple Choice – Chọn audio phát âm đúng (3 nút Audio A/B/C)',
       },
       {
         value: 'TRUE_FALSE',
@@ -126,18 +127,22 @@ const ADMIN_I18N = {
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Nghe audio / Xem video – Chọn từ đúng (4 đáp án A/B/C/D)',
+        label: 'Nghe audio / Xem video – Chọn từ đúng (3 đáp án A/B/C)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Nghĩa của từ / Từ viết tắt (Không bắt buộc có audio)',
+        label: 'Nghĩa của từ / Từ viết tắt (3 đáp án A/B/C)',
+      },
+      {
+        value: 'FILL_IN_THE_BLANK',
+        label: 'Điền từ – Nhập từ vựng theo phiên âm & nghĩa',
       },
     ],
     sidebarDashboard: 'Dashboard Thống Kê',
     sidebarDashboardSub: 'Tỉ lệ hoàn thành & KPI',
     sidebarUsers: 'Quản Lý Nhân Viên',
     sidebarUsersSub: 'Danh sách, GEN & thiết bị',
-    sidebarChallenges: '30 Ngày & Đề Thi',
+    sidebarChallenges: '21 Ngày & Đề Thi',
     sidebarChallengesSub: 'Câu hỏi, Audio & Video',
     sidebarNotifications: 'Thông Báo Cá Nhân',
     sidebarNotificationsSub: 'Push PWA & Cá nhân hóa',
@@ -147,12 +152,12 @@ const ADMIN_I18N = {
     backToQuizShort: 'Làm bài',
   },
   en: {
-    headerTitle: 'Admin CMS — Manage 30 Days & Questions (Text / Audio / Video)',
+    headerTitle: 'Admin CMS — Manage 21 Days & Questions (Text / Audio / Video)',
     headerSub:
       'Select any day below to edit schedule details, add/edit/delete questions, or safely lock a day while users are taking the quiz.',
     reseedBtn: 'Reset Default Seed',
     exportBtn: 'Export Award CSV',
-    selectDayTitle: '1. Select Challenge Day to Edit (Day 1 → Day 30):',
+    selectDayTitle: '1. Select Challenge Day to Edit (Day 1 → Day 21):',
     openStatus: '🔓 Open',
     lockedStatus: '🔒 Locked',
     dayTitleLabel: 'Day Title',
@@ -167,7 +172,7 @@ const ADMIN_I18N = {
     questionListTitle: '2. Question List for',
     questionsCountUnit: 'questions',
     questionListSub: 'Add/edit Text questions, upload Audio (.mp3/.wav) and Video (.mp4/.webm)',
-    cloneAllBtn: 'Clone this set to all 30 days',
+    cloneAllBtn: 'Clone this set to all 21 days',
     addQuestionBtn: 'Add New Question',
     questionPrefix: 'Q',
     correctAnsBadge: 'Correct',
@@ -208,7 +213,7 @@ const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice – Choose correct pronunciation audio (4 Audio buttons A/B/C/D)',
+        label: 'Multiple Choice – Choose correct pronunciation audio (3 Audio buttons A/B/C)',
       },
       {
         value: 'TRUE_FALSE',
@@ -216,18 +221,22 @@ const ADMIN_I18N = {
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Listen Audio / Watch Video – Choose correct word (4 options A/B/C/D)',
+        label: 'Listen Audio / Watch Video – Choose correct word (3 options A/B/C)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Vocabulary Meaning / Acronym (Audio optional)',
+        label: 'Vocabulary Meaning / Acronym (3 options A/B/C)',
+      },
+      {
+        value: 'FILL_IN_THE_BLANK',
+        label: 'Fill in the blank – Type vocabulary from IPA & meaning',
       },
     ],
     sidebarDashboard: 'Analytics Dashboard',
     sidebarDashboardSub: 'Completion rate & KPIs',
     sidebarUsers: 'User Management',
     sidebarUsersSub: 'Employees, GEN & devices',
-    sidebarChallenges: '30 Days & Questions',
+    sidebarChallenges: '21 Days & Questions',
     sidebarChallengesSub: 'Questions, audio & video',
     sidebarNotifications: 'Push Notifications',
     sidebarNotificationsSub: 'PWA push & targeted alerts',
@@ -237,12 +246,12 @@ const ADMIN_I18N = {
     backToQuizShort: 'Quiz',
   },
   ko: {
-    headerTitle: '관리자 CMS — 30일 챌린지 및 문제 관리 (텍스트 / 오디오 / 비디오)',
+    headerTitle: '관리자 CMS — 21일 챌린지 및 문제 관리 (텍스트 / 오디오 / 비디오)',
     headerSub:
       '아래에서 날짜를 선택하여 일정을 수정하거나, 문제를 추가/수정/삭제하고, 응시 중인 사용자가 있을 때 안전하게 잠글 수 있습니다.',
     reseedBtn: '기본 데이터 초기화',
     exportBtn: '시상용 엑셀(CSV) 내보내기',
-    selectDayTitle: '1. 수정할 챌린지 날짜 선택 (Day 1 → Day 30):',
+    selectDayTitle: '1. 수정할 챌린지 날짜 선택 (Day 1 → Day 21):',
     openStatus: '🔓 열림',
     lockedStatus: '🔒 잠김',
     dayTitleLabel: '일차 제목',
@@ -257,7 +266,7 @@ const ADMIN_I18N = {
     questionListTitle: '2. 문제 목록:',
     questionsCountUnit: '문항',
     questionListSub: '텍스트 문제 추가/수정, 오디오(.mp3/.wav) 및 비디오(.mp4/.webm) 업로드 지원',
-    cloneAllBtn: '이 문제 세트를 30일 전체에 복사',
+    cloneAllBtn: '이 문제 세트를 21일 전체에 복사',
     addQuestionBtn: '새 문제 추가',
     questionPrefix: '문항',
     correctAnsBadge: '정답',
@@ -298,7 +307,7 @@ const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: '객관식 – 올바른 발음 오디오 선택 (4개 오디오 버튼 A/B/C/D)',
+        label: '객관식 – 올바른 발음 오디오 선택 (3개 오디오 버튼 A/B/C)',
       },
       {
         value: 'TRUE_FALSE',
@@ -306,18 +315,22 @@ const ADMIN_I18N = {
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: '오디오 듣기 / 비디오 보기 – 올바른 단어 선택 (4개 보기 A/B/C/D)',
+        label: '오디오 듣기 / 비디오 보기 – 올바른 단어 선택 (3개 보기 A/B/C)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: '단어 의미 / 약어 풀이 (오디오 선택 사항)',
+        label: '단어 의미 / 약어 풀이 (3개 보기 A/B/C)',
+      },
+      {
+        value: 'FILL_IN_THE_BLANK',
+        label: '빈칸 채우기 – 발음기호 및 의미를 보고 단어 입력',
       },
     ],
     sidebarDashboard: '통계 대시보드',
     sidebarDashboardSub: '완주율 및 핵심 KPI',
     sidebarUsers: '임직원 관리',
     sidebarUsersSub: '사번, 계정 및 기기 목록',
-    sidebarChallenges: '30일 챌린지 & 문제',
+    sidebarChallenges: '21일 챌린지 & 문제',
     sidebarChallengesSub: '문제, 음원 및 영상',
     sidebarNotifications: '맞춤형 알림',
     sidebarNotificationsSub: 'PWA 푸시 & 개인화 알림',
@@ -391,8 +404,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [minIntervalMs, setMinIntervalMs] = useState<number>(1200);
   const [autoRemindUnstudied, setAutoRemindUnstudied] = useState<boolean>(true);
   const [morningHour, setMorningHour] = useState<number>(8);
+  const [morningMinute, setMorningMinute] = useState<number>(0);
   const [eveningTop1Hour, setEveningTop1Hour] = useState<number>(19);
+  const [eveningTop1Minute, setEveningTop1Minute] = useState<number>(0);
   const [nightUnstudiedHour, setNightUnstudiedHour] = useState<number>(23);
+  const [nightUnstudiedMinute, setNightUnstudiedMinute] = useState<number>(0);
+
+  // Quản lý Bộ từ vựng Luyện Đọc Câu 11 (5 từ)
+  const [showQ11Modal, setShowQ11Modal] = useState<boolean>(false);
+  const [editingQ11Words, setEditingQ11Words] = useState<WorkplaceWordItem[]>([]);
+  const [cloneQ11ToAllDays, setCloneQ11ToAllDays] = useState<boolean>(false);
 
   // Giám sát An ninh Bảo mật (SQL Injection, Chống F12, Chống DDoS)
   const [securityStats, setSecurityStats] = useState<any | null>(null);
@@ -460,8 +481,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setMinIntervalMs(data.queueStatus.config.minIntervalMs ?? 1200);
           setAutoRemindUnstudied(Boolean(data.queueStatus.config.autoRemindUnstudied));
           setMorningHour(data.queueStatus.config.morningHour ?? 8);
+          setMorningMinute(data.queueStatus.config.morningMinute ?? 0);
           setEveningTop1Hour(data.queueStatus.config.eveningTop1Hour ?? 19);
+          setEveningTop1Minute(data.queueStatus.config.eveningTop1Minute ?? 0);
           setNightUnstudiedHour(data.queueStatus.config.nightUnstudiedHour ?? 23);
+          setNightUnstudiedMinute(data.queueStatus.config.nightUnstudiedMinute ?? 0);
         }
       }
     } catch {
@@ -609,8 +633,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         minIntervalMs: Number(minIntervalMs),
         autoRemindUnstudied,
         morningHour: Number(morningHour),
+        morningMinute: Number(morningMinute),
         eveningTop1Hour: Number(eveningTop1Hour),
+        eveningTop1Minute: Number(eveningTop1Minute),
         nightUnstudiedHour: Number(nightUnstudiedHour),
+        nightUnstudiedMinute: Number(nightUnstudiedMinute),
         resetTodayQuota,
       }),
     });
@@ -758,7 +785,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         { id: 'A', text: '', spokenText: '', hasOptionAudio: false, audioUrl: '' },
         { id: 'B', text: '', spokenText: '', hasOptionAudio: false, audioUrl: '' },
         { id: 'C', text: '', spokenText: '', hasOptionAudio: false, audioUrl: '' },
-        { id: 'D', text: '', spokenText: '', hasOptionAudio: false, audioUrl: '' },
       ],
     });
   };
@@ -778,46 +804,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         { id: 'A', text: 'True – Đúng', hasOptionAudio: false },
         { id: 'B', text: 'False – Sai', hasOptionAudio: false },
       ];
-    } else if (updatedOptions.length < 4) {
-      updatedOptions = [
-        {
-          id: 'A',
-          text: newType === 'CHOOSE_AUDIO' ? 'Audio A' : '',
-          spokenText: '',
-          hasOptionAudio: newType === 'CHOOSE_AUDIO',
-          audioUrl: '',
-        },
-        {
-          id: 'B',
-          text: newType === 'CHOOSE_AUDIO' ? 'Audio B' : '',
-          spokenText: '',
-          hasOptionAudio: newType === 'CHOOSE_AUDIO',
-          audioUrl: '',
-        },
-        {
-          id: 'C',
-          text: newType === 'CHOOSE_AUDIO' ? 'Audio C' : '',
-          spokenText: '',
-          hasOptionAudio: newType === 'CHOOSE_AUDIO',
-          audioUrl: '',
-        },
-        {
-          id: 'D',
-          text: newType === 'CHOOSE_AUDIO' ? 'Audio D' : '',
-          spokenText: '',
-          hasOptionAudio: newType === 'CHOOSE_AUDIO',
-          audioUrl: '',
-        },
-      ];
-    } else if (newType === 'CHOOSE_AUDIO') {
-      updatedOptions = updatedOptions.map((o) => ({ ...o, hasOptionAudio: true }));
+    } else if (newType === 'FILL_IN_THE_BLANK') {
+      updatedOptions = [];
+    } else {
+      if (updatedOptions.length !== 3) {
+        updatedOptions = [
+          {
+            id: 'A',
+            text: newType === 'CHOOSE_AUDIO' ? 'Audio A' : '',
+            spokenText: '',
+            hasOptionAudio: newType === 'CHOOSE_AUDIO',
+            audioUrl: '',
+          },
+          {
+            id: 'B',
+            text: newType === 'CHOOSE_AUDIO' ? 'Audio B' : '',
+            spokenText: '',
+            hasOptionAudio: newType === 'CHOOSE_AUDIO',
+            audioUrl: '',
+          },
+          {
+            id: 'C',
+            text: newType === 'CHOOSE_AUDIO' ? 'Audio C' : '',
+            spokenText: '',
+            hasOptionAudio: newType === 'CHOOSE_AUDIO',
+            audioUrl: '',
+          },
+        ];
+      } else if (newType === 'CHOOSE_AUDIO') {
+        updatedOptions = updatedOptions.map((o) => ({ ...o, hasOptionAudio: true }));
+      }
     }
 
     setEditingQuestion({
       ...editingQuestion,
       questionType: newType,
       categoryLabel: foundType?.label.split(' (')[0] || editingQuestion.categoryLabel,
-      hasPromptAudio: newType === 'TRUE_FALSE' || newType === 'LISTEN_AND_CHOOSE',
+      hasPromptAudio:
+        newType === 'TRUE_FALSE' ||
+        newType === 'LISTEN_AND_CHOOSE' ||
+        newType === 'FILL_IN_THE_BLANK',
       options: updatedOptions,
     });
   };
@@ -825,9 +851,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSaveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingQuestion?.promptText?.trim()) {
-      showMessage('Please enter question prompt!', true);
+      showMessage('Vui lòng nhập nội dung câu hỏi!', true);
       return;
     }
+
+    if (
+      editingQuestion.questionType === 'FILL_IN_THE_BLANK' &&
+      !editingQuestion.targetWord?.trim()
+    ) {
+      showMessage('Vui lòng nhập Từ vựng cần điền (Đáp án đúng)!', true);
+      return;
+    }
+
+    const payload = {
+      ...editingQuestion,
+      options:
+        editingQuestion.questionType === 'FILL_IN_THE_BLANK' ? [] : editingQuestion.options,
+      correctOptionId:
+        editingQuestion.questionType === 'FILL_IN_THE_BLANK'
+          ? editingQuestion.targetWord?.trim().toLowerCase()
+          : editingQuestion.correctOptionId,
+    };
 
     const url = isCreatingNew
       ? `/api/admin/challenges/${selectedDay}/questions`
@@ -838,11 +882,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch(url, {
         method,
         headers,
-        body: JSON.stringify(editingQuestion),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
-        showMessage(data.message || 'Error saving question', true);
+        showMessage(data.message || 'Lỗi khi lưu câu hỏi', true);
         return;
       }
 
@@ -862,17 +906,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   : q
               )
             : [...currentList, savedQuestion];
-          return {
-            ...prev,
-            questions: updatedQuestions,
-          };
+          return { ...prev, questions: updatedQuestions };
         });
+      } else {
+        fetchDayDetail(selectedDay);
       }
       setEditingQuestion(null);
-      fetchDayDetail(selectedDay);
       onRefreshGlobal();
     } catch (err: any) {
       showMessage(err?.message || 'Lỗi mạng khi lưu câu hỏi', true);
+    }
+  };
+
+  const currentQ11Words: WorkplaceWordItem[] =
+    dayDetail?.q11Words && dayDetail.q11Words.length > 0
+      ? dayDetail.q11Words
+      : WORKPLACE_5_WORDS;
+
+  const openEditQ11Modal = () => {
+    setEditingQ11Words(JSON.parse(JSON.stringify(currentQ11Words)));
+    setCloneQ11ToAllDays(false);
+    setShowQ11Modal(true);
+  };
+
+  const handleSaveQ11Words = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`/api/challenges/${selectedDay}/q11-words`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          q11Words: editingQ11Words,
+          cloneToAllDays: cloneQ11ToAllDays,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showMessage(data.message || 'Đã cập nhật 5 từ vựng Câu 11 thành công!');
+        setShowQ11Modal(false);
+        fetchDayDetail(selectedDay);
+        onRefreshGlobal();
+      } else {
+        showMessage(data.message || 'Lỗi khi lưu bộ từ vựng', true);
+      }
+    } catch (err: any) {
+      showMessage(err?.message || 'Lỗi mạng khi lưu từ vựng', true);
     }
   };
 
@@ -908,7 +986,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleCloneToAllDays = async () => {
-    if (!window.confirm(`Clone all questions of Day ${selectedDay} to all 30 days?`)) {
+    if (!window.confirm(`Clone all questions of Day ${selectedDay} to all 21 days?`)) {
       return;
     }
     const res = await fetch(`/api/admin/challenges/${selectedDay}/clone-to-all`, {
@@ -924,7 +1002,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleReseed = async () => {
-    if (!window.confirm('Reset all 30 days to the default 10 official questions?')) {
+    if (!window.confirm('Reset all 21 days to the default 10 official questions?')) {
       return;
     }
     const res = await fetch('/api/admin/reseed', {
@@ -968,7 +1046,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       label: at.sidebarChallenges,
       sub: at.sidebarChallengesSub,
       icon: Edit3,
-      badge: '30D',
+      badge: '21D',
     },
     {
       id: 'notifications',
@@ -1258,7 +1336,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     : adminSubTab === 'users'
                     ? 'Quản Lý Nhân Viên'
                     : adminSubTab === 'challenges'
-                    ? '30 Ngày & Đề Thi'
+                    ? '21 Ngày & Đề Thi'
                     : adminSubTab === 'notifications'
                     ? 'Thông Báo Cá Nhân Hóa'
                     : 'An Ninh & Bảo Mật'}
@@ -1270,7 +1348,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   : adminSubTab === 'users'
                   ? '👥 Quản Lý Tài Khoản Nhân Viên & Thiết Bị'
                   : adminSubTab === 'challenges'
-                  ? '📝 Quản Lý 30 Ngày Thi & Câu Hỏi'
+                  ? '📝 Quản Lý 21 Ngày Thi & Câu Hỏi'
                   : adminSubTab === 'notifications'
                   ? '📢 Soạn & Gửi Thông Báo Cá Nhân Hóa'
                   : '🛡️ Lá Chắn An Ninh & Phòng Thủ Tấn Công'}
@@ -1323,7 +1401,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {dashboardStats?.overallCompletionRate ?? 0}%
               </div>
               <div className={`text-[11px] mt-1 ${textSecondary}`}>
-                Tính trên toàn bộ 30 ngày thi
+                Tính trên toàn bộ 21 ngày thi
               </div>
             </div>
 
@@ -1364,7 +1442,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
                   <Calendar className="w-4 h-4 text-blue-600" />
-                  Tỉ lệ Người Hoàn thành & Điểm số Theo Ngày (Bộ lọc Ngày 1 → 30)
+                  Tỉ lệ Người Hoàn thành & Điểm số Theo Ngày (Bộ lọc Ngày 1 → 21)
                 </h3>
                 <p className={`text-xs ${textSecondary}`}>
                   Chọn bất kỳ ngày nào bên dưới để xem tỉ lệ người hoàn thành, điểm trung bình, số người đạt chuẩn và số người điểm tối đa.
@@ -1377,7 +1455,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) => setSelectedStatDay(Number(e.target.value))}
                   className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold outline-none ${inputBg}`}
                 >
-                  {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => (
+                  {Array.from({ length: 21 }, (_, i) => i + 1).map((d) => (
                     <option key={d} value={d}>
                       Day {d}
                     </option>
@@ -1387,8 +1465,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Dải nút chọn ngày nhanh */}
-            <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-              {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => {
+            <div className="grid grid-cols-7 sm:grid-cols-7 gap-1.5">
+              {Array.from({ length: 21 }, (_, i) => i + 1).map((d) => {
                 const dayStat = dashboardStats?.allDaysStats?.find((s: any) => s.dayNumber === d);
                 const isSelected = selectedStatDay === d;
                 return (
@@ -1473,11 +1551,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
           </div>
 
-          {/* Bảng Tiến độ Hoàn thành toàn bộ 30 Ngày (Progress Visual) */}
+          {/* Bảng Tiến độ Hoàn thành toàn bộ 21 Ngày (Progress Visual) */}
           <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-3 ${cardBg}`}>
             <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
               <BarChart3 className="w-4 h-4 text-emerald-600" />
-              Tiến độ Tỉ lệ Hoàn thành 30 Ngày Toàn Công ty
+              Tiến độ Tỉ lệ Hoàn thành 21 Ngày Toàn Công ty
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {dashboardStats?.allDaysStats?.map((st: any) => (
@@ -1595,7 +1673,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-black text-emerald-600">{u.totalScore}đ</div>
-                        <div className={`text-[10px] ${textSecondary}`}>{u.completedDays}/30 ngày</div>
+                        <div className={`text-[10px] ${textSecondary}`}>{u.completedDays}/21 ngày</div>
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-1.5 font-bold text-[11px]">
@@ -1647,16 +1725,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* ================= 3. TAB 30 NGÀY & ĐỀ THI (CHALLENGES) ================= */}
+      {/* ================= 3. TAB 21 NGÀY & ĐỀ THI (CHALLENGES) ================= */}
       {adminSubTab === 'challenges' && (
         <div className="space-y-4">
-      {/* Bộ chọn 30 Ngày (Grid nhỏ gọn) */}
+      {/* Bộ chọn 21 Ngày (Grid nhỏ gọn) */}
       <div className={`rounded-3xl p-4 border shadow-sm backdrop-blur-md ${cardBg}`}>
         <div className={`text-xs font-extrabold mb-2.5 uppercase tracking-wider ${textSecondary}`}>
           {at.selectDayTitle}
         </div>
-        <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-          {challenges.map((c) => {
+        <div className="grid grid-cols-7 sm:grid-cols-7 gap-1.5">
+          {challenges.slice(0, 21).map((c) => {
             const isSelected = c.dayNumber === selectedDay;
             const isUnlocked = c.status !== 'LOCKED';
             return (
@@ -1862,23 +1940,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="text-xs font-bold text-amber-500">📌 {q.statementText}</div>
                     )}
 
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {(q.options || []).map((opt: any) => (
-                        <span
-                          key={opt.id}
-                          className={`text-[11px] px-2.5 py-1 rounded-lg border ${
-                            opt.id === q.correctOptionId
-                              ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-extrabold'
-                              : darkMode
-                              ? 'bg-slate-900 border-slate-700 text-slate-300'
-                              : 'bg-white border-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {opt.id}. {opt.text}
-                          {opt.audioUrl ? ' (🎵)' : ''}
+                    {q.questionType === 'FILL_IN_THE_BLANK' ? (
+                      <div className="pt-1">
+                        <span className="text-[11px] px-2.5 py-1 rounded-lg border bg-purple-50 dark:bg-purple-950/60 border-purple-300 dark:border-purple-700 text-purple-900 dark:text-purple-300 font-black">
+                          ✍️ Từ cần điền: {q.targetWord || q.correctOptionId}
                         </span>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {(q.options || []).map((opt: any) => (
+                          <span
+                            key={opt.id}
+                            className={`text-[11px] px-2.5 py-1 rounded-lg border ${
+                              opt.id === q.correctOptionId
+                                ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-extrabold'
+                                : darkMode
+                                ? 'bg-slate-900 border-slate-700 text-slate-300'
+                                : 'bg-white border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {opt.id}. {opt.text}
+                            {opt.audioUrl ? ' (🎵)' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -1910,6 +1996,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Phần C: Quản lý Bộ từ vựng Luyện Đọc Câu 11 (5 từ) */}
+          <div className={`mt-6 p-4 sm:p-5 rounded-2xl border space-y-4 ${subCardBg}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-xs font-black">
+                    CÂU 11 (TỰ LUYỆN ĐỌC)
+                  </span>
+                  <h3 className={`text-sm sm:text-base font-black ${textPrimary}`}>
+                    🎙️ Bộ 5 Từ Vựng Luyện Đọc Phát Âm — {dayDetail.title}
+                  </h3>
+                </div>
+                <p className={`text-xs mt-1 ${textSecondary}`}>
+                  Học viên sẽ ghi âm luyện đọc 5 từ vựng chuyên môn này với AI đánh giá độ chính xác (≥75% đạt chuẩn).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openEditQ11Modal}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition self-start sm:self-auto"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Chỉnh sửa 5 từ vựng Câu 11
+              </button>
+            </div>
+
+            {/* Grid 5 từ vựng Câu 11 */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+              {currentQ11Words.map((item, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-xl border flex flex-col justify-between ${
+                    darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
+                        Từ #{idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => playPronunciation(item.spokenText || item.word)}
+                        className="p-1 rounded text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800"
+                        title="Nghe phát âm"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className={`text-sm font-black ${textPrimary}`}>{item.word}</div>
+                    <div className="text-[11px] font-mono text-purple-600 dark:text-purple-400 font-bold">
+                      {item.ipa}
+                    </div>
+                    <div className={`text-xs font-semibold mt-1 ${textSecondary}`}>{item.meaningVi}</div>
+                  </div>
+                  {item.tip && (
+                    <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 italic">
+                      💡 {item.tip}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -2200,9 +2350,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </h3>
               <p className={`text-xs mt-0.5 ${textSecondary}`}>
                 Chống làm phiền user khi thứ hạng hoặc bài học thay đổi liên tục: Mỗi ngày chỉ gửi đúng{' '}
-                <strong>1 lần buổi sáng ({morningHour}:00 - Có bài mới)</strong>,{' '}
-                <strong>1 lần 19h tối ({eveningTop1Hour}:00 - Top 1 hiện tại)</strong> và{' '}
-                <strong>1 lần 23h đêm ({nightUnstudiedHour}:00 - Nhắc USER chưa làm bài)</strong>, chia đều từng request.
+                <strong>
+                  1 lần buổi sáng ({String(morningHour).padStart(2, '0')}:
+                  {String(morningMinute).padStart(2, '0')} - Có bài mới)
+                </strong>
+                ,{' '}
+                <strong>
+                  1 lần tối ({String(eveningTop1Hour).padStart(2, '0')}:
+                  {String(eveningTop1Minute).padStart(2, '0')} - Top 1 hiện tại)
+                </strong>{' '}
+                và{' '}
+                <strong>
+                  1 lần đêm ({String(nightUnstudiedHour).padStart(2, '0')}:
+                  {String(nightUnstudiedMinute).padStart(2, '0')} - Nhắc USER chưa làm bài)
+                </strong>
+                , chia đều từng request.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -2233,7 +2395,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-600 text-white">
-                    🌅 Buổi sáng ({String(morningHour).padStart(2, '0')}:00) • 1 lần/ngày
+                    🌅 Buổi sáng ({String(morningHour).padStart(2, '0')}:
+                    {String(morningMinute).padStart(2, '0')}) • 1 lần/ngày
                   </span>
                   <span
                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
@@ -2270,7 +2433,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
-                    🌆 {String(eveningTop1Hour).padStart(2, '0')}h Tối • 1 lần/ngày
+                    🌆 {String(eveningTop1Hour).padStart(2, '0')}:
+                    {String(eveningTop1Minute).padStart(2, '0')} Tối • 1 lần/ngày
                   </span>
                   <span
                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
@@ -2279,14 +2443,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    {pushStatus.queueStatus?.sentToday?.evening19hTop1 ? '✓ Đã gửi hôm nay' : 'Chờ 19h tối'}
+                    {pushStatus.queueStatus?.sentToday?.evening19hTop1 ? '✓ Đã gửi hôm nay' : 'Chờ gửi'}
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  👑 Thông báo Top 1 hiện tại ({eveningTop1Hour}h tối)
+                  👑 Thông báo Top 1 hiện tại ({String(eveningTop1Hour).padStart(2, '0')}:
+                  {String(eveningTop1Minute).padStart(2, '0')})
                 </h4>
                 <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Không bắn thông báo liên tục mỗi khi đổi ngôi trong ngày. Đúng <strong>{eveningTop1Hour}:00 tối</strong> mới tổng hợp vinh danh Top 1 hiện tại:{' '}
+                  Không bắn thông báo liên tục mỗi khi đổi ngôi trong ngày. Đúng{' '}
+                  <strong>
+                    {String(eveningTop1Hour).padStart(2, '0')}:{String(eveningTop1Minute).padStart(2, '0')} tối
+                  </strong>{' '}
+                  mới tổng hợp vinh danh Top 1 hiện tại:{' '}
                   <strong>
                     {pushStatus.stats?.currentTop1?.fullName || 'Chưa có'} (
                     {pushStatus.stats?.currentTop1?.totalScore?.toLocaleString() || 0}đ)
@@ -2301,8 +2470,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Trophy className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.evening19hTop1
-                  ? 'Đã gửi bản tin 19h (Bấm để gửi lại)'
-                  : 'Push Bản tin Top 1 hiện tại (19h)'}
+                  ? 'Đã gửi bản tin Top 1 (Bấm để gửi lại)'
+                  : 'Push Bản tin Top 1 hiện tại'}
               </button>
             </div>
 
@@ -2311,7 +2480,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
-                    🌙 {String(nightUnstudiedHour).padStart(2, '0')}h Đêm • Chỉ USER chưa làm
+                    🌙 {String(nightUnstudiedHour).padStart(2, '0')}:
+                    {String(nightUnstudiedMinute).padStart(2, '0')} Đêm • Chỉ USER chưa làm
                   </span>
                   <span
                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
@@ -2320,14 +2490,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    {pushStatus.queueStatus?.sentToday?.night23hUnstudied ? '✓ Đã gửi hôm nay' : 'Chờ 23h đêm'}
+                    {pushStatus.queueStatus?.sentToday?.night23hUnstudied ? '✓ Đã gửi hôm nay' : 'Chờ gửi'}
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  ⏰ Nhắc USER chưa làm bài ({nightUnstudiedHour}h đêm)
+                  ⏰ Nhắc USER chưa làm bài ({String(nightUnstudiedHour).padStart(2, '0')}:
+                  {String(nightUnstudiedMinute).padStart(2, '0')})
                 </h4>
                 <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Đúng <strong>{nightUnstudiedHour}:00 đêm</strong> chỉ lọc các tài khoản có <code>role = USER</code> cài PWA mà chưa hoàn thành bài ({' '}
+                  Đúng{' '}
+                  <strong>
+                    {String(nightUnstudiedHour).padStart(2, '0')}:{String(nightUnstudiedMinute).padStart(2, '0')} đêm
+                  </strong>{' '}
+                  chỉ lọc các tài khoản có <code>role = USER</code> cài PWA mà chưa hoàn thành bài ({' '}
                   <strong className="text-rose-500">
                     {pushStatus.stats?.unstudiedAccountsCount || 0} USER
                   </strong>{' '}
@@ -2341,8 +2516,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <BellRing className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.night23hUnstudied
-                  ? `Đã nhắc lúc 23h (Bấm để gửi lại ${pushStatus.stats?.unstudiedAccountsCount || 0} USER)`
-                  : `Push Nhắc ${pushStatus.stats?.unstudiedAccountsCount || 0} USER chưa làm (23h)`}
+                  ? `Đã nhắc (Bấm để gửi lại ${pushStatus.stats?.unstudiedAccountsCount || 0} USER)`
+                  : `Push Nhắc ${pushStatus.stats?.unstudiedAccountsCount || 0} USER chưa làm`}
               </button>
             </div>
           </div>
@@ -2365,7 +2540,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     checked={autoRemindUnstudied}
                     onChange={(e) => setAutoRemindUnstudied(e.target.checked)}
                   />
-                  <span>Bật lịch tự động (Sáng / 19h / 23h)</span>
+                  <span>Bật lịch tự động</span>
                 </label>
                 <button
                   type="button"
@@ -2377,45 +2552,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
                   Giờ báo Bài mới (Sáng)
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={morningHour}
-                  onChange={(e) => setMorningHour(Number(e.target.value))}
-                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
-                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={morningHour}
+                    onChange={(e) => setMorningHour(Math.max(0, Math.min(23, Number(e.target.value))))}
+                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
+                    title="Giờ (0-23)"
+                  />
+                  <span className="font-bold text-slate-400">:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={morningMinute}
+                    onChange={(e) => setMorningMinute(Math.max(0, Math.min(59, Number(e.target.value))))}
+                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
+                    title="Phút (0-59)"
+                  />
+                </div>
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ báo Top 1 (19h tối)
+                  Giờ báo Top 1 (Tối)
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={eveningTop1Hour}
-                  onChange={(e) => setEveningTop1Hour(Number(e.target.value))}
-                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
-                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={eveningTop1Hour}
+                    onChange={(e) => setEveningTop1Hour(Math.max(0, Math.min(23, Number(e.target.value))))}
+                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
+                    title="Giờ (0-23)"
+                  />
+                  <span className="font-bold text-slate-400">:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={eveningTop1Minute}
+                    onChange={(e) => setEveningTop1Minute(Math.max(0, Math.min(59, Number(e.target.value))))}
+                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
+                    title="Phút (0-59)"
+                  />
+                </div>
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ nhắc USER (23h đêm)
+                  Giờ nhắc USER (Đêm)
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={nightUnstudiedHour}
-                  onChange={(e) => setNightUnstudiedHour(Number(e.target.value))}
-                  className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
-                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={nightUnstudiedHour}
+                    onChange={(e) => setNightUnstudiedHour(Math.max(0, Math.min(23, Number(e.target.value))))}
+                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
+                    title="Giờ (0-23)"
+                  />
+                  <span className="font-bold text-slate-400">:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={nightUnstudiedMinute}
+                    onChange={(e) => setNightUnstudiedMinute(Math.max(0, Math.min(59, Number(e.target.value))))}
+                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
+                    title="Phút (0-59)"
+                  />
+                </div>
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
@@ -2494,8 +2708,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                         <div className={`text-[10px] ${textSecondary}`}>
                           {u.neverStudiedAnyDay
-                            ? '⚠️ Có tài khoản nhưng chưa học ngày nào (0/30)'
-                            : `Đã học ${u.completedDays}/30 ngày • Chưa làm ${u.targetDayTitle}`}
+                            ? '⚠️ Có tài khoản nhưng chưa học ngày nào (0/21)'
+                            : `Đã học ${u.completedDays}/21 ngày • Chưa làm ${u.targetDayTitle}`}
                         </div>
                       </div>
                       <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-extrabold shrink-0">
@@ -2818,7 +3032,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div className={`p-3 rounded-2xl border ${subCardBg}`}>
                 <div className="text-lg font-black text-emerald-600">
-                  {inspectingUser.user.completedDays}/30
+                  {inspectingUser.user.completedDays}/21
                 </div>
                 <div className={`text-[11px] ${textSecondary}`}>Số ngày hoàn thành</div>
               </div>
@@ -3120,6 +3334,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {editingQuestion.questionType === 'FILL_IN_THE_BLANK' && (
+              <div>
+                <label className="block text-xs font-bold text-indigo-500 mb-1">
+                  Phiên âm & Nghĩa hiển thị mẫu (statementText)
+                </label>
+                <input
+                  type="text"
+                  value={editingQuestion.statementText || ''}
+                  onChange={(e) =>
+                    setEditingQuestion({ ...editingQuestion, statementText: e.target.value })
+                  }
+                  placeholder="/ˌredʒɪˈstreɪʃn/ - Đăng ký"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border border-indigo-400 text-sm font-bold ${inputBg}`}
+                />
+              </div>
+            )}
+
             {/* 3. Cài đặt ÂM THANH (Audio) & VIDEO cho Câu hỏi */}
             <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl border ${subCardBg}`}>
               {/* Cột Audio Câu hỏi */}
@@ -3267,144 +3498,175 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* 4. Danh sách Đáp án & Chọn đáp án đúng */}
-            <div className="space-y-2.5">
-              <label className={`block text-xs font-extrabold ${textPrimary}`}>
-                {at.optionsSectionLabel}
-              </label>
+            {/* 4. Danh sách Đáp án & Chọn đáp án đúng (Hoặc Ô nhập cho câu hỏi điền từ) */}
+            {editingQuestion.questionType === 'FILL_IN_THE_BLANK' ? (
+              <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
+                <div className="flex items-center gap-2 text-indigo-500 font-black text-sm">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Dạng câu hỏi điền từ (Fill in the blank)</span>
+                </div>
+                <div>
+                  <label className={`block text-xs font-bold mb-1 ${textSecondary}`}>
+                    Từ vựng cần điền chính xác (Đáp án đúng) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingQuestion.targetWord || ''}
+                    onChange={(e) =>
+                      setEditingQuestion({
+                        ...editingQuestion,
+                        targetWord: e.target.value,
+                        correctOptionId: e.target.value.trim().toLowerCase(),
+                      })
+                    }
+                    placeholder="ví dụ: registration"
+                    className={`w-full px-3.5 py-2.5 rounded-xl border border-indigo-400 text-sm font-black ${inputBg}`}
+                  />
+                  <p className={`text-[11px] mt-1 ${textSecondary}`}>
+                    Học viên sẽ gõ từ này vào ô trả lời. Hệ thống chấm điểm tự động bỏ khoảng trắng thừa và không phân biệt chữ hoa/thường.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                <label className={`block text-xs font-extrabold ${textPrimary}`}>
+                  {at.optionsSectionLabel}
+                </label>
 
-              {(editingQuestion.options || []).map((opt: any, idx: number) => {
-                const isCorrect = editingQuestion.correctOptionId === opt.id;
-                return (
-                  <div
-                    key={opt.id}
-                    className={`p-3 rounded-2xl border space-y-2 ${
-                      isCorrect
-                        ? darkMode
-                          ? 'bg-emerald-950/50 border-emerald-500'
-                          : 'bg-emerald-50/70 border-emerald-400'
-                        : subCardBg
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditingQuestion({
-                            ...editingQuestion,
-                            correctOptionId: opt.id,
-                          })
-                        }
-                        className={`px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 ${
-                          isCorrect
-                            ? 'bg-emerald-600 text-white'
-                            : darkMode
-                            ? 'bg-slate-700 text-slate-300'
-                            : 'bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        {opt.id} {isCorrect ? at.correctSelectedBadge : ''}
-                      </button>
+                {(editingQuestion.options || []).map((opt: any, idx: number) => {
+                  const isCorrect = editingQuestion.correctOptionId === opt.id;
+                  return (
+                    <div
+                      key={opt.id}
+                      className={`p-3 rounded-2xl border space-y-2 ${
+                        isCorrect
+                          ? darkMode
+                            ? 'bg-emerald-950/50 border-emerald-500'
+                            : 'bg-emerald-50/70 border-emerald-400'
+                          : subCardBg
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingQuestion({
+                              ...editingQuestion,
+                              correctOptionId: opt.id,
+                            })
+                          }
+                          className={`px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 ${
+                            isCorrect
+                              ? 'bg-emerald-600 text-white'
+                              : darkMode
+                              ? 'bg-slate-700 text-slate-300'
+                              : 'bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          {opt.id} {isCorrect ? at.correctSelectedBadge : ''}
+                        </button>
 
-                      <input
-                        type="text"
-                        value={opt.text}
-                        onChange={(e) => {
-                          const newOpts = [...editingQuestion.options];
-                          newOpts[idx] = { ...newOpts[idx], text: e.target.value };
-                          setEditingQuestion({ ...editingQuestion, options: newOpts });
-                        }}
-                        placeholder={`${opt.id}...`}
-                        className={`flex-1 min-w-[160px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
-                      />
-
-                      <label className="text-[11px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(opt.hasOptionAudio)}
-                          onChange={(e) => {
-                            const newOpts = [...editingQuestion.options];
-                            newOpts[idx] = {
-                              ...newOpts[idx],
-                              hasOptionAudio: e.target.checked,
-                            };
-                            setEditingQuestion({ ...editingQuestion, options: newOpts });
-                          }}
-                        />
-                        {at.hasOptionSpeaker} {opt.id}
-                      </label>
-                    </div>
-
-                    {opt.hasOptionAudio && (
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pl-2 pt-1">
-                        <input
-                          type="text"
-                          value={opt.spokenText || ''}
-                          onChange={(e) => {
-                            const newOpts = [...editingQuestion.options];
-                            newOpts[idx] = { ...newOpts[idx], spokenText: e.target.value };
-                            setEditingQuestion({ ...editingQuestion, options: newOpts });
-                          }}
-                          placeholder="TTS (e.g. approval)"
-                          className={`sm:col-span-4 px-2.5 py-1.5 rounded-lg border text-xs ${inputBg}`}
-                        />
                         <input
                           type="text"
-                          value={opt.audioUrl || ''}
+                          value={opt.text}
                           onChange={(e) => {
                             const newOpts = [...editingQuestion.options];
-                            newOpts[idx] = { ...newOpts[idx], audioUrl: e.target.value };
+                            newOpts[idx] = { ...newOpts[idx], text: e.target.value };
                             setEditingQuestion({ ...editingQuestion, options: newOpts });
                           }}
-                          placeholder=".mp3 URL"
-                          className={`sm:col-span-5 px-2.5 py-1.5 rounded-lg border text-xs ${inputBg}`}
+                          placeholder={`${opt.id}...`}
+                          className={`flex-1 min-w-[160px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
                         />
-                        <div className="sm:col-span-3 flex items-center gap-1">
-                          <label className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold cursor-pointer">
-                            {uploadingField === `opt-${opt.id}` ? '...' : 'MP3'}
-                            <input
-                              type="file"
-                              accept="audio/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  handleUploadFile(
-                                    file,
-                                    (url) => {
-                                      const newOpts = [...editingQuestion.options];
-                                      newOpts[idx] = { ...newOpts[idx], audioUrl: url };
-                                      setEditingQuestion({
-                                        ...editingQuestion,
-                                        options: newOpts,
-                                      });
-                                    },
-                                    `opt-${opt.id}`
-                                  );
-                                }
-                              }}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              playPronunciation(
-                                opt.spokenText || opt.text || editingQuestion.targetWord,
-                                opt.audioUrl
-                              )
-                            }
-                            className={`p-1.5 rounded-lg border ${inputBg}`}
-                          >
-                            🔊
-                          </button>
-                        </div>
+
+                        <label className="text-[11px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(opt.hasOptionAudio)}
+                            onChange={(e) => {
+                              const newOpts = [...editingQuestion.options];
+                              newOpts[idx] = {
+                                ...newOpts[idx],
+                                hasOptionAudio: e.target.checked,
+                              };
+                              setEditingQuestion({ ...editingQuestion, options: newOpts });
+                            }}
+                          />
+                          {at.hasOptionSpeaker} {opt.id}
+                        </label>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+
+                      {opt.hasOptionAudio && (
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pl-2 pt-1">
+                          <input
+                            type="text"
+                            value={opt.spokenText || ''}
+                            onChange={(e) => {
+                              const newOpts = [...editingQuestion.options];
+                              newOpts[idx] = { ...newOpts[idx], spokenText: e.target.value };
+                              setEditingQuestion({ ...editingQuestion, options: newOpts });
+                            }}
+                            placeholder="TTS (e.g. approval)"
+                            className={`sm:col-span-4 px-2.5 py-1.5 rounded-lg border text-xs ${inputBg}`}
+                          />
+                          <input
+                            type="text"
+                            value={opt.audioUrl || ''}
+                            onChange={(e) => {
+                              const newOpts = [...editingQuestion.options];
+                              newOpts[idx] = { ...newOpts[idx], audioUrl: e.target.value };
+                              setEditingQuestion({ ...editingQuestion, options: newOpts });
+                            }}
+                            placeholder=".mp3 URL"
+                            className={`sm:col-span-5 px-2.5 py-1.5 rounded-lg border text-xs ${inputBg}`}
+                          />
+                          <div className="sm:col-span-3 flex items-center gap-1">
+                            <label className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold cursor-pointer">
+                              {uploadingField === `opt-${opt.id}` ? '...' : 'MP3'}
+                              <input
+                                type="file"
+                                accept="audio/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleUploadFile(
+                                      file,
+                                      (url) => {
+                                        const newOpts = [...editingQuestion.options];
+                                        newOpts[idx] = { ...newOpts[idx], audioUrl: url };
+                                        setEditingQuestion({
+                                          ...editingQuestion,
+                                          options: newOpts,
+                                        });
+                                      },
+                                      `opt-${opt.id}`
+                                    );
+                                  }
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                playPronunciation(
+                                  opt.spokenText || opt.text || editingQuestion.targetWord,
+                                  opt.audioUrl
+                                )
+                              }
+                              className={`p-1.5 rounded-lg border ${inputBg}`}
+                            >
+                              🔊
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* 5. Giải thích đáp án */}
             <div>
@@ -3441,6 +3703,180 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ================= MODAL SỬA BỘ TỪ VỰNG CÂU 11 (5 TỪ) ================= */}
+      {showQ11Modal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div
+            className={`w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl border space-y-4 my-auto max-h-[92vh] overflow-y-auto ${cardBg}`}
+          >
+            <div
+              className={`flex items-center justify-between pb-3 border-b ${
+                darkMode ? 'border-slate-800' : 'border-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 flex items-center justify-center font-black">
+                  🎙️
+                </span>
+                <div>
+                  <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
+                    Sửa 5 Từ Vựng Luyện Đọc Câu 11 — {dayDetail?.title || `Day ${selectedDay}`}
+                  </h3>
+                  <p className={`text-xs ${textSecondary}`}>
+                    Thay đổi từ, phiên âm IPA, nghĩa tiếng Việt và mẹo phát âm cho 5 từ luyện đọc.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQ11Modal(false)}
+                className={`p-2 rounded-full ${subCardBg}`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQ11Words} className="space-y-3.5">
+              <div className="space-y-3 max-h-[58vh] overflow-y-auto pr-1">
+                {editingQ11Words.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3.5 rounded-2xl border space-y-2.5 ${subCardBg}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-xs font-black">
+                        Từ vựng #{idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => playPronunciation(item.spokenText || item.word)}
+                        className="px-2 py-1 rounded-lg bg-blue-100 text-blue-700 dark:bg-slate-700 dark:text-blue-300 text-xs font-bold flex items-center gap-1"
+                        title="Nghe phát âm thử"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" /> Nghe thử
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                          Từ tiếng Anh (Word) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={item.word}
+                          onChange={(e) => {
+                            const next = [...editingQ11Words];
+                            next[idx] = {
+                              ...next[idx],
+                              word: e.target.value,
+                              spokenText: e.target.value.toLowerCase(),
+                            };
+                            setEditingQ11Words(next);
+                          }}
+                          placeholder="ví dụ: Approval"
+                          className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-black ${inputBg}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                          Phiên âm quốc tế (IPA) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={item.ipa}
+                          onChange={(e) => {
+                            const next = [...editingQ11Words];
+                            next[idx] = { ...next[idx], ipa: e.target.value };
+                            setEditingQ11Words(next);
+                          }}
+                          placeholder="ví dụ: /əˈpruː.vəl/"
+                          className={`w-full px-3 py-2 rounded-xl border font-mono text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 ${inputBg}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                          Nghĩa tiếng Việt (Meaning) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={item.meaningVi}
+                          onChange={(e) => {
+                            const next = [...editingQ11Words];
+                            next[idx] = { ...next[idx], meaningVi: e.target.value };
+                            setEditingQ11Words(next);
+                          }}
+                          placeholder="ví dụ: Sự phê duyệt"
+                          className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-semibold ${inputBg}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                          Mẹo phát âm (Tip)
+                        </label>
+                        <input
+                          type="text"
+                          value={item.tip || ''}
+                          onChange={(e) => {
+                            const next = [...editingQ11Words];
+                            next[idx] = { ...next[idx], tip: e.target.value };
+                            setEditingQ11Words(next);
+                          }}
+                          placeholder="ví dụ: Nhấn âm 2, âm /uː/ kéo dài"
+                          className={`w-full px-3 py-2 rounded-xl border text-xs ${inputBg}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Checkbox áp dụng cho cả 21 ngày */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between ${subCardBg}`}>
+                <label className="text-xs font-extrabold flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={cloneQ11ToAllDays}
+                    onChange={(e) => setCloneQ11ToAllDays(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 rounded"
+                  />
+                  <span>Áp dụng bộ 5 từ vựng này cho toàn bộ 21 ngày thi</span>
+                </label>
+                <span className="text-[11px] text-purple-600 dark:text-purple-400 font-bold">
+                  {cloneQ11ToAllDays ? 'Đồng bộ cả 21 ngày' : `Chỉ lưu Day ${selectedDay}`}
+                </span>
+              </div>
+
+              <div
+                className={`flex items-center justify-end gap-2 pt-3 border-t ${
+                  darkMode ? 'border-slate-800' : 'border-slate-100'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowQ11Modal(false)}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs sm:text-sm shadow-md flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" /> Lưu 5 từ vựng Câu 11
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -36,6 +36,7 @@ import {
   Target,
   Gift,
   Loader2,
+  Send,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -769,7 +770,7 @@ export const App: React.FC = () => {
           dayNumber: activeQuiz.dayNumber,
           title: activeQuiz.title,
           dateLabel: activeQuiz.dateLabel,
-          answers: activeQuiz.answers,
+          answers: activeQuiz.answers as Record<string, 'A' | 'B' | 'C' | 'D'>,
           clientTimeMs,
           q11Pronunciation: q11Data,
           expiresAt: getNextMidnightMs(),
@@ -814,7 +815,7 @@ export const App: React.FC = () => {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify({
-          answers: activeQuiz.answers,
+          answers: activeQuiz.answers as Record<string, 'A' | 'B' | 'C' | 'D'>,
           clientTimeMs: activeQuiz.elapsedSeconds * 1000,
           q11Pronunciation: q11Data,
         }),
@@ -1998,7 +1999,7 @@ export const App: React.FC = () => {
                     <div className="flex items-center justify-between mb-3">
                       <h2 className={`text-sm sm:text-base font-black flex items-center gap-1.5 ${textPrimary}`}>
                         <Calendar className="w-4 h-4 text-blue-600" /> {t.progressTitle} (
-                        {completedCount}/30)
+                        {completedCount}/21)
                       </h2>
                       <button
                         onClick={() => navigateToTab('challenges')}
@@ -2116,14 +2117,19 @@ export const App: React.FC = () => {
                                   {item.fullName}
                                 </div>
                                 <div className={`text-[10px] truncate ${textSecondary}`}>
-                                  GEN {item.employeeId} • {item.completedDays}/30 {t.daysUnit}
+                                  GEN {item.employeeId} • {item.completedDays}/21 {t.daysUnit}
                                 </div>
                               </div>
                             </div>
-                            <span className="text-xs sm:text-sm font-black text-blue-600 shrink-0">
-                              {item.totalScore.toLocaleString()}
-                              {t.pointsSuffix}
-                            </span>
+                            <div className="text-right shrink-0">
+                              <span className="text-xs sm:text-sm font-black text-blue-600 block">
+                                {item.totalScore.toLocaleString()} {t.pointsSuffix}
+                              </span>
+                              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center justify-end gap-0.5">
+                                <Clock className="w-2.5 h-2.5 inline" />
+                                {formatTimeMmSs(Math.round((item.totalTimeMs || 0) / 1000))}
+                              </span>
+                            </div>
                           </div>
                         )))}
                       </div>
@@ -2373,14 +2379,14 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* ================= 2. TAB 30 NGÀY ================= */}
+            {/* ================= 2. TAB 21 NGÀY ================= */}
             {activeTab === 'challenges' && (
               <div className="space-y-4">
                 <div className={`rounded-2xl p-4 border shadow-sm flex items-center justify-between ${cardBg}`}>
                   <div>
                     <h2 className={`text-base font-black ${textPrimary}`}>{t.journey30Days}</h2>
                     <p className={`text-xs ${textSecondary}`}>
-                      {t.completedDaysLabel}: <strong>{completedCount}/30 {t.daysUnit}</strong>
+                      {t.completedDaysLabel}: <strong>{completedCount}/21 {t.daysUnit}</strong>
                     </p>
                   </div>
                   <button
@@ -2560,7 +2566,11 @@ export const App: React.FC = () => {
                             {t.pointsSuffix}
                           </div>
                           <div className="text-[10px] text-slate-400">
-                            {item.completedDays}/30 {t.daysUnit}
+                            {item.completedDays}/21 {t.daysUnit}
+                          </div>
+                          <div className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center justify-end gap-1 mt-0.5">
+                            <Clock className="w-3 h-3 inline" />
+                            <span>{formatTimeMmSs(Math.round((item.totalTimeMs || 0) / 1000))}</span>
                           </div>
                         </div>
                       </div>
@@ -2578,9 +2588,15 @@ export const App: React.FC = () => {
                         {user?.fullName} ({t.youBadge})
                       </span>
                     </div>
-                    <span className="text-sm sm:text-base font-black text-amber-300">
-                      {leaderboardData.myRank.totalScore.toLocaleString()} {t.pointsSuffix}
-                    </span>
+                    <div className="text-right">
+                      <span className="text-sm sm:text-base font-black text-amber-300 block">
+                        {leaderboardData.myRank.totalScore.toLocaleString()} {t.pointsSuffix}
+                      </span>
+                      <span className="text-[10px] text-blue-200 font-bold flex items-center justify-end gap-0.5">
+                        <Clock className="w-2.5 h-2.5 inline" />
+                        {formatTimeMmSs(Math.round((leaderboardData.myRank.totalTimeMs || 0) / 1000))}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -2644,7 +2660,7 @@ export const App: React.FC = () => {
                     </div>
                     <div className={`p-3 rounded-2xl border ${subCardBg}`}>
                       <div className={`text-lg sm:text-xl font-black ${textPrimary}`}>
-                        {completedCount}/30
+                        {completedCount}/21
                       </div>
                       <div className={`text-[11px] ${textSecondary}`}>{t.completedDaysLabel}</div>
                     </div>
@@ -2662,7 +2678,7 @@ export const App: React.FC = () => {
                     <Award className="w-4 h-4 text-amber-500" /> {t.milestonesTitle}
                   </h3>
                   <div className="grid grid-cols-5 gap-2 text-center">
-                    {[1, 5, 10, 20, 30].map((m) => {
+                    {[1, 5, 10, 15, 21].map((m) => {
                       const unlocked = completedCount >= m || m === 1;
                       return (
                         <div

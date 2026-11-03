@@ -119,7 +119,8 @@ export interface ActiveQuizSession {
 export type PushNotificationType =
   | 'NEW_DAY_UNLOCKED'
   | 'NEW_TOP_1'
-  | 'UNSTUDIED_REMINDER';
+  | 'UNSTUDIED_REMINDER'
+  | 'PERSONALIZED';
 
 export interface PwaPushSubscriptionRecord {
   id: string;
@@ -1592,8 +1593,20 @@ class DataStore {
       this.data.inAppNotifications = [];
     }
     this.data.inAppNotifications.unshift(notif);
-    if (this.data.inAppNotifications.length > 100) {
-      this.data.inAppNotifications = this.data.inAppNotifications.slice(0, 100);
+    if (this.data.inAppNotifications.length > 1000) {
+      this.data.inAppNotifications = this.data.inAppNotifications.slice(0, 1000);
+    }
+    this.save();
+  }
+
+  public addBatchInAppNotifications(notifs: InAppNotificationRecord[]) {
+    if (!notifs || notifs.length === 0) return;
+    if (!this.data.inAppNotifications) {
+      this.data.inAppNotifications = [];
+    }
+    this.data.inAppNotifications.unshift(...notifs);
+    if (this.data.inAppNotifications.length > 1000) {
+      this.data.inAppNotifications = this.data.inAppNotifications.slice(0, 1000);
     }
     this.save();
   }
@@ -1946,6 +1959,10 @@ class DataStore {
         deliveredAt: new Date().toISOString(),
       });
     });
+
+    console.log(
+      `[IN-APP NOTIF] 📢 Đã gửi thông báo cá nhân hóa tới ${targets.length} nhân viên (targetType: ${payload.targetType}${payload.targetValue ? `=${payload.targetValue}` : ''})`
+    );
 
     return { sentCount: targets.length, success: true };
   }
