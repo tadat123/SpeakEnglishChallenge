@@ -118,6 +118,7 @@ export interface DailyChallengeItem {
   questions: QuestionItem[];
   q11Words?: WorkplaceWordItem[];
   forceLockedAt?: number | null;
+  forceRevealed?: boolean;
 }
 
 export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'orderIndex'>[] = [

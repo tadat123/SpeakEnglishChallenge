@@ -746,6 +746,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleToggleRevealResults = async () => {
+    try {
+      const isCurrentlyRevealed = Boolean(dayDetail?.resultsRevealed || dayDetail?.forceRevealed);
+      const res = await fetch(`/api/admin/challenges/${selectedDay}/reveal`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ forceRevealed: !isCurrentlyRevealed }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showMessage(data.message);
+        fetchDayDetail(selectedDay);
+        onRefreshGlobal();
+      } else {
+        showMessage(data.message || 'Lỗi khi cập nhật trạng thái công bố đáp án', true);
+      }
+    } catch (e: any) {
+      showMessage(e?.message || 'Lỗi mạng', true);
+    }
+  };
+
   const handleUploadFile = async (
     file: File,
     onUploadedUrl: (url: string) => void,
@@ -1860,6 +1881,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Unlock className="w-4 h-4" /> {at.unlockDayBtn} {dayDetail.title} {at.nowSuffix}
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={handleToggleRevealResults}
+                className={`px-4 py-2.5 rounded-xl text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition ${
+                  dayDetail.resultsRevealed || dayDetail.forceRevealed
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
+                title={
+                  dayDetail.resultsRevealed || dayDetail.forceRevealed
+                    ? 'Đáp án & Bảng điểm đang được CÔNG BỐ. Bấm để ẩn lại (chờ 00:00).'
+                    : 'Bấm để CÔNG BỐ đáp án & bảng điểm ngay lập tức cho toàn thể nhân viên.'
+                }
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {dayDetail.resultsRevealed || dayDetail.forceRevealed
+                  ? '📢 Đã công bố đáp án (Bấm để ẩn)'
+                  : '📢 Công bố đáp án ngay'}
+              </button>
             </div>
           </div>
 
@@ -2025,7 +2066,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </h3>
                 </div>
                 <p className={`text-xs mt-1 ${textSecondary}`}>
-                  Học viên sẽ ghi âm luyện đọc 5 từ vựng chuyên môn này với AI đánh giá độ chính xác (≥75% đạt chuẩn).
+                  Học viên sẽ ghi âm luyện đọc 5 từ vựng chuyên môn này với AI đánh giá độ chính xác (≥75% đạt chuẩn). Phần này là tự luyện bổ trợ, KHÔNG tính giờ và KHÔNG tính điểm thi xếp hạng.
                 </p>
               </div>
               <button

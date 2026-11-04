@@ -112,6 +112,7 @@ export interface ActiveQuizSession {
   fullName: string;
   dayNumber: number;
   startedAt: number;
+  q10FinishedAt?: number;
   // Snapshot bộ câu hỏi lúc nhân viên bắt đầu làm bài để nếu Admin sửa câu hỏi giữa chừng không làm lỗi bài đang thi
   questionsSnapshot: QuestionItem[];
 }
@@ -910,12 +911,31 @@ class DataStore {
   }
 
   public getDayEndDate(challenge: DailyChallengeItem): string {
+    // 1. Căn cứ theo dateLabel (định dạng DD/MM/YYYY): Kết thúc lúc 00:00:00 ngày tiếp theo theo giờ VN (UTC+7)
+    // Tương đương 17:00:00 UTC của ngày ghi trên dateLabel
+    if (challenge.dateLabel && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(challenge.dateLabel.trim())) {
+      const [dd, mm, yyyy] = challenge.dateLabel.trim().split('/').map(Number);
+      const endMs = Date.UTC(yyyy, mm - 1, dd, 17, 0, 0, 0);
+      return new Date(endMs).toISOString();
+    }
+    // 2. Fallback: Lấy mốc 00:00:00 của ngày tiếp theo dựa trên unlockDate
     const unlockMs = new Date(challenge.unlockDate).getTime();
-    return new Date(unlockMs + 24 * 60 * 60 * 1000).toISOString();
+    const d = new Date(unlockMs + 7 * 3600 * 1000);
+    const nextVnMidnightUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 17, 0, 0, 0);
+    return new Date(nextVnMidnightUtc).toISOString();
   }
 
   public isDayEnded(challenge: DailyChallengeItem): boolean {
+    if (challenge.forceRevealed) return true;
     return Date.now() >= new Date(this.getDayEndDate(challenge)).getTime();
+  }
+
+  public toggleRevealResults(dayNumber: number, forceRevealed?: boolean): DailyChallengeItem | null {
+    const challenge = this.getChallengeByDay(dayNumber);
+    if (!challenge) return null;
+    challenge.forceRevealed = forceRevealed !== undefined ? forceRevealed : !challenge.forceRevealed;
+    this.save();
+    return challenge;
   }
 
   public getUserAttempts(userId: string): AttemptRecord[] {
@@ -1084,6 +1104,24 @@ class DataStore {
     this.activeSessions.delete(`${userId}:${dayNumber}`);
   }
 
+  /** Chốt thời gian kết thúc Câu 10 (Câu 11 không tính giờ) */
+  public markSessionQ10Finished(userId: string, dayNumber: number): number | null {
+    const session = this.getActiveSession(userId, dayNumber);
+    if (!session) return null;
+    if (!session.q10FinishedAt) {
+      session.q10FinishedAt = Date.now();
+    }
+    return Math.max(2000, session.q10FinishedAt - session.startedAt);
+  }
+
+  /** Nếu người dùng bấm quay lại câu 1-10 từ câu 11 thì mở lại bộ đếm */
+  public clearSessionQ10Finished(userId: string, dayNumber: number): void {
+    const session = this.getActiveSession(userId, dayNumber);
+    if (session) {
+      delete session.q10FinishedAt;
+    }
+  }
+
   public getActiveSessionsForDay(dayNumber: number): ActiveQuizSession[] {
     this.pruneExpiredSessions();
     const list: ActiveQuizSession[] = [];
@@ -1122,19 +1160,22 @@ class DataStore {
       dateLabel?: string;
       unlockNow?: boolean;
       lockMode?: 'GRACEFUL' | 'FORCE';
+      forceRevealed?: boolean;
     }
   ): {
     challenge: DailyChallengeItem | undefined;
     activePlayersAffected: number;
     lockModeUsed?: 'GRACEFUL' | 'FORCE';
     isUnlocked: boolean;
+    resultsRevealed: boolean;
   } {
     this.reloadIfChanged();
     const challenge = this.getChallengeByDay(dayNumber);
-    if (!challenge) return { challenge: undefined, activePlayersAffected: 0, isUnlocked: false };
+    if (!challenge) return { challenge: undefined, activePlayersAffected: 0, isUnlocked: false, resultsRevealed: false };
 
     if (payload.title !== undefined) challenge.title = payload.title.trim();
     if (payload.dateLabel !== undefined) challenge.dateLabel = payload.dateLabel.trim();
+    if (payload.forceRevealed !== undefined) challenge.forceRevealed = Boolean(payload.forceRevealed);
 
     const activePlayers = this.getActiveSessionsForDay(dayNumber);
 
@@ -1171,6 +1212,7 @@ class DataStore {
       activePlayersAffected: activePlayers.length,
       lockModeUsed: payload.lockMode || 'GRACEFUL',
       isUnlocked: this.isDayUnlocked(challenge),
+      resultsRevealed: this.isDayEnded(challenge),
     };
   }
 

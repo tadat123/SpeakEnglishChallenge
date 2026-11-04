@@ -158,6 +158,7 @@ export const App: React.FC = () => {
     currentIndex: number;
     answers: Record<string, string>;
     elapsedSeconds: number;
+    q10ElapsedSeconds?: number;
     q11Words?: any[];
   } | null>(null);
   const [quizResult, setQuizResult] = useState<any | null>(null);
@@ -367,6 +368,20 @@ export const App: React.FC = () => {
         setUser(prof.user);
         localStorage.setItem('sr_user', JSON.stringify(prof.user));
       }
+
+      if (quizResult && !quizResult.resultsRevealed) {
+        try {
+          const rRes = await fetch(`/api/challenges/${quizResult.dayNumber}/result`, {
+            headers: getHeaders(true),
+          });
+          if (rRes.ok) {
+            const rData = await rRes.json();
+            if (rData.resultsRevealed) {
+              setQuizResult(rData);
+            }
+          }
+        } catch {}
+      }
     } catch (e) {
       console.error('Lỗi tải dữ liệu:', e);
     } finally {
@@ -376,6 +391,25 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     fetchAllData();
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const h = window.location.hash.replace('#', '');
+    if ((h.startsWith('result/') || h.startsWith('review/')) && !quizResult) {
+      const dayNum = parseInt(h.split('/')[1], 10);
+      if (dayNum) {
+        fetch(`/api/challenges/${dayNum}/result`, { headers: getHeaders(true) })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data) {
+              setQuizResult(data);
+              setShowDetailedReview(h.startsWith('review/'));
+            }
+          })
+          .catch(() => {});
+      }
+    }
   }, [token]);
 
   useEffect(() => {
@@ -507,9 +541,14 @@ export const App: React.FC = () => {
       return;
     }
     const timer = setInterval(() => {
-      setActiveQuiz((prev) =>
-        prev ? { ...prev, elapsedSeconds: prev.elapsedSeconds + 1 } : null
-      );
+      setActiveQuiz((prev) => {
+        if (!prev) return null;
+        // Nếu đã hoàn thành hoặc đang ở Câu 11 (tự luyện đọc phát âm) -> DỪNG ĐỒNG HỒ TÍNH GIỜ!
+        if (prev.currentIndex >= prev.questions.length) {
+          return prev;
+        }
+        return { ...prev, elapsedSeconds: prev.elapsedSeconds + 1 };
+      });
     }, 1000);
 
     const lockCheckTimer = setInterval(async () => {
@@ -610,6 +649,29 @@ export const App: React.FC = () => {
     if (dayItem.status === 'LOCKED') {
       setLockedModalDay(dayItem);
       return;
+    }
+
+    // Nếu ngày này đã hoàn thành bài thi -> Mở ngay Bảng điểm & Giải thích đáp án chi tiết
+    if (dayItem.status === 'COMPLETED' && token) {
+      setStartingDay(dayItem.dayNumber);
+      try {
+        const res = await fetch(`/api/challenges/${dayItem.dayNumber}/result`, {
+          headers: getHeaders(true),
+        });
+        if (res.ok) {
+          const resultData = await res.json();
+          setActiveQuiz(null);
+          setQuizResult(resultData);
+          setShowDetailedReview(false);
+          window.location.hash = `#result/${dayItem.dayNumber}`;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to load completed challenge result:', e);
+      } finally {
+        setStartingDay(null);
+      }
     }
 
     setStartingDay(dayItem.dayNumber);
@@ -715,11 +777,24 @@ export const App: React.FC = () => {
           // Cho phép tự động chuyển sang tới Câu 11 (index === questions.length)
           if (!prev || prev.currentIndex >= prev.questions.length) return prev;
           const nextIdx = prev.currentIndex + 1;
+          const isEnteringQ11 = nextIdx >= prev.questions.length;
+          if (isEnteringQ11 && token) {
+            fetch(`/api/challenges/${prev.dayNumber}/finish-q10`, {
+              method: 'POST',
+              headers: getHeaders(true),
+            }).catch(() => {});
+          }
           const nextQ = prev.questions[nextIdx];
           if (nextQ?.hasPromptAudio && nextQ?.targetWord) {
             setTimeout(() => handleSpeak(`prompt-${nextQ.id}`, nextQ.targetWord), 250);
           }
-          return { ...prev, currentIndex: nextIdx };
+          return {
+            ...prev,
+            currentIndex: nextIdx,
+            ...(isEnteringQ11
+              ? { q10ElapsedSeconds: prev.q10ElapsedSeconds ?? prev.elapsedSeconds }
+              : {}),
+          };
         });
       }, 280);
     }
@@ -729,6 +804,13 @@ export const App: React.FC = () => {
     if (!activeQuiz) return;
     setSubmittingQuiz(true);
     try {
+      // Thời gian làm bài CHỈ TÍNH ĐẾN HẾT CÂU 10 (Câu 11 luyện đọc phát âm không tính giờ và không tính điểm)
+      const completionSeconds =
+        activeQuiz.currentIndex >= activeQuiz.questions.length
+          ? (activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds)
+          : activeQuiz.elapsedSeconds;
+      const clientTimeMs = Math.max(1, completionSeconds) * 1000;
+
       // Chế độ Khách: không lưu vào DB, tính điểm tạm thời và lưu Pending để bảo khách đăng nhập tạo tài khoản
       if (isGuest) {
         const questionsToGrade = activeQuiz.questions;
@@ -787,7 +869,6 @@ export const App: React.FC = () => {
           };
         });
 
-        const clientTimeMs = activeQuiz.elapsedSeconds * 1000;
         const pending: GuestPendingSubmission = {
           dayNumber: activeQuiz.dayNumber,
           title: activeQuiz.title,
@@ -838,7 +919,7 @@ export const App: React.FC = () => {
         headers: getHeaders(true),
         body: JSON.stringify({
           answers: activeQuiz.answers as Record<string, 'A' | 'B' | 'C' | 'D'>,
-          clientTimeMs: activeQuiz.elapsedSeconds * 1000,
+          clientTimeMs,
           q11Pronunciation: q11Data,
         }),
       });
@@ -1305,10 +1386,20 @@ export const App: React.FC = () => {
                   {activeQuiz.title} ({activeQuiz.dateLabel})
                 </h2>
               </div>
-              <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2.5 py-1 rounded-full text-xs font-extrabold">
-                <Clock className="w-3.5 h-3.5" />
-                {formatTimeMmSs(activeQuiz.elapsedSeconds)}
-              </div>
+              {activeQuiz.currentIndex >= activeQuiz.questions.length ? (
+                <div
+                  className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-3 py-1 rounded-full text-xs font-black shadow-sm"
+                  title={L('Đồng hồ tính giờ thi đã dừng sau Câu 10', 'Exam timer stopped after Question 10', '10번 문제 이후 타이머 정지')}
+                >
+                  <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>⏱️ {formatTimeMmSs(activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds)} ({L('Đã chốt giờ', 'Time locked', '시간 고정')})</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2.5 py-1 rounded-full text-xs font-extrabold">
+                  <Clock className="w-3.5 h-3.5" />
+                  {formatTimeMmSs(activeQuiz.elapsedSeconds)}
+                </div>
+              )}
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-2">
@@ -1320,9 +1411,16 @@ export const App: React.FC = () => {
                     <button
                       key={qItem.id}
                       type="button"
-                      onClick={() =>
-                        setActiveQuiz((prev) => (prev ? { ...prev, currentIndex: idx } : null))
-                      }
+                      onClick={() => {
+                        const wasAtQ11 = activeQuiz.currentIndex >= activeQuiz.questions.length;
+                        if (wasAtQ11 && token) {
+                          fetch(`/api/challenges/${activeQuiz.dayNumber}/resume-quiz`, {
+                            method: 'POST',
+                            headers: getHeaders(true),
+                          }).catch(() => {});
+                        }
+                        setActiveQuiz((prev) => (prev ? { ...prev, currentIndex: idx } : null));
+                      }}
                       className={`w-7 h-7 rounded-lg text-xs font-extrabold shrink-0 transition ${
                         isCurrent
                           ? 'bg-blue-600 text-white shadow-sm scale-105'
@@ -1337,14 +1435,26 @@ export const App: React.FC = () => {
                     </button>
                   );
                 })}
-                {/* Nút chuyển nhanh sang Câu 11 – Pronunciation Challenge 🎙️ (Không tính điểm) */}
+                {/* Nút chuyển nhanh sang Câu 11 – Pronunciation Challenge 🎙️ (Không tính giờ, không tính điểm) */}
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
                     setActiveQuiz((prev) =>
-                      prev ? { ...prev, currentIndex: prev.questions.length } : null
-                    )
-                  }
+                      prev
+                        ? {
+                            ...prev,
+                            currentIndex: prev.questions.length,
+                            q10ElapsedSeconds: prev.q10ElapsedSeconds ?? prev.elapsedSeconds,
+                          }
+                        : null
+                    );
+                    if (token) {
+                      fetch(`/api/challenges/${activeQuiz.dayNumber}/finish-q10`, {
+                        method: 'POST',
+                        headers: getHeaders(true),
+                      }).catch(() => {});
+                    }
+                  }}
                   className={`px-2 h-7 rounded-lg text-xs font-extrabold shrink-0 transition flex items-center gap-1 ${
                     activeQuiz.currentIndex === activeQuiz.questions.length
                       ? 'bg-indigo-600 text-white shadow-sm scale-105'
@@ -1391,11 +1501,17 @@ export const App: React.FC = () => {
                     <div className="flex items-center justify-between gap-2.5 mt-5 pt-3.5 border-t border-slate-200/60">
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          if (token) {
+                            fetch(`/api/challenges/${activeQuiz.dayNumber}/resume-quiz`, {
+                              method: 'POST',
+                              headers: getHeaders(true),
+                            }).catch(() => {});
+                          }
                           setActiveQuiz((prev) =>
                             prev ? { ...prev, currentIndex: prev.questions.length - 1 } : null
-                          )
-                        }
+                          );
+                        }}
                         className={`px-4 py-3 rounded-2xl border font-bold text-xs sm:text-sm ${
                           darkMode
                             ? 'border-slate-700 text-slate-300'
@@ -1417,7 +1533,12 @@ export const App: React.FC = () => {
                             <span>{L('Đang nộp bài...', 'Submitting...', '제출 중...')}</span>
                           </>
                         ) : (
-                          `${t.submitQuiz} (${answeredCount}/${activeQuiz.questions.length})`
+                          <span className="flex items-center gap-2">
+                            <span>{t.submitQuiz} ({answeredCount}/{activeQuiz.questions.length})</span>
+                            <span className="text-xs font-semibold opacity-90">
+                              • ⏱️ {formatTimeMmSs(activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds)}
+                            </span>
+                          </span>
                         )}
                       </button>
                     </div>
@@ -1526,8 +1647,20 @@ export const App: React.FC = () => {
                                 );
                               } else {
                                 setActiveQuiz((prev) =>
-                                  prev ? { ...prev, currentIndex: prev.questions.length } : null
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        currentIndex: prev.questions.length,
+                                        q10ElapsedSeconds: prev.q10ElapsedSeconds ?? prev.elapsedSeconds,
+                                      }
+                                    : null
                                 );
+                                if (token) {
+                                  fetch(`/api/challenges/${activeQuiz.dayNumber}/finish-q10`, {
+                                    method: 'POST',
+                                    headers: getHeaders(true),
+                                  }).catch(() => {});
+                                }
                               }
                             }
                           }}
@@ -1658,17 +1791,40 @@ export const App: React.FC = () => {
                         {activeQuiz.questions.length}) →
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setActiveQuiz((prev) =>
-                            prev ? { ...prev, currentIndex: prev.questions.length } : null
-                          )
-                        }
-                        className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition"
-                      >
-                        {t.goToQ11}
-                      </button>
+                      <div className="flex-1 flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveQuiz((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    currentIndex: prev.questions.length,
+                                    q10ElapsedSeconds: prev.q10ElapsedSeconds ?? prev.elapsedSeconds,
+                                  }
+                                : null
+                            );
+                            if (token) {
+                              fetch(`/api/challenges/${activeQuiz.dayNumber}/finish-q10`, {
+                                method: 'POST',
+                                headers: getHeaders(true),
+                              }).catch(() => {});
+                            }
+                          }}
+                          className="flex-1 py-3 px-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5"
+                        >
+                          <span>{t.goToQ11}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleSubmitQuiz}
+                          disabled={submittingQuiz}
+                          className="py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5"
+                        >
+                          <span>✅ {L('Nộp bài ngay (10/10)', 'Submit Now (10/10)', '지금 제출 (10/10)')}</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1687,7 +1843,7 @@ export const App: React.FC = () => {
                   {L(`🎉 Đã ghi nhận bài nộp Day ${quizResult.dayNumber}!`, `🎉 Day ${quizResult.dayNumber} submission recorded!`, `🎉 Day ${quizResult.dayNumber} 제출 완료!`)}
                 </h2>
                 <p className={`text-xs sm:text-sm font-bold mt-1 ${textPrimary}`}>
-                  {L('Thời gian hoàn thành:', 'Completion time:', '소요 시간:')} {formatTimeMmSs(Math.round(quizResult.timeSpentMs / 1000))}
+                  {L('Thời gian hoàn thành (Tính đến Câu 10):', 'Completion time (Questions 1–10):', '소요 시간 (1~10번):')} {formatTimeMmSs(Math.round(quizResult.timeSpentMs / 1000))}
                 </p>
 
                 <div
@@ -1813,6 +1969,9 @@ export const App: React.FC = () => {
                   <div className="text-4xl font-black text-blue-600">
                     {quizResult.score}/{quizResult.totalPoints} {t.pointsSuffix}
                   </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
+                    {L('(Điểm từ 10 câu trắc nghiệm & điền từ • Câu 11 không tính giờ, không tính điểm)', '(Score from 10 questions • Q11 untimed practice)', '(10개 문항 공식 점수 • 11번 문제는 시간 및 점수 미반영)')}
+                  </p>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200/60 text-xs">
                     <div>
@@ -1877,7 +2036,7 @@ export const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-2.5">
-                  {quizResult.detailedReview.map((item: any) => (
+                  {(quizResult.detailedReview || []).map((item: any) => (
                     <div
                       key={item.questionId}
                       className={`p-3 rounded-2xl border ${

@@ -661,6 +661,30 @@ app.get(
   }
 );
 
+// Đánh dấu đã làm xong Câu 10 (Chốt giờ thi, Câu 11 không tính giờ)
+app.post(
+  '/api/challenges/:dayNumber/finish-q10',
+  { preHandler: [(app as any).authenticate] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const userId = request.user.sub;
+    const elapsedMs = store.markSessionQ10Finished(userId, dayNumber);
+    return { ok: true, elapsedMs };
+  }
+);
+
+// Mở lại bộ đếm nếu quay lại các câu 1-10 từ Câu 11
+app.post(
+  '/api/challenges/:dayNumber/resume-quiz',
+  { preHandler: [(app as any).authenticate] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const userId = request.user.sub;
+    store.clearSessionQ10Finished(userId, dayNumber);
+    return { ok: true };
+  }
+);
+
 // Nộp bài & Chấm điểm dựa trên Snapshot đề thi lúc bắt đầu (Chống lỗi khi Admin sửa câu hỏi hoặc khóa ngày giữa chừng)
 app.post(
   '/api/challenges/:dayNumber/submit',
@@ -700,9 +724,23 @@ app.post(
 
     // Chấm điểm dựa trên Snapshot bộ câu hỏi lúc user bắt đầu làm bài (đảm bảo công bằng nếu Admin vừa sửa câu hỏi)
     const questionsToGrade = session?.questionsSnapshot || challenge.questions;
-    const serverElapsedMs = session
-      ? Math.max(2000, Date.now() - session.startedAt)
-      : body.clientTimeMs || 60000;
+
+    // Thời gian làm bài: CHỈ TÍNH ĐẾN HẾT CÂU 10 (Câu 11 là phần luyện phát âm tự do, không tính giờ, không tính điểm)
+    let serverElapsedMs: number;
+    if (session) {
+      const totalSessionMs = Math.max(2000, Date.now() - session.startedAt);
+      if (session.q10FinishedAt && session.q10FinishedAt >= session.startedAt) {
+        serverElapsedMs = Math.max(2000, Math.min(session.q10FinishedAt - session.startedAt, totalSessionMs));
+      } else if (typeof body.clientTimeMs === 'number' && body.clientTimeMs > 0) {
+        serverElapsedMs = Math.max(2000, Math.min(Math.round(body.clientTimeMs), totalSessionMs));
+      } else {
+        serverElapsedMs = totalSessionMs;
+      }
+    } else {
+      serverElapsedMs = typeof body.clientTimeMs === 'number' && body.clientTimeMs > 0
+        ? Math.max(2000, Math.round(body.clientTimeMs))
+        : 60000;
+    }
 
     let score = 0;
     let correctCount = 0;
@@ -799,6 +837,89 @@ app.post(
       submittedDuringGracePeriod: !isUnlocked && Boolean(session),
       endsAt,
       resultsRevealed,
+      detailedReview,
+    };
+  }
+);
+
+// Lấy kết quả & giải thích chi tiết của ngày đã làm (Hỗ trợ xem lại sau khi F5 hoặc sau 00:00)
+app.get(
+  '/api/challenges/:dayNumber/result',
+  { preHandler: [(app as any).authenticate] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const userId = request.user.sub;
+    const challenge = store.getChallengeByDay(dayNumber);
+    if (!challenge) {
+      return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
+    }
+
+    const attempt = store.getAttempt(userId, dayNumber);
+    if (!attempt) {
+      return reply.status(404).send({ message: 'Bạn chưa hoàn thành thử thách này.' });
+    }
+
+    const resultsRevealed = store.isDayEnded(challenge);
+    const endsAt = store.getDayEndDate(challenge);
+
+    let detailedReview = null;
+    if (resultsRevealed) {
+      detailedReview = challenge.questions.map((q) => {
+        const selectedOptionId = attempt.answersDetail?.[q.id] || null;
+        let isCorrect = false;
+
+        if (q.questionType === 'FILL_IN_THE_BLANK') {
+          const userText = String(attempt.answersDetail?.[q.id] || '')
+            .trim()
+            .toLowerCase()
+            .replace(/['’]/g, "'");
+          const expected = String(q.targetWord || '')
+            .trim()
+            .toLowerCase()
+            .replace(/['’]/g, "'");
+          isCorrect = userText.length > 0 && userText === expected;
+        } else {
+          isCorrect = selectedOptionId === q.correctOptionId;
+        }
+
+        const correctOption = q.options?.find((o) => o.id === q.correctOptionId);
+        const selectedOption = q.options?.find((o) => o.id === selectedOptionId);
+
+        return {
+          questionId: q.id,
+          orderIndex: q.orderIndex,
+          questionType: q.questionType,
+          promptText: q.promptText,
+          statementText: q.statementText,
+          targetWord: q.targetWord,
+          promptAudioUrl: q.promptAudioUrl,
+          promptVideoUrl: q.promptVideoUrl,
+          options: q.options || [],
+          selectedOptionId,
+          selectedOptionText:
+            q.questionType === 'FILL_IN_THE_BLANK'
+              ? (attempt.answersDetail?.[q.id] || 'Chưa điền')
+              : (selectedOption?.text || 'Chưa chọn'),
+          correctOptionId: q.correctOptionId,
+          correctOptionText:
+            q.questionType === 'FILL_IN_THE_BLANK'
+              ? q.targetWord
+              : (correctOption?.text || ''),
+          isCorrect,
+          explanation: q.explanation,
+        };
+      });
+    }
+
+    return {
+      dayNumber,
+      score: resultsRevealed ? attempt.score : null,
+      totalPoints: challenge.questions.length * 10,
+      correctCount: resultsRevealed ? attempt.correctCount : null,
+      wrongCount: resultsRevealed ? attempt.wrongCount : null,
+      timeSpentMs: attempt.timeSpentMs,
+      resultsRevealed,
+      endsAt,
       detailedReview,
     };
   }
@@ -1002,12 +1123,15 @@ app.get(
       employeeId: s.employeeId,
       fullName: s.fullName,
       startedAt: new Date(s.startedAt).toISOString(),
-      elapsedSeconds: Math.floor((Date.now() - s.startedAt) / 1000),
+      elapsedSeconds: Math.floor(((s.q10FinishedAt || Date.now()) - s.startedAt) / 1000),
+      isAtQ11: Boolean(s.q10FinishedAt),
     }));
 
     return {
       ...challenge,
       isUnlocked: store.isDayUnlocked(challenge),
+      isEnded: store.isDayEnded(challenge),
+      resultsRevealed: store.isDayEnded(challenge),
       activePlayers,
     };
   }
@@ -1024,6 +1148,7 @@ app.put(
       dateLabel?: string;
       unlockNow?: boolean;
       lockMode?: 'GRACEFUL' | 'FORCE';
+      forceRevealed?: boolean;
     };
 
     const result = store.updateChallengeDay(dayNumber, body);
@@ -1055,8 +1180,31 @@ app.put(
       message: msg,
       challenge: result.challenge,
       isUnlocked: result.isUnlocked,
+      resultsRevealed: result.resultsRevealed,
       activePlayersAffected: result.activePlayersAffected,
       pushCampaign,
+    };
+  }
+);
+
+// Admin chủ động Công bố đáp án & điểm số ngay lập tức (không cần chờ 00:00) hoặc Ẩn lại
+app.put(
+  '/api/admin/challenges/:dayNumber/reveal',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const body = (request.body || {}) as { forceRevealed?: boolean };
+    const updated = store.toggleRevealResults(dayNumber, body.forceRevealed);
+    if (!updated) {
+      return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
+    }
+    const isRevealed = store.isDayEnded(updated);
+    return {
+      message: isRevealed
+        ? `📢 Đã CÔNG BỐ toàn bộ đáp án và điểm số Day ${dayNumber} cho toàn thể nhân viên!`
+        : `🔒 Đã ẨN đáp án Day ${dayNumber} (Trở về chế độ chờ 00:00).`,
+      challenge: updated,
+      resultsRevealed: isRevealed,
     };
   }
 );

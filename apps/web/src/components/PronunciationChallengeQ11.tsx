@@ -178,18 +178,21 @@ interface PronunciationChallengeQ11Props {
 
 const Q11_TEXT = {
   vi: {
-    badge: 'Câu 11 • Pronunciation Challenge 🎙️ (Không tính điểm)',
-    title: 'Thử thách Ghi âm & Luyện Phát âm 5 Từ Thông Dụng Trong Công Ty',
+    badge: 'Câu 11 • Luyện phát âm 🎙️ (Không tính giờ & Không tính điểm thi)',
+    title: 'Thử thách Ghi âm & Tự Luyện Phát âm 5 Từ Thông Dụng Trong Công Ty',
     subtitle:
-      'Nghe mẫu 5 từ bên dưới, bấm nút Ghi âm để đọc to các từ này và bấm Submit. Hệ thống AI miễn phí trên trình duyệt sẽ phân tích và góp ý cách phát âm cho bạn!',
+      'Nghe mẫu 5 từ bên dưới, bấm nút Ghi âm để đọc to các từ này và nhận xét AI. Hệ thống AI miễn phí trên trình duyệt sẽ phân tích và góp ý cách phát âm cho bạn!',
+    untimedBanner:
+      '⏱️ Đã chốt giờ thi sau Câu 10. Điểm thi chính thức chỉ tính từ Câu 1 đến Câu 10 (tối đa 100 điểm). Phần luyện đọc 5 từ này là tự luyện bổ trợ – hoàn toàn KHÔNG tính giờ và KHÔNG tính điểm vào Bảng xếp hạng!',
     listenAllHint: 'Bấm vào từng từ để nghe phát âm chuẩn IPA',
     recordBtn: '🎙️ Bắt đầu Ghi âm (Đọc 5 từ)',
     stopBtn: '⏹️ Dừng Ghi âm',
     recordingStatus: 'Đang thu âm giọng đọc của bạn... Hãy đọc lần lượt 5 từ trên!',
     playMyVoiceBtn: '▶️ Nghe lại giọng của bạn',
     reRecordBtn: 'Thu âm lại',
-    submitBtn: '📤 Submit Bản Ghi Âm & Nhận Xét AI',
-    submittedBadge: '✅ Đã Submit Câu 11 (Đã lưu nhận xét AI)',
+    submitBtn: '📤 Hoàn thành & Nhận Xét AI',
+    submittedBadge: '✅ Đã hoàn thành luyện đọc Câu 11 (Nhận xét AI)',
+    clarityLabel: 'Độ rõ phát âm',
     aiTitle: '🤖 Nhận xét Phát âm từ AI Coach (100% On-Device Free AI)',
     transcriptLabel: 'Từ hệ thống nghe được:',
     storageNote:
@@ -198,18 +201,21 @@ const Q11_TEXT = {
     practiceTag: 'Cần luyện thêm',
   },
   en: {
-    badge: 'Question 11 • Pronunciation Challenge 🎙️ (Ungraded Bonus)',
+    badge: 'Question 11 • Pronunciation Practice 🎙️ (Untimed & Not Graded for Exam)',
     title: 'Record & Practice 5 Common Workplace English Words',
     subtitle:
-      'Listen to the 5 words below, tap Record to read them aloud, and tap Submit. Our built-in AI Coach will analyze your pronunciation and give improvement tips!',
+      'Listen to the 5 words below, tap Record to read them aloud, and get AI feedback. Our built-in AI Coach will analyze your pronunciation and give improvement tips!',
+    untimedBanner:
+      '⏱️ Exam timer stopped after Question 10. The official exam score is strictly from Questions 1–10 (100 points max). This 5-word pronunciation exercise is untimed practice and does NOT affect your ranking!',
     listenAllHint: 'Tap any word card to hear standard pronunciation',
     recordBtn: '🎙️ Start Recording (Read 5 words)',
     stopBtn: '⏹️ Stop Recording',
     recordingStatus: 'Recording your voice... Please read the 5 workplace words aloud!',
     playMyVoiceBtn: '▶️ Listen to Your Recording',
     reRecordBtn: 'Record Again',
-    submitBtn: '📤 Submit Recording & Get AI Feedback',
-    submittedBadge: '✅ Question 11 Submitted (AI Feedback Saved)',
+    submitBtn: '📤 Complete & Get AI Feedback',
+    submittedBadge: '✅ Question 11 Practice Completed (AI Feedback Saved)',
+    clarityLabel: 'Clarity',
     aiTitle: '🤖 AI Pronunciation Coach Feedback',
     transcriptLabel: 'Recognized speech:',
     storageNote:
@@ -218,18 +224,21 @@ const Q11_TEXT = {
     practiceTag: 'Practice Tip',
   },
   ko: {
-    badge: '문항 11 • 발음 챌린지 🎙️ (점수 미반영 보너스)',
+    badge: '문항 11 • 발음 연습 🎙️ (시간 미측정 & 시험 점수 미반영)',
     title: '사내 필수 비즈니스 영단어 5개 녹음 및 AI 발음 코칭',
     subtitle:
-      '아래 5개 단어를 듣고 녹음 버튼을 눌러 읽은 뒤 Submit을 눌러주세요. 브라우저 내장 무료 AI가 발음을 분석하고 개선 팁을 제공합니다!',
+      '아래 5개 단어를 듣고 녹음 버튼을 눌러 읽은 뒤 AI 피드백을 받아보세요. 브라우저 내장 무료 AI가 발음을 분석하고 개선 팁을 제공합니다!',
+    untimedBanner:
+      '⏱️ 10번 문제 완료 후 시험 타이머가 정지되었습니다. 공식 시험 점수는 1~10번 문항(최대 100점)으로만 산정되며, 본 5단어 발음 연습은 시간 및 랭킹 점수에 전혀 반영되지 않습니다!',
     listenAllHint: '단어 카드를 누르면 원어민 발음을 들을 수 있습니다',
     recordBtn: '🎙️ 녹음 시작 (5개 단어 읽기)',
     stopBtn: '⏹️ 녹음 중지',
     recordingStatus: '음성을 녹음 중입니다... 위 5개 단어를 차례대로 읽어주세요!',
     playMyVoiceBtn: '▶️ 내 녹음 다시 듣기',
     reRecordBtn: '다시 녹음',
-    submitBtn: '📤 녹음 제출 및 AI 피드백 받기',
-    submittedBadge: '✅ 문항 11 제출 완료 (AI 피드백 저장됨)',
+    submitBtn: '📤 연습 완료 및 AI 피드백 받기',
+    submittedBadge: '✅ 문항 11 발음 연습 완료 (AI 피드백 저장됨)',
+    clarityLabel: '발음 명확도',
     aiTitle: '🤖 AI 발음 코치 분석 결과',
     transcriptLabel: '인식된 발음:',
     storageNote: '🔒 음성 파일은 기기 브라우저에서 직접 처리되어 빠르고 안전합니다.',
@@ -464,6 +473,10 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
         <p className={`text-xs mt-1 leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
           {qt.subtitle}
         </p>
+        <div className="mt-3 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-start gap-2">
+          <span className="text-sm shrink-0">⏱️</span>
+          <span className="leading-relaxed">{qt.untimedBanner}</span>
+        </div>
       </div>
 
       {/* Bảng 5 từ thông dụng trong môi trường công ty */}
@@ -629,7 +642,7 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
               </span>
             </div>
             <span className="px-2.5 py-0.5 rounded-full bg-indigo-600 text-white text-xs font-extrabold">
-              AI Score: ~{value.overallAccuracy}%
+              {qt.clarityLabel}: ~{value.overallAccuracy}%
             </span>
           </div>
 
