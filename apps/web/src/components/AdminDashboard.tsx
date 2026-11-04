@@ -405,7 +405,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [autoRemindUnstudied, setAutoRemindUnstudied] = useState<boolean>(true);
   const [morningHour, setMorningHour] = useState<number>(8);
   const [morningMinute, setMorningMinute] = useState<number>(0);
-  const [eveningTop1Hour, setEveningTop1Hour] = useState<number>(19);
+  const [eveningTop1Hour, setEveningTop1Hour] = useState<number>(7);
   const [eveningTop1Minute, setEveningTop1Minute] = useState<number>(0);
   const [nightUnstudiedHour, setNightUnstudiedHour] = useState<number>(23);
   const [nightUnstudiedMinute, setNightUnstudiedMinute] = useState<number>(0);
@@ -482,7 +482,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setAutoRemindUnstudied(Boolean(data.queueStatus.config.autoRemindUnstudied));
           setMorningHour(data.queueStatus.config.morningHour ?? 8);
           setMorningMinute(data.queueStatus.config.morningMinute ?? 0);
-          setEveningTop1Hour(data.queueStatus.config.eveningTop1Hour ?? 19);
+          setEveningTop1Hour(data.queueStatus.config.eveningTop1Hour ?? 7);
           setEveningTop1Minute(data.queueStatus.config.eveningTop1Minute ?? 0);
           setNightUnstudiedHour(data.queueStatus.config.nightUnstudiedHour ?? 23);
           setNightUnstudiedMinute(data.queueStatus.config.nightUnstudiedMinute ?? 0);
@@ -656,7 +656,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const data = await res.json();
       showMessage(
         resetTodayQuota
-          ? 'Đã đặt lại hạn mức 3 khung thông báo hôm nay (Sáng / 19h / 23h)!'
+          ? 'Đã đặt lại hạn mức 3 khung thông báo hôm nay (7h Top 1 / 8h Bài mới / 23h Nhắc học)!'
           : data.message
       );
       fetchPushStatus(true);
@@ -2480,13 +2480,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            {/* Khung 2: 19h tối — Thông báo Top 1 hiện tại */}
+            {/* Khung 1: 7h sáng — Thông báo Top 1 ngày hôm qua sau khi chốt điểm 00:00 */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
-                    🌆 {String(eveningTop1Hour).padStart(2, '0')}:
-                    {String(eveningTop1Minute).padStart(2, '0')} Tối • 1 lần/ngày
+                    👑 {String(eveningTop1Hour).padStart(2, '0')}:
+                    {String(eveningTop1Minute).padStart(2, '0')} Sáng • 1 lần/ngày
                   </span>
                   <span
                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
@@ -2499,15 +2499,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  👑 Thông báo Top 1 hiện tại ({String(eveningTop1Hour).padStart(2, '0')}:
-                  {String(eveningTop1Minute).padStart(2, '0')})
+                  👑 Vinh danh Top 1 ngày hôm qua ({String(eveningTop1Hour).padStart(2, '0')}:
+                  {String(eveningTop1Minute).padStart(2, '0')} Sáng)
                 </h4>
                 <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Không bắn thông báo liên tục mỗi khi đổi ngôi trong ngày. Đúng{' '}
+                  Sau khi chốt điểm bài thi cũ lúc 00:00 đêm, đúng{' '}
                   <strong>
-                    {String(eveningTop1Hour).padStart(2, '0')}:{String(eveningTop1Minute).padStart(2, '0')} tối
+                    {String(eveningTop1Hour).padStart(2, '0')}:{String(eveningTop1Minute).padStart(2, '0')} sáng
                   </strong>{' '}
-                  mới tổng hợp vinh danh Top 1 hiện tại:{' '}
+                  hệ thống gửi thông báo vinh danh Top 1 Bảng xếp hạng:{' '}
                   <strong>
                     {pushStatus.stats?.currentTop1?.fullName || 'Chưa có'} (
                     {pushStatus.stats?.currentTop1?.totalScore?.toLocaleString() || 0}đ)
@@ -2523,7 +2523,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Trophy className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.evening19hTop1
                   ? 'Đã gửi bản tin Top 1 (Bấm để gửi lại)'
-                  : 'Push Bản tin Top 1 hiện tại'}
+                  : 'Push Bản tin Top 1 7h sáng'}
               </button>
             </div>
 
@@ -2633,7 +2633,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ báo Top 1 (Tối)
+                  Giờ báo Top 1 (Mặc định 7h sáng)
                 </label>
                 <div className="flex items-center gap-1">
                   <input

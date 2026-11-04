@@ -179,8 +179,8 @@ class StaggeredPushService {
   }
 
   /**
-   * KHUNG 2 — 19H TỐI (1 LẦN/NGÀY): Thông báo "Top 1 hiện tại"
-   * Chống spam khi Top 1 đổi liên tục trong ngày: Chỉ tổng hợp và thông báo 1 lần lúc 19h tối cho tất cả ai cài PWA.
+   * KHUNG 1 — 7H SÁNG (1 LẦN/NGÀY): Thông báo vinh danh Top 1 ngày hôm qua sau khi chốt điểm 00:00
+   * Chỉ tổng hợp và thông báo 1 lần lúc 7h sáng sau khi toàn bộ bài thi ngày trước đã kết thúc và chốt điểm lúc 00:00.
    */
   public enqueueNewTop1(
     currentTop1: { id: string; fullName: string; employeeId: string; totalScore: number },
@@ -188,11 +188,11 @@ class StaggeredPushService {
   ): PushCampaignRecord {
     const { dateKey } = getVietnamDateAndHour();
     const pwaSubs = store.getPwaSubscriptions(true);
-    const title = `👑 Bản tin BXH 19h: Top 1 hiện tại là ${currentTop1.fullName}!`;
+    const title = `👑 Bản tin BXH 7h sáng: Vinh danh Top 1 ngày hôm qua là ${currentTop1.fullName}!`;
     const body =
       runnerUp && runnerUp.id !== currentTop1.id
-        ? `Cập nhật 19h tối: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang dẫn đầu Top 1 với ${currentTop1.totalScore.toLocaleString()} điểm (theo sát là ${runnerUp.fullName}). Vào bứt phá ngay!`
-        : `Cập nhật 19h tối: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang giữ vị trí Top 1 Bảng Xếp Hạng với ${currentTop1.totalScore.toLocaleString()} điểm!`;
+        ? `Bản tin 7h sáng: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang dẫn đầu Top 1 với ${currentTop1.totalScore.toLocaleString()} điểm (theo sát là ${runnerUp.fullName}). Chuẩn bị đón bài thi mới lúc 8h!`
+        : `Bản tin 7h sáng: ${currentTop1.fullName} (GEN ${currentTop1.employeeId}) đang giữ vị trí Top 1 Bảng Xếp Hạng với ${currentTop1.totalScore.toLocaleString()} điểm! Chuẩn bị đón bài thi mới lúc 8h!`;
     const targetUrl = '/#leaderboard';
 
     const tasks = pwaSubs.map((sub) => ({
@@ -673,36 +673,36 @@ class StaggeredPushService {
 
         const currentMinutes = hour * 60 + minute;
 
-        const morningHour = cfg.morningHour ?? 8;
+        const top1Hour = cfg.eveningTop1Hour ?? 7; // Mặc định 7h sáng vinh danh Top 1 hôm qua
+        const top1Minute = cfg.eveningTop1Minute ?? 0;
+        const top1TargetMinutes = top1Hour * 60 + top1Minute;
+
+        const morningHour = cfg.morningHour ?? 8; // Mặc định 8h sáng thông báo bài thi mới
         const morningMinute = cfg.morningMinute ?? 0;
         const morningTargetMinutes = morningHour * 60 + morningMinute;
-
-        const eveningTop1Hour = cfg.eveningTop1Hour ?? 19;
-        const eveningTop1Minute = cfg.eveningTop1Minute ?? 0;
-        const eveningTargetMinutes = eveningTop1Hour * 60 + eveningTop1Minute;
 
         const nightUnstudiedHour = cfg.nightUnstudiedHour ?? 23;
         const nightUnstudiedMinute = cfg.nightUnstudiedMinute ?? 0;
         const nightTargetMinutes = nightUnstudiedHour * 60 + nightUnstudiedMinute;
 
-        // 1. Khung buổi sáng (1 lần/ngày): Thông báo Có bài mới
-        if (currentMinutes >= morningTargetMinutes && cfg.lastMorningNotifiedDate !== dateKey) {
-          store.updatePushConfig({ lastMorningNotifiedDate: dateKey });
-          const latestDay = store.getLatestUnlockedChallenge();
-          if (latestDay && store.isDayUnlocked(latestDay)) {
-            this.enqueueNewDayUnlocked(latestDay);
-            return;
-          }
-        }
-
-        // 2. Khung tối (1 lần/ngày): Thông báo Top 1 hiện tại
-        if (currentMinutes >= eveningTargetMinutes && cfg.lastEveningTop1NotifiedDate !== dateKey) {
+        // 1. Khung 7h sáng (1 lần/ngày): Thông báo Top 1 ngày hôm qua sau khi chốt điểm 00:00
+        if (currentMinutes >= top1TargetMinutes && cfg.lastEveningTop1NotifiedDate !== dateKey) {
           store.updatePushConfig({ lastEveningTop1NotifiedDate: dateKey });
           const leaderboard = store.getLeaderboard();
           const currentTop1 = leaderboard[0];
           const runnerUp = leaderboard[1] || null;
           if (currentTop1) {
             this.enqueueNewTop1(currentTop1, runnerUp);
+            return;
+          }
+        }
+
+        // 2. Khung 8h sáng (1 lần/ngày): Thông báo Có bài thi mới mở trong ngày
+        if (currentMinutes >= morningTargetMinutes && cfg.lastMorningNotifiedDate !== dateKey) {
+          store.updatePushConfig({ lastMorningNotifiedDate: dateKey });
+          const latestDay = store.getLatestUnlockedChallenge();
+          if (latestDay && store.isDayUnlocked(latestDay)) {
+            this.enqueueNewDayUnlocked(latestDay);
             return;
           }
         }

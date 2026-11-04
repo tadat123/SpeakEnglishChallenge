@@ -584,7 +584,7 @@ class DataStore {
         autoRemindUnstudied: true,
         morningHour: 8,
         morningMinute: 0,
-        eveningTop1Hour: 19,
+        eveningTop1Hour: 7,
         eveningTop1Minute: 0,
         nightUnstudiedHour: 23,
         nightUnstudiedMinute: 0,
@@ -598,7 +598,7 @@ class DataStore {
     } else {
       parsed.pushConfig.morningHour = parsed.pushConfig.morningHour ?? 8;
       parsed.pushConfig.morningMinute = parsed.pushConfig.morningMinute ?? 0;
-      parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 19;
+      parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 7;
       parsed.pushConfig.eveningTop1Minute = parsed.pushConfig.eveningTop1Minute ?? 0;
       parsed.pushConfig.nightUnstudiedHour = parsed.pushConfig.nightUnstudiedHour ?? 23;
       parsed.pushConfig.nightUnstudiedMinute = parsed.pushConfig.nightUnstudiedMinute ?? 0;

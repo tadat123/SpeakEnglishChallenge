@@ -1053,6 +1053,8 @@ export const App: React.FC = () => {
   }
 
   const todayChallenge =
+    challenges.find((c) => c.isToday) ||
+    challenges.find((c) => !c.resultsRevealed && c.status === 'OPEN') ||
     challenges.find((c) => c.status === 'OPEN') ||
     challenges.find((c) => c.status === 'COMPLETED') ||
     challenges[0];
@@ -2259,8 +2261,20 @@ export const App: React.FC = () => {
                               ) : isCompleted ? (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                               ) : isOpen ? (
-                                <span className="text-[10px] font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                                  {t.todayBadge}
+                                <span
+                                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                                    c.isToday
+                                      ? 'bg-blue-600 text-white'
+                                      : c.resultsRevealed
+                                      ? 'bg-amber-600 text-white'
+                                      : 'bg-blue-600 text-white'
+                                  }`}
+                                >
+                                  {c.isToday
+                                    ? t.todayBadge
+                                    : c.resultsRevealed
+                                    ? L('Làm bù', 'Make-up', '보충')
+                                    : t.todayBadge}
                                 </span>
                               ) : (
                                 <Lock className="w-3.5 h-3.5 text-slate-400" />
@@ -2663,8 +2677,20 @@ export const App: React.FC = () => {
                           ) : isCompleted ? (
                             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                           ) : isOpen ? (
-                            <span className="text-[10px] font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                              {t.openBadge}
+                            <span
+                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                                c.isToday
+                                  ? 'bg-blue-600 text-white'
+                                  : c.resultsRevealed
+                                  ? 'bg-amber-600 text-white'
+                                  : 'bg-blue-600 text-white'
+                              }`}
+                            >
+                              {c.isToday
+                                ? t.todayBadge
+                                : c.resultsRevealed
+                                ? L('Làm bù', 'Make-up', '보충')
+                                : t.openBadge}
                             </span>
                           ) : (
                             <Lock className="w-4 h-4 text-slate-400" />

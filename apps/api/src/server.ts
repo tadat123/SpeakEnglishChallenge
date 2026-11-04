@@ -526,6 +526,7 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
   const challenges = store.getChallenges();
   const attempts = store.getUserAttempts(userId);
   const activeCounts = store.getAllActiveSessionCounts();
+  const today = store.getTodayChallenge();
 
   return challenges.map((c) => {
     const attempt = attempts.find((a) => a.dayNumber === c.dayNumber);
@@ -547,6 +548,7 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
       dateLabel: c.dateLabel,
       unlockDate: c.unlockDate,
       endsAt,
+      isToday: today?.dayNumber === c.dayNumber,
       resultsRevealed: isEnded,
       isPublished: c.isPublished,
       questionCount: c.questions.length,
@@ -826,10 +828,10 @@ app.post(
 
     return {
       dayNumber,
-      score,
+      score: resultsRevealed ? score : null,
       totalPoints: questionsToGrade.length * 10,
-      correctCount,
-      wrongCount,
+      correctCount: resultsRevealed ? correctCount : null,
+      wrongCount: resultsRevealed ? wrongCount : null,
       timeSpentMs: serverElapsedMs,
       isFirstOfficialAttempt,
       climbedToTop1,
@@ -837,7 +839,7 @@ app.post(
       submittedDuringGracePeriod: !isUnlocked && Boolean(session),
       endsAt,
       resultsRevealed,
-      detailedReview,
+      detailedReview: resultsRevealed ? detailedReview : null,
     };
   }
 );
