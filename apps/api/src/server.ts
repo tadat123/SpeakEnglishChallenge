@@ -965,8 +965,29 @@ app.get('/api/profile/me', { preHandler: [(app as any).authenticate] }, async (r
   }
 
   const allRankings = store.getLeaderboard();
-  const myRank = allRankings.find((r) => r.id === userId)?.rank || allRankings.length;
+  const myRankItem = allRankings.find((r) => r.id === userId);
+  const myRank = myRankItem?.rank || allRankings.length;
   const attempts = store.getUserAttempts(userId);
+
+  // Bảo mật điểm số: Các ngày chưa đến mốc 00:00 (chưa công bố) sẽ ẩn điểm để chống lộ qua Network tab F12
+  const safeAttempts = attempts.map((a) => {
+    const c = store.getChallengeByDay(a.dayNumber);
+    const isRevealed = c ? store.isDayEnded(c) : true;
+    if (!isRevealed) {
+      return {
+        ...a,
+        score: null,
+        correctCount: null,
+        wrongCount: null,
+        answersDetail: {},
+        resultsRevealed: false,
+      };
+    }
+    return {
+      ...a,
+      resultsRevealed: true,
+    };
+  });
 
   return {
     user: {
@@ -978,12 +999,12 @@ app.get('/api/profile/me', { preHandler: [(app as any).authenticate] }, async (r
       department: user.department,
       avatarUrl: user.avatarUrl,
       role: user.role,
-      totalScore: user.totalScore,
-      totalTimeMs: user.totalTimeMs,
-      completedDays: user.completedDays,
+      totalScore: myRankItem?.totalScore ?? user.totalScore,
+      totalTimeMs: myRankItem?.totalTimeMs ?? user.totalTimeMs,
+      completedDays: myRankItem?.completedDays ?? user.completedDays,
       rank: myRank,
     },
-    attempts,
+    attempts: safeAttempts,
   };
 });
 

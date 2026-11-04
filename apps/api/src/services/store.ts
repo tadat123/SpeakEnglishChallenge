@@ -1439,27 +1439,64 @@ class DataStore {
     };
   }
 
-  public getLeaderboard(department?: string) {
+  public getLeaderboard(department?: string, includeUnrevealed = false) {
+    const revealedDayMap = new Map<number, boolean>();
+    for (const c of this.data.challenges) {
+      revealedDayMap.set(c.dayNumber, this.isDayEnded(c));
+    }
+
     const filtered = department
       ? this.data.users.filter((u) => u.department === department)
       : this.data.users;
 
-    const sorted = [...filtered].sort((a, b) => {
-      const scoreA = computeCompositeLeaderboardScore(a.totalScore, a.totalTimeMs);
-      const scoreB = computeCompositeLeaderboardScore(b.totalScore, b.totalTimeMs);
+    const userScores = filtered.map((u) => {
+      if (includeUnrevealed) {
+        return {
+          user: u,
+          score: u.totalScore,
+          timeMs: u.totalTimeMs,
+          completedDays: u.completedDays,
+        };
+      }
+
+      // Chỉ cộng điểm các ngày đã kết thúc hoặc được Admin công bố
+      const attempts = this.getUserAttempts(u.id);
+      let revealedScore = 0;
+      let revealedTimeMs = 0;
+      let revealedCompleted = 0;
+
+      for (const a of attempts) {
+        if (revealedDayMap.get(a.dayNumber)) {
+          revealedScore += a.score;
+          revealedTimeMs += a.timeSpentMs;
+          revealedCompleted += 1;
+        }
+      }
+
+      return {
+        user: u,
+        score: revealedScore,
+        timeMs: revealedTimeMs,
+        completedDays: revealedCompleted,
+      };
+    });
+
+    const sorted = [...userScores].sort((a, b) => {
+      const scoreA = computeCompositeLeaderboardScore(a.score, a.timeMs);
+      const scoreB = computeCompositeLeaderboardScore(b.score, b.timeMs);
       return scoreB - scoreA;
     });
 
-    return sorted.map((u, idx) => ({
+    return sorted.map((item, idx) => ({
       rank: idx + 1,
-      id: u.id,
-      employeeId: u.employeeId,
-      fullName: u.fullName,
-      department: u.department,
-      avatarUrl: u.avatarUrl,
-      totalScore: u.totalScore,
-      totalTimeMs: u.totalTimeMs,
-      completedDays: u.completedDays,
+      id: item.user.id,
+      employeeId: item.user.employeeId,
+      fullName: item.user.fullName,
+      department: item.user.department,
+      avatarUrl: item.user.avatarUrl,
+      totalScore: item.score,
+      totalTimeMs: item.timeMs,
+      completedDays: item.completedDays,
     }));
   }
 
