@@ -1410,7 +1410,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTogglingEventId(ev.id);
     try {
       const res = await fetch(`/api/admin/events/${ev.id}/toggle`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
         },

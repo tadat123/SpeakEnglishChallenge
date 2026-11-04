@@ -76,8 +76,8 @@ await app.register(helmet, {
 await app.register(cors, {
   origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   maxAge: 86400,
 });
 
@@ -1945,22 +1945,30 @@ app.put(
   }
 );
 
+const toggleEventHandler = async (request: any, reply: any) => {
+  const id = request.params.id;
+  const updated = store.toggleEventVisibility(id);
+  if (!updated) {
+    return reply.status(404).send({ message: 'Không tìm thấy sự kiện cần đổi trạng thái.' });
+  }
+  return {
+    message: updated.isVisible
+      ? `Đã MỞ hiển thị sự kiện "${updated.titleA} ${updated.titleC}" cho học viên!`
+      : `Đã ẨN sự kiện "${updated.titleA} ${updated.titleC}" khỏi giao diện học viên!`,
+    event: updated,
+  };
+};
+
 app.patch(
   '/api/admin/events/:id/toggle',
   { preHandler: [(app as any).requireAdmin] },
-  async (request: any, reply) => {
-    const id = request.params.id;
-    const updated = store.toggleEventVisibility(id);
-    if (!updated) {
-      return reply.status(404).send({ message: 'Không tìm thấy sự kiện cần đổi trạng thái.' });
-    }
-    return {
-      message: updated.isVisible
-        ? `Đã MỞ hiển thị sự kiện "${updated.titleA} ${updated.titleC}" cho học viên!`
-        : `Đã ẨN sự kiện "${updated.titleA} ${updated.titleC}" khỏi giao diện học viên!`,
-      event: updated,
-    };
-  }
+  toggleEventHandler
+);
+
+app.post(
+  '/api/admin/events/:id/toggle',
+  { preHandler: [(app as any).requireAdmin] },
+  toggleEventHandler
 );
 
 app.delete(
