@@ -39,6 +39,7 @@ import {
   Loader2,
   Send,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -1317,21 +1318,8 @@ export const App: React.FC = () => {
             })}
           </nav>
 
-          {/* Cột Phải: Nút Chuyển Trang Admin + Đổi ngôn ngữ (VI / EN / KO) + Sáng/Tối + Đăng xuất */}
+          {/* Cột Phải: Thông báo + Đổi ngôn ngữ (VI / EN / KO) + Sáng/Tối (Icon only) + Đăng xuất */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Nút Chuyển Vào Trang Admin dành cho tài khoản Quản trị */}
-            {user?.role === 'ADMIN' && (
-              <button
-                type="button"
-                onClick={() => navigateToTab('admin')}
-                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/25 active:scale-95 transition"
-                title={L('Vào Trang Quản trị (Admin Portal có Sidebar & Thống kê)', 'Open Admin Portal (Sidebar & Dashboard)', '관리자 포털 열기')}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
-                <span className="hidden sm:inline">{t.adminPortal}</span>
-                <span className="sm:hidden">Admin</span>
-              </button>
-            )}
             {/* Nút Chuông Thông Báo Ban tổ chức */}
             <div className="relative">
               <button
@@ -1387,39 +1375,19 @@ export const App: React.FC = () => {
               ))}
             </div>
 
-            {/* Thanh chọn chế độ Sáng / Tối trực quan 2 nút */}
-            <div
-              className={`p-0.5 rounded-xl flex items-center ${
-                darkMode ? 'bg-slate-800/70' : 'bg-white/60'
+            {/* Nút chuyển chế độ Sáng / Tối (Icon-only, hoàn toàn không có chữ Sáng / Tối) */}
+            <button
+              type="button"
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-2 rounded-xl transition flex items-center justify-center ${
+                darkMode
+                  ? 'bg-slate-800/80 text-amber-400 hover:bg-slate-700/80 hover:text-amber-300'
+                  : 'bg-white/80 text-slate-700 hover:text-indigo-600 hover:bg-slate-100/80 border border-slate-200/50 shadow-xs'
               }`}
+              title={darkMode ? t.lightMode : t.darkMode}
             >
-              <button
-                type="button"
-                onClick={() => setDarkMode(false)}
-                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
-                  !darkMode
-                    ? 'bg-amber-400 text-slate-950 shadow-sm'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title={t.lightMode}
-              >
-                <Sun className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t.lightMode}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDarkMode(true)}
-                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition ${
-                  darkMode
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-700 hover:text-slate-900'
-                }`}
-                title={t.darkMode}
-              >
-                <Moon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t.darkMode}</span>
-              </button>
-            </div>
+              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
 
             {isGuest ? (
               <button
@@ -3305,6 +3273,43 @@ export const App: React.FC = () => {
             {/* ================= 4. TAB CÁ NHÂN (PROFILE) ================= */}
             {activeTab === 'profile' && (
               <div className="max-w-3xl mx-auto space-y-4">
+                {/* NÚT VÀO TRANG QUẢN TRỊ DÀNH CHO ADMIN */}
+                {user?.role === 'ADMIN' && (
+                  <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xl shadow-blue-600/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-blue-400/30">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30">
+                        <ShieldCheck className="w-6 h-6 text-amber-300" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                            Quyền Quản Trị Hệ Thống
+                          </span>
+                        </div>
+                        <h3 className="text-base sm:text-lg font-black mt-1">
+                          {t.adminPortal || 'Cổng Quản Trị Admin CMS'}
+                        </h3>
+                        <p className="text-xs text-blue-100 mt-0.5">
+                          {L(
+                            'Quản lý 21 ngày thi, tạo đề bulk Excel, duyệt danh sách nhân viên và gửi thông báo Push.',
+                            'Manage 21 days, bulk import questions via Excel, inspect users, and dispatch push alerts.',
+                            '21일 챌린지 관리, Excel 대량 문제 등록 및 공지 발송'
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigateToTab('admin')}
+                      className="px-5 py-2.5 rounded-2xl bg-white hover:bg-blue-50 text-blue-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shrink-0 transition active:scale-95 cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-blue-700" />
+                      <span>{L('Vào Trang Quản Trị', 'Open Admin Portal', '관리자 포털')}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md ${cardBg}`}>
                   <div className="flex items-center gap-4">
                     <img
@@ -3313,7 +3318,14 @@ export const App: React.FC = () => {
                       className="w-16 h-16 rounded-full bg-blue-50 border-2 border-blue-100"
                     />
                     <div>
-                      <h2 className={`text-lg font-black ${textPrimary}`}>{user?.fullName}</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className={`text-lg font-black ${textPrimary}`}>{user?.fullName}</h2>
+                        {user?.role === 'ADMIN' && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[10px] tracking-wider uppercase shadow-xs">
+                            Admin
+                          </span>
+                        )}
+                      </div>
                       <p className={`text-xs ${textSecondary}`}>
                         GEN <strong>{user?.employeeId}</strong>
                       </p>
@@ -3831,15 +3843,15 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* ================= BOTTOM NAVIGATION BAR ================= */}
+      {/* ================= BOTTOM NAVIGATION BAR (Icon-only trên điện thoại) ================= */}
       <nav
-        className={`md:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-md border-t px-2 py-1 pb-safe transition-colors ${
+        className={`md:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-md border-t px-3 py-1.5 pb-safe transition-colors ${
           darkMode
-            ? 'bg-slate-900/75 border-slate-700/70 text-white'
-            : 'bg-white/75 border-white/80 text-slate-800 shadow-lg'
+            ? 'bg-slate-900/85 border-slate-700/70 text-white shadow-2xl'
+            : 'bg-white/85 border-slate-200/80 text-slate-800 shadow-xl'
         }`}
       >
-        <div className="grid grid-cols-4 gap-1 max-w-md mx-auto">
+        <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto">
           {[
             { id: 'home', label: t.home, icon: Home, locked: false },
             { id: 'challenges', label: t.challenges, icon: Calendar, locked: isGuest },
@@ -3858,21 +3870,22 @@ export const App: React.FC = () => {
               <button
                 key={item.id}
                 onClick={item.onClick || (() => navigateToTab(item.id as TabType))}
-                className={`flex flex-col items-center justify-center py-1.5 rounded-2xl transition relative ${
+                title={item.label}
+                aria-label={item.label}
+                className={`flex items-center justify-center py-2.5 rounded-2xl transition relative ${
                   isActive
-                    ? 'text-blue-600 font-extrabold'
+                    ? 'text-blue-600 bg-blue-50/90 dark:bg-blue-950/70 shadow-xs'
                     : darkMode
-                    ? 'text-slate-400 font-medium'
-                    : 'text-slate-500 font-medium'
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <div className="relative">
-                  <Icon className="w-5 h-5" />
+                <div className="relative flex items-center justify-center">
+                  <Icon className="w-6 h-6 stroke-[2.2]" />
                   {item.locked && (
-                    <Lock className="w-2.5 h-2.5 text-amber-500 absolute -top-1 -right-1" />
+                    <Lock className="w-2.5 h-2.5 text-amber-500 absolute -top-1 -right-1.5" />
                   )}
                 </div>
-                <span className="text-[10px] mt-0.5 truncate">{item.label}</span>
               </button>
             );
           })}

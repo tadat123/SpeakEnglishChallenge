@@ -74,197 +74,195 @@ interface AdminDashboardProps {
 
 const ADMIN_I18N = {
   vi: {
-    headerTitle: 'Quản trị viên (Admin CMS) — Quản lý 21 Ngày & Câu hỏi (Chữ / Audio / Video)',
-    headerSub:
-      'Chọn bất kỳ ngày nào bên dưới để sửa thông tin ngày, thêm/sửa/xóa câu hỏi hoặc khóa an toàn khi đang có người thi.',
-    reseedBtn: 'Reset Seed Gốc',
-    exportBtn: 'Xuất Excel Trao Giải',
-    selectDayTitle: '1. Chọn Ngày Thử Thách Cần Chỉnh Sửa (Day 1 → Day 21):',
+    headerTitle: '21 Ngày Thi & Đề Thi',
+    headerSub: '',
+    reseedBtn: 'Reset Seed',
+    exportBtn: 'Xuất Excel',
+    selectDayTitle: 'Chọn Ngày Thi (Day 1 → Day 21):',
     openStatus: '🔓 Mở',
     lockedStatus: '🔒 Khóa',
     dayTitleLabel: 'Tên ngày thi',
-    dayDateLabel: 'Ngày tháng hiển thị',
-    saveDayMetaBtn: 'Lưu tên & ngày',
-    activePlayersLabel: 'người đang làm bài',
+    dayDateLabel: 'Ngày tháng',
+    saveDayMetaBtn: 'Lưu',
+    activePlayersLabel: 'đang làm bài',
     lockDayBtn: 'Khóa',
     unlockDayBtn: 'Mở khóa',
     nowSuffix: 'ngay',
-    liveBannerTitle: '🟢 Đang có nhân viên làm bài trực tuyến trên',
-    liveBannerProtection: 'Đã bật bảo vệ Snapshot đề thi (Sửa câu hỏi không làm lỗi bài đang thi)',
-    questionListTitle: '2. Danh sách câu hỏi của',
+    liveBannerTitle: '🟢 Đang có người làm bài trên',
+    liveBannerProtection: 'Bảo vệ Snapshot đề thi',
+    questionListTitle: 'Danh Sách Câu Hỏi',
     questionsCountUnit: 'câu',
-    questionListSub: 'Hỗ trợ thêm/sửa câu hỏi Chữ, tải file Âm thanh (.mp3/.wav) và Video (.mp4/.webm)',
-    cloneAllBtn: 'Áp dụng bộ câu này cho cả 21 ngày',
-    bulkImportBtn: 'Tạo Đề Bulk (Excel / CSV)',
-    addQuestionBtn: 'Thêm Câu Hỏi Mới',
+    questionListSub: '',
+    cloneAllBtn: 'Sao chép sang 21 ngày',
+    bulkImportBtn: 'Nhập Excel / CSV',
+    addQuestionBtn: 'Thêm Câu Hỏi',
     questionPrefix: 'Câu',
     correctAnsBadge: 'Đáp án đúng',
-    mp3Badge: '🎵 File MP3 riêng',
-    videoBadge: '🎬 Có Video',
+    mp3Badge: '🎵 MP3',
+    videoBadge: '🎬 Video',
     editBtn: 'Sửa',
     deleteBtnTitle: 'Xóa câu hỏi',
     lockModalTitle: 'Tùy chọn Khóa',
     lockModalSubPrefix: 'Hiện có',
-    lockModalSubSuffix: 'nhân viên đang làm bài ngày này',
+    lockModalSubSuffix: 'nhân viên đang làm bài',
     gracefulTitle: '🛡️ Cách 1: Khóa Mềm / Ân hạn (Khuyên dùng)',
     safeBadge: 'An toàn',
     gracefulDesc:
-      'Chặn ngay người mới bấm vào thi, nhưng vẫn cho phép những người đang làm dở được hoàn thành nốt và nộp bài bình thường (trong tối đa 15 phút).',
-    forceTitle: '🚨 Cách 2: Khóa Cưỡng Chế Ngay Lập Tức (Force Lock)',
+      'Chặn người mới bấm vào thi, cho phép người đang làm dở hoàn thành nốt (tối đa 15 phút).',
+    forceTitle: '🚨 Cách 2: Khóa Cưỡng Chế Ngay Lập Tức',
     forceDesc:
-      'Dừng ngay lập tức mọi phiên đang làm dở. Nhân viên đang làm sẽ nhận thông báo tạm dừng và không bị mất lượt thi chính thức khi mở lại.',
+      'Dừng ngay lập tức các phiên đang thi dở. Không bị tính mất lượt thi.',
     modalAddTitle: '➕ Thêm Câu Hỏi Mới vào Day',
     modalEditTitle: '✏️ Chỉnh sửa Câu',
     questionTypeLabel: 'Dạng câu hỏi *',
-    promptTextLabel: 'Nội dung câu hỏi (Chữ hiển thị) *',
-    targetWordLabel: 'Từ/Cụm từ phát âm mẫu',
-    statementTextLabel: 'Câu Nhận Định (Dành cho dạng True / False)',
+    promptTextLabel: 'Nội dung câu hỏi *',
+    targetWordLabel: 'Từ phát âm mẫu',
+    statementTextLabel: 'Câu Nhận Định (True / False)',
     promptAudioTitle: 'Âm thanh (Audio) đề bài',
     showSpeakerLabel: 'Hiện nút Loa',
-    uploadAudioBtn: 'Tải file .MP3/.WAV',
+    uploadAudioBtn: 'Tải file MP3/WAV',
     uploadingText: 'Đang tải...',
     testListenBtn: '🔊 Nghe thử',
-    promptVideoTitle: 'Video tình huống (.MP4 / Link)',
-    uploadVideoBtn: 'Tải Video .MP4/.WEBM',
+    promptVideoTitle: 'Video (.MP4 / Link)',
+    uploadVideoBtn: 'Tải Video',
     removeVideoBtn: 'Xóa Video',
-    optionsSectionLabel: 'Các phương án trả lời (Tích chọn Đáp án đúng & gắn Audio riêng nếu cần):',
+    optionsSectionLabel: 'Phương án trả lời (Tích chọn đáp án đúng):',
     correctSelectedBadge: '(Đáp án Đúng)',
     hasOptionSpeaker: 'Có nút Loa',
-    explanationLabel: 'Giải thích chi tiết (Hiển thị sau khi nhân viên nộp bài)',
+    explanationLabel: 'Giải thích chi tiết',
     cancelBtn: 'Hủy',
     saveQuestionBtn: 'Lưu Câu Hỏi',
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice – Chọn audio phát âm đúng (3 nút Audio A/B/C)',
+        label: 'Multiple Choice – Chọn audio phát âm đúng (3 đáp án)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False – Nghe và xác định nhận định (2 đáp án Đúng/Sai)',
+        label: 'True / False – Nhận định Đúng/Sai',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Nghe audio / Xem video – Chọn từ đúng (3 đáp án A/B/C)',
+        label: 'Nghe audio / Xem video – Chọn từ đúng (3 đáp án)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Nghĩa của từ / Từ viết tắt (3 đáp án A/B/C)',
+        label: 'Nghĩa của từ / Từ viết tắt (3 đáp án)',
       },
       {
         value: 'FILL_IN_THE_BLANK',
         label: 'Điền từ – Nhập từ vựng theo phiên âm & nghĩa',
       },
     ],
-    sidebarDashboard: 'Dashboard Thống Kê',
-    sidebarDashboardSub: 'Tỉ lệ hoàn thành & KPI',
-    sidebarUsers: 'Quản Lý Nhân Viên',
-    sidebarUsersSub: 'Danh sách, GEN & thiết bị',
-    sidebarChallenges: '21 Ngày & Đề Thi',
-    sidebarChallengesSub: 'Câu hỏi, Audio & Video',
+    sidebarDashboard: 'Dashboard',
+    sidebarDashboardSub: '',
+    sidebarUsers: 'Nhân Viên',
+    sidebarUsersSub: '',
+    sidebarChallenges: 'Đề Thi 21 Ngày',
+    sidebarChallengesSub: '',
     sidebarEvents: 'Pop-up Sự Kiện',
-    sidebarEventsSub: 'Quản lý & Ẩn/Hiện sự kiện',
-    sidebarNotifications: 'Thông Báo Cá Nhân',
-    sidebarNotificationsSub: 'Push PWA & Cá nhân hóa',
-    sidebarSecurity: 'An Ninh & Anti-Cheat',
-    sidebarSecuritySub: 'DDoS, WAF & IP Jail',
-    backToQuiz: 'Về Chỗ Làm Kiểm Tra',
+    sidebarEventsSub: '',
+    sidebarNotifications: 'Thông Báo',
+    sidebarNotificationsSub: '',
+    sidebarSecurity: 'Bảo Mật',
+    sidebarSecuritySub: '',
+    backToQuiz: 'Về Chỗ Làm Bài',
     backToQuizShort: 'Làm bài',
   },
   en: {
-    headerTitle: 'Admin CMS — Manage 21 Days & Questions (Text / Audio / Video)',
-    headerSub:
-      'Select any day below to edit schedule details, add/edit/delete questions, or safely lock a day while users are taking the quiz.',
-    reseedBtn: 'Reset Default Seed',
-    exportBtn: 'Export Award CSV',
-    selectDayTitle: '1. Select Challenge Day to Edit (Day 1 → Day 21):',
+    headerTitle: '21-Day Challenge & Quiz',
+    headerSub: '',
+    reseedBtn: 'Reset Defaults',
+    exportBtn: 'Export Excel',
+    selectDayTitle: 'Select Day (Day 1 → Day 21):',
     openStatus: '🔓 Open',
     lockedStatus: '🔒 Locked',
     dayTitleLabel: 'Day Title',
     dayDateLabel: 'Display Date',
-    saveDayMetaBtn: 'Save Title & Date',
+    saveDayMetaBtn: 'Save',
     activePlayersLabel: 'active players',
     lockDayBtn: 'Lock',
     unlockDayBtn: 'Unlock',
     nowSuffix: 'now',
-    liveBannerTitle: '🟢 Employees currently taking quiz on',
-    liveBannerProtection: 'Snapshot Protection Active (Editing questions will not break active quizzes)',
-    questionListTitle: '2. Question List for',
+    liveBannerTitle: '🟢 Active users on',
+    liveBannerProtection: 'Snapshot Protection Active',
+    questionListTitle: 'Question List',
     questionsCountUnit: 'questions',
-    questionListSub: 'Add/edit Text questions, upload Audio (.mp3/.wav) and Video (.mp4/.webm)',
-    cloneAllBtn: 'Clone this set to all 21 days',
-    bulkImportBtn: 'Bulk Import (Excel / CSV)',
-    addQuestionBtn: 'Add New Question',
+    questionListSub: '',
+    cloneAllBtn: 'Copy to 21 days',
+    bulkImportBtn: 'Import Excel / CSV',
+    addQuestionBtn: 'Add Question',
     questionPrefix: 'Q',
     correctAnsBadge: 'Correct',
-    mp3Badge: '🎵 Custom MP3',
+    mp3Badge: '🎵 MP3',
     videoBadge: '🎬 Video',
     editBtn: 'Edit',
     deleteBtnTitle: 'Delete question',
-    lockModalTitle: 'Lock Options for',
+    lockModalTitle: 'Lock Options',
     lockModalSubPrefix: 'Currently',
-    lockModalSubSuffix: 'employees are taking this quiz',
-    gracefulTitle: '🛡️ Option 1: Graceful Soft Lock (Recommended)',
+    lockModalSubSuffix: 'users taking quiz',
+    gracefulTitle: '🛡️ Graceful Lock (Recommended)',
     safeBadge: 'Safe',
     gracefulDesc:
-      'Blocks new entries immediately, while allowing active players up to 15 minutes to finish and submit normally.',
-    forceTitle: '🚨 Option 2: Immediate Force Lock',
+      'Block new starts, allow in-progress users to finish (up to 15 mins).',
+    forceTitle: '🚨 Force Lock Immediately',
     forceDesc:
-      'Terminates active sessions immediately. Active players receive a pause notice and keep their official attempt when reopened.',
-    modalAddTitle: '➕ Add New Question to Day',
+      'Stop all active sessions immediately without consuming attempts.',
+    modalAddTitle: '➕ Add Question to Day',
     modalEditTitle: '✏️ Edit Question',
     questionTypeLabel: 'Question Type *',
-    promptTextLabel: 'Question Prompt (Displayed Text) *',
-    targetWordLabel: 'Target Word / Phrase (TTS)',
-    statementTextLabel: 'Statement Text (For True / False)',
-    promptAudioTitle: 'Prompt Audio',
-    showSpeakerLabel: 'Show Speaker Button',
-    uploadAudioBtn: 'Upload .MP3/.WAV',
+    promptTextLabel: 'Question Prompt *',
+    targetWordLabel: 'Target Word/Phrase',
+    statementTextLabel: 'Statement (True / False)',
+    promptAudioTitle: 'Audio',
+    showSpeakerLabel: 'Show speaker button',
+    uploadAudioBtn: 'Upload Audio',
     uploadingText: 'Uploading...',
-    testListenBtn: '🔊 Test Audio',
-    promptVideoTitle: 'Situation Video (.MP4 / Link)',
-    uploadVideoBtn: 'Upload .MP4/.WEBM',
+    testListenBtn: '🔊 Preview',
+    promptVideoTitle: 'Video (.MP4 / Link)',
+    uploadVideoBtn: 'Upload Video',
     removeVideoBtn: 'Remove Video',
-    optionsSectionLabel: 'Answer Options (Select correct option & attach audio if needed):',
+    optionsSectionLabel: 'Answer Options:',
     correctSelectedBadge: '(Correct)',
-    hasOptionSpeaker: 'Speaker',
-    explanationLabel: 'Detailed Explanation (Shown after submission)',
+    hasOptionSpeaker: 'Has speaker',
+    explanationLabel: 'Explanation',
     cancelBtn: 'Cancel',
     saveQuestionBtn: 'Save Question',
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice – Choose correct pronunciation audio (3 Audio buttons A/B/C)',
+        label: 'Multiple Choice – Audio pronunciation (3 options)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False – Listen and verify statement (2 options True/False)',
+        label: 'True / False statement',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Listen Audio / Watch Video – Choose correct word (3 options A/B/C)',
+        label: 'Listen audio / video – Choose word (3 options)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Vocabulary Meaning / Acronym (3 options A/B/C)',
+        label: 'Vocabulary meaning / acronym (3 options)',
       },
       {
         value: 'FILL_IN_THE_BLANK',
         label: 'Fill in the blank – Type vocabulary from IPA & meaning',
       },
     ],
-    sidebarDashboard: 'Analytics Dashboard',
-    sidebarDashboardSub: 'Completion rate & KPIs',
-    sidebarUsers: 'User Management',
-    sidebarUsersSub: 'Employees, GEN & devices',
-    sidebarChallenges: '21 Days & Questions',
-    sidebarChallengesSub: 'Questions, audio & video',
+    sidebarDashboard: 'Dashboard',
+    sidebarDashboardSub: '',
+    sidebarUsers: 'Users',
+    sidebarUsersSub: '',
+    sidebarChallenges: '21-Day Quiz',
+    sidebarChallengesSub: '',
     sidebarEvents: 'Event Pop-ups',
-    sidebarEventsSub: 'Manage & Show/Hide Events',
-    sidebarNotifications: 'Push Notifications',
-    sidebarNotificationsSub: 'PWA push & targeted alerts',
-    sidebarSecurity: 'Security & Anti-Cheat',
-    sidebarSecuritySub: 'DDoS, WAF & IP jail',
-    backToQuiz: 'Back to Quiz View',
+    sidebarEventsSub: '',
+    sidebarNotifications: 'Notifications',
+    sidebarNotificationsSub: '',
+    sidebarSecurity: 'Security',
+    sidebarSecuritySub: '',
+    backToQuiz: 'Back to Quiz',
     backToQuizShort: 'Quiz',
   },
   ko: {
@@ -349,19 +347,19 @@ const ADMIN_I18N = {
         label: '빈칸 채우기 – 발음기호 및 의미를 보고 단어 입력',
       },
     ],
-    sidebarDashboard: '통계 대시보드',
-    sidebarDashboardSub: '완주율 및 핵심 KPI',
-    sidebarUsers: '임직원 관리',
-    sidebarUsersSub: '사번, 계정 및 기기 목록',
-    sidebarChallenges: '21일 챌린지 & 문제',
-    sidebarChallengesSub: '문제, 음원 및 영상',
+    sidebarDashboard: '대시보드',
+    sidebarDashboardSub: '',
+    sidebarUsers: '임직원',
+    sidebarUsersSub: '',
+    sidebarChallenges: '21일 챌린지',
+    sidebarChallengesSub: '',
     sidebarEvents: '이벤트 팝업',
-    sidebarEventsSub: '이벤트 관리 및 숨김/표시',
-    sidebarNotifications: '맞춤형 알림',
-    sidebarNotificationsSub: 'PWA 푸시 & 개인화 알림',
-    sidebarSecurity: '보안 및 치팅 방지',
-    sidebarSecuritySub: 'DDoS, WAF & IP 차단',
-    backToQuiz: '시험 화면으로 돌아가기',
+    sidebarEventsSub: '',
+    sidebarNotifications: '알림',
+    sidebarNotificationsSub: '',
+    sidebarSecurity: '보안',
+    sidebarSecuritySub: '',
+    backToQuiz: '시험 화면으로',
     backToQuizShort: '시험',
   },
 };
@@ -1801,20 +1799,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     <Icon className="w-4 h-4" />
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-xs truncate">{item.label}</div>
-                    <div
-                      className={`text-[10px] truncate ${
-                        isActive
-                          ? 'text-blue-100'
-                          : darkMode
-                          ? 'text-slate-500'
-                          : 'text-slate-400'
-                      }`}
-                    >
-                      {item.sub}
-                    </div>
-                  </div>
+                  <span className="text-xs font-bold truncate">{item.label}</span>
                 </div>
 
                 {item.badge && (
@@ -1941,35 +1926,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Menu className="w-5 h-5" />
             </button>
             <div className="min-w-0">
-              <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                <span>Admin CMS Portal</span>
-                <span>/</span>
-                <span>
-                  {adminSubTab === 'dashboard'
-                    ? 'Dashboard Thống Kê'
-                    : adminSubTab === 'users'
-                    ? 'Quản Lý Nhân Viên'
-                    : adminSubTab === 'challenges'
-                    ? '21 Ngày & Đề Thi'
-                    : adminSubTab === 'events'
-                    ? 'Pop-up Sự Kiện'
-                    : adminSubTab === 'notifications'
-                    ? 'Thông Báo Cá Nhân Hóa'
-                    : 'An Ninh & Bảo Mật'}
-                </span>
-              </div>
               <h1 className={`text-base sm:text-lg font-black truncate ${textPrimary}`}>
                 {adminSubTab === 'dashboard'
-                  ? '📊 Dashboard Thống Kê & Tỉ Lệ Hoàn Thành'
+                  ? 'Thống Kê'
                   : adminSubTab === 'users'
-                  ? '👥 Quản Lý Tài Khoản Nhân Viên & Thiết Bị'
+                  ? 'Nhân Viên'
                   : adminSubTab === 'challenges'
-                  ? '📝 Quản Lý 21 Ngày Thi & Câu Hỏi'
+                  ? 'Đề Thi 21 Ngày'
                   : adminSubTab === 'events'
-                  ? '🎉 Quản Lý Pop-up & Chuỗi Hoạt Động Sự Kiện'
+                  ? 'Pop-up Sự Kiện'
                   : adminSubTab === 'notifications'
-                  ? '📢 Soạn & Gửi Thông Báo Cá Nhân Hóa'
-                  : '🛡️ Lá Chắn An Ninh & Phòng Thủ Tấn Công'}
+                  ? 'Thông Báo'
+                  : 'Bảo Mật'}
               </h1>
             </div>
           </div>
@@ -2060,11 +2028,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
                   <Calendar className="w-4 h-4 text-blue-600" />
-                  Tỉ lệ Người Hoàn thành & Điểm số Theo Ngày (Bộ lọc Ngày 1 → 21)
+                  Tỉ Lệ Hoàn Thành & Điểm Số Theo Ngày
                 </h3>
-                <p className={`text-xs ${textSecondary}`}>
-                  Chọn bất kỳ ngày nào bên dưới để xem tỉ lệ người hoàn thành, điểm trung bình, số người đạt chuẩn và số người điểm tối đa.
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-bold ${textSecondary}`}>Chọn nhanh:</span>
@@ -2652,23 +2617,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-xs font-black">
-                    CÂU 11 (TỰ LUYỆN ĐỌC)
+                  <span className="px-2 py-0.5 rounded-md bg-purple-600 text-white text-xs font-black">
+                    Câu 11
                   </span>
                   <h3 className={`text-sm sm:text-base font-black ${textPrimary}`}>
-                    🎙️ Bộ 5 Từ Vựng Luyện Đọc Phát Âm — {dayDetail.title}
+                    Bộ Từ Vựng Luyện Đọc — {dayDetail.title}
                   </h3>
                 </div>
-                <p className={`text-xs mt-1 ${textSecondary}`}>
-                  Học viên sẽ ghi âm luyện đọc 5 từ vựng chuyên môn này với AI đánh giá độ chính xác (≥75% đạt chuẩn). Phần này là tự luyện bổ trợ, KHÔNG tính giờ và KHÔNG tính điểm thi xếp hạng.
-                </p>
               </div>
               <button
                 type="button"
                 onClick={openEditQ11Modal}
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition self-start sm:self-auto"
               >
-                <Edit3 className="w-3.5 h-3.5" /> Chỉnh sửa 5 từ vựng Câu 11
+                <Edit3 className="w-3.5 h-3.5" /> Sửa từ vựng
               </button>
             </div>
 
@@ -2728,16 +2690,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className={`rounded-3xl p-4 sm:p-5 border shadow-sm backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${cardBg}`}
           >
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider mb-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                Pop-up & Hoạt Động Sự Kiện
-              </div>
               <h2 className={`text-base sm:text-lg font-black ${textPrimary}`}>
-                Quản Lý Pop-up & Chuỗi Hoạt Động Sự Kiện
+                Pop-up Sự Kiện
               </h2>
-              <p className={`text-xs mt-0.5 ${textSecondary}`}>
-                Bật/Tắt (Toggle) ẩn hiện từng sự kiện để mở dần cho học viên. Hỗ trợ tạo mới, chỉnh sửa thể lệ, hình ảnh và liên kết.
-              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto shrink-0">
@@ -2756,19 +2711,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 type="button"
                 onClick={handleResetEvents}
                 className="px-3.5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-800 dark:text-slate-200 font-bold text-xs shadow-xs transition flex items-center gap-1.5"
-                title="Khôi phục 3 sự kiện gốc ban đầu"
+                title="Khôi phục mặc định"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Khôi phục 3 sự kiện gốc</span>
+                <span>Khôi phục mặc định</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleOpenCreateEvent}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs shadow-md shadow-blue-500/20 transition flex items-center gap-2"
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
-                <span>Thêm Sự Kiện Mới</span>
+                <span>Thêm sự kiện</span>
               </button>
             </div>
           </div>
@@ -2776,48 +2731,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* Quick Stats KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className={`rounded-2xl p-4 border shadow-sm ${cardBg} flex items-center gap-3.5`}>
-              <div className="w-11 h-11 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                 <Layers className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className={`text-xs font-bold ${textSecondary}`}>Tổng số sự kiện</div>
+                <div className={`text-xs font-bold ${textSecondary}`}>Tổng sự kiện</div>
                 <div className={`text-xl font-black ${textPrimary}`}>{eventList.length}</div>
-                <div className="text-[10px] text-slate-400">Được cấu hình trong hệ thống</div>
               </div>
             </div>
 
             <div className={`rounded-2xl p-4 border shadow-sm ${cardBg} flex items-center gap-3.5`}>
-              <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                 <Eye className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">🟢 Đang Mở Công Khai</div>
+                <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Đang hiển thị</div>
                 <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
                   {eventList.filter((e) => e.isVisible !== false).length}
                 </div>
-                <div className="text-[10px] text-slate-400">Học viên đang thấy trên Pop-up & Trang chủ</div>
               </div>
             </div>
 
             <div className={`rounded-2xl p-4 border shadow-sm ${cardBg} flex items-center gap-3.5`}>
-              <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0">
                 <EyeOff className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className="text-xs font-bold text-amber-600 dark:text-amber-400">🔒 Đang Ẩn (Sắp Mở)</div>
-                <div className="text-xl font-black text-amber-600 dark:text-amber-400">
+                <div className={`text-xs font-bold ${textSecondary}`}>Đang ẩn</div>
+                <div className={`text-xl font-black ${textPrimary}`}>
                   {eventList.filter((e) => e.isVisible === false).length}
                 </div>
-                <div className="text-[10px] text-slate-400">Chỉ Admin thấy trong tab này</div>
               </div>
-            </div>
-          </div>
-
-          {/* Banner Hướng Dẫn Vận Hành */}
-          <div className="rounded-2xl p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 dark:from-slate-900 dark:via-blue-950/30 dark:to-slate-900 border border-blue-200 dark:border-blue-900/40 flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-              <strong className="text-blue-600 dark:text-blue-400">Mẹo vận hành cho Admin:</strong> Ban tổ chức có thể tạo sẵn tất cả các hoạt động sự kiện (Golden Bell, Dub It Right, Daily Challenge, v.v.), sau đó chỉ cần bấm nút <strong>"Bật/Tắt Ẩn Hiện"</strong> bên dưới để mở dần từng sự kiện theo đúng lộ trình cuộc thi mà không mất công tạo lại dữ liệu.
             </div>
           </div>
 
@@ -2831,16 +2775,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className={`rounded-3xl p-10 border text-center space-y-3 ${cardBg}`}>
               <Sparkles className="w-12 h-12 mx-auto text-amber-500 opacity-60" />
               <h3 className={`text-base font-black ${textPrimary}`}>Chưa có sự kiện nào</h3>
-              <p className={`text-xs max-w-md mx-auto ${textSecondary}`}>
-                Hiện tại chưa có sự kiện nào được tạo. Bạn có thể bấm "Khôi phục 3 sự kiện gốc" hoặc "+ Thêm Sự Kiện Mới".
-              </p>
               <div className="flex justify-center gap-2 pt-2">
                 <button
                   type="button"
                   onClick={handleResetEvents}
                   className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs"
                 >
-                  Khôi phục 3 sự kiện gốc
+                  Khôi phục mặc định
                 </button>
               </div>
             </div>
@@ -2869,8 +2810,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }`}
                   >
                     <div className="p-4 sm:p-5 flex flex-col md:flex-row gap-4">
-                      {/* Cột trái: Ảnh minh họa & Số thứ tự */}
-                      <div className="relative w-full md:w-56 h-36 md:h-auto shrink-0 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      {/* Cột trái: Ảnh minh họa */}
+                      <div className="relative w-full md:w-48 h-32 md:h-auto shrink-0 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                         <img
                           src={imgSrc}
                           alt={ev.titleC}
@@ -2883,57 +2824,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
                             isVis
                               ? 'bg-emerald-600 text-white shadow-sm'
-                              : 'bg-slate-900/80 text-amber-300 backdrop-blur-xs'
+                              : 'bg-slate-900/80 text-amber-300'
                           }`}
                         >
-                          {isVis ? '🟢 Đang Mở' : '🔒 Đang Ẩn'}
+                          {isVis ? 'Đang mở' : 'Đang ẩn'}
                         </span>
                       </div>
 
                       {/* Cột giữa: Chi tiết sự kiện */}
-                      <div className="flex-1 min-w-0 space-y-2.5">
+                      <div className="flex-1 min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wider ${
-                                ev.themeColor === 'amber'
-                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                                  : ev.themeColor === 'blue'
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                                  : ev.themeColor === 'purple'
-                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
-                                  : ev.themeColor === 'emerald'
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                  : ev.themeColor === 'rose'
-                                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                                  : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
-                              }`}
-                            >
-                              Theme: {ev.themeColor || 'amber'}
-                            </span>
-
-                            <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                              Hành động: {ev.actionType === 'daily' ? '📅 Daily Challenge' : ev.actionType === 'link' ? '🔗 Link ngoài' : '📜 Đọc thể lệ'}
-                            </span>
-                          </div>
-
-                          <div className="text-xs text-slate-400 font-mono">
-                            Thứ tự: {ev.orderIndex ?? idx + 1}
-                          </div>
-                        </div>
-
-                        <div>
-                          <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
+                          <h3 className={`text-base font-black ${textPrimary}`}>
                             {ev.titleA} {ev.titleB ? `${ev.titleB} ` : ''}{ev.titleC}
                           </h3>
-                          <p className={`text-xs mt-1 leading-relaxed ${textSecondary}`}>
-                            {ev.desc}
-                          </p>
+                          <span className="text-xs text-slate-400 font-mono">
+                            Thứ tự: {ev.orderIndex ?? idx + 1}
+                          </span>
                         </div>
+
+                        <p className={`text-xs leading-relaxed ${textSecondary}`}>
+                          {ev.desc}
+                        </p>
 
                         {/* Chips Tags */}
                         {ev.chips && ev.chips.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                          <div className="flex flex-wrap gap-1.5">
                             {ev.chips.map((c, cIdx) => (
                               <span
                                 key={cIdx}
@@ -2945,34 +2860,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         )}
 
-                        {/* Note & Rules summary */}
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
-                          {ev.note && (
-                            <div className="truncate max-w-md">
-                              <strong>Ghi chú:</strong> {ev.note}
-                            </div>
-                          )}
-                          {ev.more && ev.more.length > 0 && (
-                            <div className="text-blue-600 dark:text-blue-400 font-medium">
-                              • Có {ev.more.length} điều khoản thể lệ chi tiết
-                            </div>
-                          )}
-                        </div>
+                        {ev.note && (
+                          <div className="text-[11px] text-slate-500 truncate">
+                            {ev.note}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Cột phải: Các nút thao tác nhanh (CRUD + Toggle 1 chạm) */}
+                      {/* Cột phải: Thao tác */}
                       <div className="flex md:flex-col justify-end md:justify-center items-stretch gap-2 shrink-0 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 border-slate-200 dark:border-slate-800">
-                        {/* NÚT TOGGLE ẨN / HIỆN 1 CHẠM (TRỌNG TÂM CỦA REQUEST) */}
                         <button
                           type="button"
                           onClick={() => handleToggleEvent(ev)}
                           disabled={isToggling}
-                          className={`px-3.5 py-2 rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5 ${
+                          className={`px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5 ${
                             isVis
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                               : 'bg-slate-700 hover:bg-slate-600 text-amber-300'
                           }`}
-                          title={isVis ? 'Nhấn để ẨN sự kiện này khỏi người dùng' : 'Nhấn để MỞ CÔNG KHAI sự kiện này'}
+                          title={isVis ? 'Nhấn để ẩn' : 'Nhấn để mở'}
                         >
                           {isToggling ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2981,7 +2887,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           ) : (
                             <EyeOff className="w-3.5 h-3.5" />
                           )}
-                          <span>{isVis ? '🟢 Đang Mở (Bấm Ẩn)' : '🔒 Đang Ẩn (Bấm Mở)'}</span>
+                          <span>{isVis ? 'Đang hiện' : 'Đang ẩn'}</span>
                         </button>
 
                         <button
@@ -2990,14 +2896,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           className={`px-3.5 py-2 rounded-xl font-bold text-xs border shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 ${subCardBg} hover:border-blue-400`}
                         >
                           <Edit3 className="w-3.5 h-3.5 text-blue-500" />
-                          <span>Chỉnh Sửa</span>
+                          <span>Sửa</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setDeletingEventId(ev.id)}
                           className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-800/40 transition active:scale-95 flex items-center justify-center gap-1.5"
-                          title="Xóa sự kiện"
+                          title="Xóa"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Xóa</span>
@@ -3023,12 +2929,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
                   <Send className="w-4 h-4 text-amber-500" />
-                  Soạn & Gửi Thông Báo Mang Tính Cá Nhân Hóa (Push & In-App)
+                  Soạn & Gửi Thông Báo
                 </h3>
-                <p className={`text-xs ${textSecondary}`}>
-                  Hỗ trợ các thẻ thay thế tự động <strong>{'{name}'}</strong> (Họ tên),{' '}
-                  <strong>{'{gen}'}</strong> (Số GEN 8 số), <strong>{'{score}'}</strong> (Điểm số cá nhân).
-                </p>
               </div>
 
               {/* Đối tượng nhận */}
