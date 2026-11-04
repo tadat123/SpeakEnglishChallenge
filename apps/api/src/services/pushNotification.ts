@@ -673,7 +673,7 @@ class StaggeredPushService {
 
         const currentMinutes = hour * 60 + minute;
 
-        const top1Hour = cfg.eveningTop1Hour ?? 7; // Mặc định 7h sáng vinh danh Top 1 hôm qua
+        const top1Hour = cfg.eveningTop1Hour ?? 19; // Mặc định 19:00 tối vinh danh Top 1
         const top1Minute = cfg.eveningTop1Minute ?? 0;
         const top1TargetMinutes = top1Hour * 60 + top1Minute;
 
@@ -685,7 +685,7 @@ class StaggeredPushService {
         const nightUnstudiedMinute = cfg.nightUnstudiedMinute ?? 0;
         const nightTargetMinutes = nightUnstudiedHour * 60 + nightUnstudiedMinute;
 
-        // 1. Khung 7h sáng (1 lần/ngày): Thông báo Top 1 ngày hôm qua sau khi chốt điểm 00:00
+        // 1. Khung vinh danh Top 1 (1 lần/ngày, mặc định 19:00 tối)
         if (currentMinutes >= top1TargetMinutes && cfg.lastEveningTop1NotifiedDate !== dateKey) {
           store.updatePushConfig({ lastEveningTop1NotifiedDate: dateKey });
           const leaderboard = store.getLeaderboard();

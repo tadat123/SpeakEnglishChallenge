@@ -2627,83 +2627,122 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ báo Bài mới (Sáng)
+                  ⏰ Giờ & Phút Bài mới (Sáng)
                 </label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={morningHour}
-                    onChange={(e) => setMorningHour(Math.max(0, Math.min(23, Number(e.target.value))))}
-                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
-                    title="Giờ (0-23)"
-                  />
-                  <span className="font-bold text-slate-400">:</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={59}
-                    value={morningMinute}
-                    onChange={(e) => setMorningMinute(Math.max(0, Math.min(59, Number(e.target.value))))}
-                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
-                    title="Phút (0-59)"
-                  />
+                <input
+                  type="time"
+                  value={`${String(morningHour).padStart(2, '0')}:${String(morningMinute).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && val.includes(':')) {
+                      const [h, m] = val.split(':').map(Number);
+                      if (!isNaN(h) && !isNaN(m)) {
+                        setMorningHour(Math.max(0, Math.min(23, h)));
+                        setMorningMinute(Math.max(0, Math.min(59, m)));
+                      }
+                    }
+                  }}
+                  style={{ colorScheme: darkMode ? 'dark' : 'light' }}
+                  className={`w-full px-2.5 py-2 rounded-xl border text-center text-xs sm:text-sm font-black outline-none tracking-wide cursor-pointer ${inputBg}`}
+                  title="Chọn giờ và phút bài mới (HH:mm)"
+                />
+                <div className="flex items-center justify-between gap-1 mt-1.5">
+                  {[0, 15, 30, 45].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMorningMinute(m)}
+                      className={`flex-1 py-0.5 rounded text-[10px] font-extrabold transition ${
+                        morningMinute === m
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                      title={`Đặt phút là :${String(m).padStart(2, '0')}`}
+                    >
+                      :{String(m).padStart(2, '0')}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ báo Top 1 (Mặc định 19:00 tối)
+                  ⏰ Giờ & Phút Top 1 (Tối)
                 </label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={eveningTop1Hour}
-                    onChange={(e) => setEveningTop1Hour(Math.max(0, Math.min(23, Number(e.target.value))))}
-                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
-                    title="Giờ (0-23)"
-                  />
-                  <span className="font-bold text-slate-400">:</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={59}
-                    value={eveningTop1Minute}
-                    onChange={(e) => setEveningTop1Minute(Math.max(0, Math.min(59, Number(e.target.value))))}
-                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
-                    title="Phút (0-59)"
-                  />
+                <input
+                  type="time"
+                  value={`${String(eveningTop1Hour).padStart(2, '0')}:${String(eveningTop1Minute).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && val.includes(':')) {
+                      const [h, m] = val.split(':').map(Number);
+                      if (!isNaN(h) && !isNaN(m)) {
+                        setEveningTop1Hour(Math.max(0, Math.min(23, h)));
+                        setEveningTop1Minute(Math.max(0, Math.min(59, m)));
+                      }
+                    }
+                  }}
+                  style={{ colorScheme: darkMode ? 'dark' : 'light' }}
+                  className={`w-full px-2.5 py-2 rounded-xl border text-center text-xs sm:text-sm font-black outline-none tracking-wide cursor-pointer ${inputBg}`}
+                  title="Chọn giờ và phút vinh danh Top 1 (HH:mm)"
+                />
+                <div className="flex items-center justify-between gap-1 mt-1.5">
+                  {[0, 15, 30, 45].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setEveningTop1Minute(m)}
+                      className={`flex-1 py-0.5 rounded text-[10px] font-extrabold transition ${
+                        eveningTop1Minute === m
+                          ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                      title={`Đặt phút là :${String(m).padStart(2, '0')}`}
+                    >
+                      :{String(m).padStart(2, '0')}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ nhắc USER (Đêm)
+                  ⏰ Giờ & Phút Nhắc USER (Đêm)
                 </label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={nightUnstudiedHour}
-                    onChange={(e) => setNightUnstudiedHour(Math.max(0, Math.min(23, Number(e.target.value))))}
-                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
-                    title="Giờ (0-23)"
-                  />
-                  <span className="font-bold text-slate-400">:</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={59}
-                    value={nightUnstudiedMinute}
-                    onChange={(e) => setNightUnstudiedMinute(Math.max(0, Math.min(59, Number(e.target.value))))}
-                    className={`w-1/2 px-2 py-2 rounded-xl border text-center text-xs sm:text-sm font-bold ${inputBg}`}
-                    title="Phút (0-59)"
-                  />
+                <input
+                  type="time"
+                  value={`${String(nightUnstudiedHour).padStart(2, '0')}:${String(nightUnstudiedMinute).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && val.includes(':')) {
+                      const [h, m] = val.split(':').map(Number);
+                      if (!isNaN(h) && !isNaN(m)) {
+                        setNightUnstudiedHour(Math.max(0, Math.min(23, h)));
+                        setNightUnstudiedMinute(Math.max(0, Math.min(59, m)));
+                      }
+                    }
+                  }}
+                  style={{ colorScheme: darkMode ? 'dark' : 'light' }}
+                  className={`w-full px-2.5 py-2 rounded-xl border text-center text-xs sm:text-sm font-black outline-none tracking-wide cursor-pointer ${inputBg}`}
+                  title="Chọn giờ và phút nhắc USER (HH:mm)"
+                />
+                <div className="flex items-center justify-between gap-1 mt-1.5">
+                  {[0, 15, 30, 45].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setNightUnstudiedMinute(m)}
+                      className={`flex-1 py-0.5 rounded text-[10px] font-extrabold transition ${
+                        nightUnstudiedMinute === m
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                      title={`Đặt phút là :${String(m).padStart(2, '0')}`}
+                    >
+                      :{String(m).padStart(2, '0')}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div>
@@ -2718,6 +2757,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) => setSpreadWindowSeconds(Number(e.target.value))}
                   className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
                 />
+                <div className="flex items-center justify-between gap-1 mt-1.5">
+                  {[10, 18, 30, 60].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSpreadWindowSeconds(s)}
+                      className={`flex-1 py-0.5 rounded text-[10px] font-bold transition ${
+                        spreadWindowSeconds === s
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {s}s
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
@@ -2732,16 +2787,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) => setMinIntervalMs(Number(e.target.value))}
                   className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold ${inputBg}`}
                 />
+                <div className="flex items-center justify-between gap-1 mt-1.5">
+                  {[500, 1000, 1200, 2000].map((ms) => (
+                    <button
+                      key={ms}
+                      type="button"
+                      onClick={() => setMinIntervalMs(ms)}
+                      className={`flex-1 py-0.5 rounded text-[10px] font-bold transition ${
+                        minIntervalMs === ms
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {ms >= 1000 ? `${ms / 1000}s` : `${ms}ms`}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-end">
+              <div className="flex flex-col justify-end">
                 <button
                   type="button"
                   onClick={() => handleSavePushConfig(false)}
-                  className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 h-[38px]"
+                  className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 h-[38px] shadow-sm transition hover:scale-[1.02]"
                 >
                   <Save className="w-3.5 h-3.5" />
                   Lưu cấu hình
                 </button>
+                <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 mt-1.5 truncate">
+                  Đồng bộ tức thì 3 API
+                </p>
               </div>
             </div>
           </div>
@@ -2755,7 +2829,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   📋 Danh sách USER cài PWA chưa làm bài ({pushStatus.stats?.unstudiedAccountsCount || 0})
                 </h4>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                  Nhắc lúc {nightUnstudiedHour}h đêm
+                  Nhắc lúc {String(nightUnstudiedHour).padStart(2, '0')}:{String(nightUnstudiedMinute).padStart(2, '0')} đêm
                 </span>
               </div>
 

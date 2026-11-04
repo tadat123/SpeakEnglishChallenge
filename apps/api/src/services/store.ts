@@ -98,10 +98,12 @@ export interface AttemptRecord {
   challengeId: number;
   dayNumber: number;
   score: number;
+  practiceScore?: number; // Điểm luyện tập thực tế (nếu quá hạn thì score = 0, practiceScore = điểm làm được)
+  isExpired?: boolean; // Nộp bài sau khi ngày thi đã quá hạn
   correctCount: number;
   wrongCount: number;
   timeSpentMs: number;
-  answersDetail: Record<string, 'A' | 'B' | 'C' | 'D'>;
+  answersDetail: Record<string, any>;
   startedAt: string;
   completedAt: string;
 }
@@ -486,6 +488,11 @@ class DataStore {
               challengeId: a.challengeId,
               dayNumber: a.challengeId,
               score: a.score,
+              practiceScore:
+                (a.answersDetail as any)?._meta?.practiceScore ??
+                (a.answersDetail as any)?._meta?.rawScore ??
+                a.score,
+              isExpired: Boolean((a.answersDetail as any)?._meta?.isExpired),
               correctCount: a.correctCount,
               wrongCount: a.wrongCount,
               timeSpentMs: a.timeSpentMs,
@@ -584,7 +591,7 @@ class DataStore {
         autoRemindUnstudied: true,
         morningHour: 8,
         morningMinute: 0,
-        eveningTop1Hour: 7,
+        eveningTop1Hour: 19,
         eveningTop1Minute: 0,
         nightUnstudiedHour: 23,
         nightUnstudiedMinute: 0,
@@ -598,7 +605,7 @@ class DataStore {
     } else {
       parsed.pushConfig.morningHour = parsed.pushConfig.morningHour ?? 8;
       parsed.pushConfig.morningMinute = parsed.pushConfig.morningMinute ?? 0;
-      parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 7;
+      parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 19;
       parsed.pushConfig.eveningTop1Minute = parsed.pushConfig.eveningTop1Minute ?? 0;
       parsed.pushConfig.nightUnstudiedHour = parsed.pushConfig.nightUnstudiedHour ?? 23;
       parsed.pushConfig.nightUnstudiedMinute = parsed.pushConfig.nightUnstudiedMinute ?? 0;
