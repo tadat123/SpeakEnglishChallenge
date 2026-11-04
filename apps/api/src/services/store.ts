@@ -940,9 +940,20 @@ class DataStore {
     return new Date(nextVnMidnightUtc).toISOString();
   }
 
-  public isDayEnded(challenge: DailyChallengeItem): boolean {
-    if (challenge.forceRevealed) return true;
+  // Kiểm tra xem ngày thi đã thực tế trôi qua hạn chót 00:00 đêm hay chưa (căn cứ theo đồng hồ thực, KHÔNG phụ thuộc Admin reveal)
+  public isDayPassedDeadline(challenge: DailyChallengeItem): boolean {
     return Date.now() >= new Date(this.getDayEndDate(challenge)).getTime();
+  }
+
+  // Kiểm tra xem ngày này đã đến lúc công bố đáp án và điểm chi tiết hay chưa (Admin bấm công bố sớm HOẶC đã qua 00:00)
+  public isResultsRevealed(challenge: DailyChallengeItem): boolean {
+    if (challenge.forceRevealed) return true;
+    return this.isDayPassedDeadline(challenge);
+  }
+
+  // Ngày thi đã kết thúc theo lịch (chỉ phụ thuộc thời gian, không phụ thuộc cờ forceRevealed)
+  public isDayEnded(challenge: DailyChallengeItem): boolean {
+    return this.isDayPassedDeadline(challenge);
   }
 
   public toggleRevealResults(dayNumber: number, forceRevealed?: boolean): DailyChallengeItem | null {
@@ -1038,8 +1049,21 @@ class DataStore {
 
   /** Thử thách của ngày hôm nay: đã mở khóa và chưa kết thúc (00:00 hôm sau), hoặc fallback về ngày mới nhất đã mở khóa / Day 1 */
   public getTodayChallenge(): DailyChallengeItem | undefined {
+    const nowVn = new Date(Date.now() + 7 * 3600 * 1000);
+    const dd = String(nowVn.getUTCDate()).padStart(2, '0');
+    const mm = String(nowVn.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = nowVn.getUTCFullYear();
+    const todayVnDateLabel = `${dd}/${mm}/${yyyy}`;
+
+    // 1. Ưu tiên khớp chính xác dateLabel của ngày hôm nay theo lịch Việt Nam (UTC+7)
+    const matchByDate = this.data.challenges.find(
+      (c) => c.dateLabel?.trim() === todayVnDateLabel && this.isDayUnlocked(c)
+    );
+    if (matchByDate) return matchByDate;
+
+    // 2. Tìm bài đã mở khóa và chưa qua hạn 00:00 (không phụ thuộc cờ forceRevealed)
     const open = this.data.challenges
-      .filter((c) => this.isDayUnlocked(c) && !this.isDayEnded(c))
+      .filter((c) => this.isDayUnlocked(c) && !this.isDayPassedDeadline(c))
       .sort((a, b) => b.dayNumber - a.dayNumber);
     return open[0] || this.data.challenges.filter((c) => this.isDayUnlocked(c)).sort((a, b) => b.dayNumber - a.dayNumber)[0] || this.data.challenges[0];
   }
@@ -1449,7 +1473,7 @@ class DataStore {
   public getLeaderboard(department?: string, includeUnrevealed = false) {
     const revealedDayMap = new Map<number, boolean>();
     for (const c of this.data.challenges) {
-      revealedDayMap.set(c.dayNumber, this.isDayEnded(c));
+      revealedDayMap.set(c.dayNumber, this.isResultsRevealed(c));
     }
 
     const filtered = department

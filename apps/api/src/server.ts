@@ -532,12 +532,13 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
     const attempt = attempts.find((a) => a.dayNumber === c.dayNumber);
     const activeSession = store.getActiveSession(userId, c.dayNumber);
     const isUnlocked = store.isDayUnlocked(c);
-    const isEnded = store.isDayEnded(c);
-    const endsAt = store.getDayEndDate(c);
     const isToday = today?.dayNumber === c.dayNumber;
+    const isPassedDeadline = store.isDayPassedDeadline(c);
+    const resultsRevealed = store.isResultsRevealed(c);
+    const endsAt = store.getDayEndDate(c);
 
     let stars = 0;
-    if (attempt && isEnded) {
+    if (attempt && resultsRevealed) {
       const displayScore = attempt.practiceScore ?? attempt.score;
       if (displayScore >= 90) stars = 3;
       else if (displayScore >= 60) stars = 2;
@@ -550,8 +551,8 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
       status = 'COMPLETED'; // Đã làm
     } else if (activeSession) {
       status = 'IN_PROGRESS'; // Đang làm
-    } else if (isEnded && isUnlocked) {
-      status = 'EXPIRED'; // Quá hạn (Vẫn cho vào làm nhưng không tính điểm)
+    } else if (!isToday && isPassedDeadline && isUnlocked) {
+      status = 'EXPIRED'; // Quá hạn: CHỈ CÁC NGÀY TRƯỚC ĐÓ ĐÃ QUA 00:00! Bài hôm nay dù Admin công bố đáp án sớm vẫn KHÔNG BAO GIỜ bị quá hạn!
     } else if (isUnlocked) {
       status = 'OPEN'; // Chưa làm (Bài hôm nay đang mở)
     } else {
@@ -566,16 +567,16 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
       unlockDate: c.unlockDate,
       endsAt,
       isToday,
-      resultsRevealed: isEnded,
+      resultsRevealed,
       isPublished: c.isPublished,
       questionCount: c.questions.length,
       activePlayersCount: activeCounts[c.dayNumber] || 0,
       status,
       isCompletedByMe: Boolean(attempt),
-      isExpired: Boolean(attempt?.isExpired || (!attempt && isEnded && isUnlocked)),
+      isExpired: Boolean(attempt?.isExpired || (!attempt && !isToday && isPassedDeadline && isUnlocked)),
       stars,
-      score: attempt ? (isEnded ? attempt.score : null) : null,
-      practiceScore: attempt ? (isEnded ? (attempt.practiceScore ?? attempt.score) : null) : null,
+      score: attempt ? (resultsRevealed ? attempt.score : null) : null,
+      practiceScore: attempt ? (resultsRevealed ? (attempt.practiceScore ?? attempt.score) : null) : null,
       timeSpentMs: attempt?.timeSpentMs ?? null,
     };
   });
@@ -622,7 +623,8 @@ app.post(
       points: q.points,
     }));
 
-    const isExpired = store.isDayEnded(challenge);
+    const isToday = store.getTodayChallenge()?.dayNumber === challenge.dayNumber;
+    const isExpired = !isToday && store.isDayPassedDeadline(challenge);
 
     return {
       dayNumber: challenge.dayNumber,
@@ -823,9 +825,12 @@ app.post(
     });
 
     const endsAt = store.getDayEndDate(challenge);
-    const isExpired = store.isDayEnded(challenge);
+    const isToday = store.getTodayChallenge()?.dayNumber === challenge.dayNumber;
+    // Quá hạn: CHỈ KHI không phải ngày hôm nay VÀ đã quá hạn 00:00 của ngày đó
+    const isExpired = !isToday && store.isDayPassedDeadline(challenge);
     const rawScore = score;
     // Nếu quá hạn (ví dụ bài 03/11 nộp vào ngày 04/11): Vẫn cho làm nhưng KHÔNG tính điểm BXH (officialScore = 0)
+    // Nếu là bài hôm nay: Dù Admin công bố đáp án sớm hay chưa thì vẫn là điểm chính thức (officialScore = rawScore)!
     const officialScore = isExpired ? 0 : rawScore;
 
     const {
@@ -855,8 +860,8 @@ app.post(
     // Chống spam thông báo khi Top 1 đổi ngôi liên tục trong ngày:
     // Hệ thống KHÔNG bắn Push tức thì mỗi lần đổi Top 1 mà tổng hợp thông báo Top 1 hiện tại đúng 1 lần/ngày vào 19h tối.
 
-    // Ngày quá hạn thì công bố đáp án ngay, còn ngày hôm nay thì chờ 00:00
-    const resultsRevealed = isExpired ? true : store.isDayEnded(challenge);
+    // Ngày quá hạn HOẶC đã đến lúc công bố thì trả về đáp án và điểm chi tiết
+    const resultsRevealed = isExpired ? true : store.isResultsRevealed(challenge);
 
     return {
       dayNumber,
@@ -898,8 +903,9 @@ app.get(
       return reply.status(404).send({ message: 'Bạn chưa hoàn thành thử thách này.' });
     }
 
-    const isExpired = Boolean(attempt.isExpired);
-    const resultsRevealed = isExpired ? true : store.isDayEnded(challenge);
+    const isToday = store.getTodayChallenge()?.dayNumber === challenge.dayNumber;
+    const isExpired = Boolean(attempt.isExpired || (!isToday && store.isDayPassedDeadline(challenge)));
+    const resultsRevealed = isExpired ? true : store.isResultsRevealed(challenge);
     const endsAt = store.getDayEndDate(challenge);
 
     let detailedReview = null;
@@ -1030,7 +1036,7 @@ app.get('/api/profile/me', { preHandler: [(app as any).authenticate] }, async (r
   // Bảo mật điểm số: Các ngày chưa đến mốc 00:00 (chưa công bố) sẽ ẩn điểm để chống lộ qua Network tab F12
   const safeAttempts = attempts.map((a) => {
     const c = store.getChallengeByDay(a.dayNumber);
-    const isRevealed = c ? store.isDayEnded(c) : true;
+    const isRevealed = c ? store.isResultsRevealed(c) : true;
     if (!isRevealed) {
       return {
         ...a,
@@ -1211,8 +1217,8 @@ app.get(
     return {
       ...challenge,
       isUnlocked: store.isDayUnlocked(challenge),
-      isEnded: store.isDayEnded(challenge),
-      resultsRevealed: store.isDayEnded(challenge),
+      isEnded: store.isDayPassedDeadline(challenge),
+      resultsRevealed: store.isResultsRevealed(challenge),
       activePlayers,
     };
   }
@@ -1279,7 +1285,7 @@ app.put(
     if (!updated) {
       return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
     }
-    const isRevealed = store.isDayEnded(updated);
+    const isRevealed = store.isResultsRevealed(updated);
     return {
       message: isRevealed
         ? `📢 Đã CÔNG BỐ toàn bộ đáp án và điểm số Day ${dayNumber} cho toàn thể nhân viên!`
