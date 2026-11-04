@@ -6,6 +6,8 @@ import { PrismaClient } from '@prisma/client';
 import {
   DailyChallengeItem,
   QuestionItem,
+  QuestionOption,
+  QuestionType,
   WorkplaceWordItem,
   DEFAULT_Q11_5_WORDS,
   generate21DaysChallenges,
@@ -61,6 +63,25 @@ export interface UserDeviceRecord {
   isPwaInstalled?: boolean;
   createdAt: string;
   lastActiveAt: string;
+}
+
+export interface BulkImportQuestionRow {
+  dayNumber?: number | string;
+  orderIndex?: number | string;
+  questionType?: string;
+  categoryLabel?: string;
+  promptText: string;
+  statementText?: string;
+  targetWord?: string;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+  correctOptionId?: string;
+  explanation?: string;
+  points?: number | string;
+  promptAudioUrl?: string;
+  promptVideoUrl?: string;
 }
 
 export function parseDeviceFromUserAgent(ua = ''): {
@@ -199,6 +220,99 @@ export interface PushStaggerConfig {
   notifiedUnstudiedKeys: string[];
 }
 
+export interface EventPopupItem {
+  id: string;
+  orderIndex: number;
+  num: string; // e.g. '01', '02', '03'
+  titleA: string;
+  titleB?: string;
+  titleC: string;
+  desc: string;
+  img: string; // Đường dẫn ảnh, VD: 'events/golden-bell.jpg' hoặc URL upload
+  iconName?: string; // 'Bell', 'Clapperboard', 'CalendarDays', 'Trophy', 'Sparkles', 'Star', 'Users', 'Flame', 'Zap'
+  chips: string[]; // VD: ['~100 thí sinh', 'Trắc nghiệm', '1 Chung kết']
+  note?: string; // Ghi chú nhỏ ở chân thẻ
+  more?: string[]; // Danh sách gạch đầu dòng thể lệ khi bấm mở rộng
+  themeColor: 'amber' | 'blue' | 'purple' | 'emerald' | 'rose' | 'indigo';
+  actionType: 'expand' | 'daily' | 'link';
+  actionUrl?: string;
+  isVisible: boolean; // Trạng thái Ẩn / Hiện (Admin có thể ẩn sau mới mở từng sự kiện một)
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const DEFAULT_POPUP_EVENTS: EventPopupItem[] = [
+  {
+    id: 'bell',
+    orderIndex: 1,
+    num: '01',
+    titleA: 'RING',
+    titleB: 'the',
+    titleC: 'GOLDEN BELL',
+    desc: 'Kiểm tra kiến thức tiếng Anh và trở thành người trụ lại cuối cùng!',
+    img: 'events/golden-bell.jpg',
+    iconName: 'Bell',
+    chips: ['~100 thí sinh', 'Trắc nghiệm', '1 Chung kết'],
+    note: 'Mỗi bộ phận tự tổng hợp danh sách đăng ký và tổ chức vòng sơ loại.',
+    more: [
+      'Vòng sơ loại do từng bộ phận tự tổ chức để chọn đại diện.',
+      'Vòng Chung kết offline: trả lời trắc nghiệm, sai là bị loại.',
+      'Người cuối cùng trụ lại sẽ rung Chuông Vàng 🔔.',
+    ],
+    themeColor: 'amber',
+    actionType: 'expand',
+    isVisible: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'dub',
+    orderIndex: 2,
+    num: '02',
+    titleA: 'DUB',
+    titleB: 'IT',
+    titleC: 'RIGHT',
+    desc: 'Lập đội, lồng tiếng cho nhân vật và thổi hồn vào video!',
+    img: 'events/dub-it-right.jpg',
+    iconName: 'Clapperboard',
+    chips: ['~3 bạn / đội', 'Lồng tiếng video', '1 Chung kết'],
+    note: 'Mỗi bộ phận tự tổng hợp danh sách đăng ký và tổ chức vòng sơ loại.',
+    more: [
+      'Mỗi đội khoảng 3 người, nhận 1 đoạn video được chỉ định.',
+      'Lồng tiếng tiếng Anh: chú trọng phát âm, ngữ điệu và cảm xúc.',
+      'Các đội xuất sắc nhất vào thẳng vòng Chung kết.',
+    ],
+    themeColor: 'blue',
+    actionType: 'expand',
+    isVisible: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'daily',
+    orderIndex: 3,
+    num: '03',
+    titleA: 'DAILY',
+    titleB: '',
+    titleC: 'CHALLENGE',
+    desc: 'Mỗi ngày một bước nhỏ, tiến bộ lớn phía trước!',
+    img: 'events/daily-challenge.jpg',
+    iconName: 'CalendarDays',
+    chips: ['Không giới hạn', '21 ngày thi', 'Tích điểm & thưởng'],
+    note: '',
+    more: [
+      'Tham gia trả lời 10 câu trắc nghiệm & điền từ mỗi ngày.',
+      'Tự luyện phát âm 5 từ vựng công sở ở câu 11 với AI Coach.',
+      'Tích lũy điểm số và thời gian làm bài để tranh top trên Bảng xếp hạng.',
+    ],
+    themeColor: 'purple',
+    actionType: 'daily',
+    isVisible: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 interface DatabaseShape {
   users: UserRecord[];
   challenges: DailyChallengeItem[];
@@ -208,6 +322,7 @@ interface DatabaseShape {
   pushCampaigns?: PushCampaignRecord[];
   inAppNotifications?: InAppNotificationRecord[];
   pushConfig?: PushStaggerConfig;
+  events?: EventPopupItem[];
 }
 
 const resolveDataDir = () => {
@@ -577,6 +692,10 @@ class DataStore {
 
     if (!Array.isArray(parsed.inAppNotifications)) {
       parsed.inAppNotifications = [];
+    }
+
+    if (!Array.isArray(parsed.events) || parsed.events.length === 0) {
+      parsed.events = JSON.parse(JSON.stringify(DEFAULT_POPUP_EVENTS));
     }
 
     const unlockedNow = (parsed.challenges || [])
@@ -1376,6 +1495,263 @@ class DataStore {
     return challenge;
   }
 
+  // Nhập câu hỏi hàng loạt từ Excel / CSV (Hỗ trợ 1 ngày hoặc toàn bộ các ngày)
+  public bulkImportQuestions(
+    rows: BulkImportQuestionRow[],
+    options?: {
+      mode?: 'overwrite' | 'append';
+      targetDayNumber?: number;
+    }
+  ): {
+    success: boolean;
+    totalImported: number;
+    daysAffected: number[];
+    daySummaries: Record<number, number>;
+  } {
+    this.reloadIfChanged();
+    const mode = options?.mode || 'overwrite';
+    const targetDay = options?.targetDayNumber;
+
+    // Gom nhóm câu hỏi theo số ngày thi (DayNumber)
+    const grouped = new Map<number, BulkImportQuestionRow[]>();
+
+    for (const rawRow of rows) {
+      if (!rawRow || !rawRow.promptText?.trim()) continue;
+
+      let day = targetDay;
+      if (!day) {
+        const parsedDay = Number(rawRow.dayNumber);
+        day = !isNaN(parsedDay) && parsedDay >= 1 && parsedDay <= 30 ? parsedDay : 1;
+      }
+
+      if (!grouped.has(day)) {
+        grouped.set(day, []);
+      }
+      grouped.get(day)!.push(rawRow);
+    }
+
+    const daysAffected: number[] = [];
+    const daySummaries: Record<number, number> = {};
+    let totalImported = 0;
+
+    for (const [dayNumber, dayRows] of grouped.entries()) {
+      let challenge = this.getChallengeByDay(dayNumber);
+      if (!challenge) {
+        challenge = {
+          id: dayNumber,
+          dayNumber,
+          title: `Day ${dayNumber}`,
+          dateLabel: `Day ${dayNumber}`,
+          unlockDate: new Date(Date.now() + (dayNumber - 1) * 86400000).toISOString(),
+          isPublished: true,
+          questions: [],
+        };
+        this.data.challenges.push(challenge);
+        this.data.challenges.sort((a, b) => a.dayNumber - b.dayNumber);
+      }
+
+      if (mode === 'overwrite') {
+        challenge.questions = [];
+      }
+
+      let currentOrder = challenge.questions.length;
+
+      for (const row of dayRows) {
+        currentOrder++;
+        const rawType = String(row.questionType || '').trim().toUpperCase();
+        let questionType: QuestionType = 'LISTEN_AND_CHOOSE';
+
+        if (rawType.includes('CHOOSE_AUDIO') || rawType === '1' || rawType.includes('AUDIO')) {
+          questionType = 'CHOOSE_AUDIO';
+        } else if (
+          rawType.includes('TRUE_FALSE') ||
+          rawType === '2' ||
+          rawType.includes('TF') ||
+          rawType.includes('TRUE')
+        ) {
+          questionType = 'TRUE_FALSE';
+        } else if (rawType.includes('VOCAB') || rawType === '4' || rawType.includes('MEANING')) {
+          questionType = 'VOCAB_MEANING';
+        } else if (rawType.includes('FILL') || rawType.includes('BLANK') || rawType === '5') {
+          questionType = 'FILL_IN_THE_BLANK';
+        } else {
+          questionType = 'LISTEN_AND_CHOOSE';
+        }
+
+        // Tự động gán nhãn danh mục nếu để trống
+        let categoryLabel = String(row.categoryLabel || '').trim();
+        if (!categoryLabel) {
+          if (questionType === 'CHOOSE_AUDIO') categoryLabel = 'Phát âm chuẩn (Audio)';
+          else if (questionType === 'TRUE_FALSE') categoryLabel = 'True / False (Đúng/Sai)';
+          else if (questionType === 'LISTEN_AND_CHOOSE') categoryLabel = 'Nghe & Chọn đáp án';
+          else if (questionType === 'VOCAB_MEANING') categoryLabel = 'Nghĩa từ vựng & Viết tắt';
+          else if (questionType === 'FILL_IN_THE_BLANK') categoryLabel = 'Điền từ chính xác';
+        }
+
+        const targetWord = String(row.targetWord || '').trim();
+        const statementText = row.statementText?.trim() || undefined;
+        const promptText = String(row.promptText || '').trim();
+        const promptAudioUrl = row.promptAudioUrl?.trim() || undefined;
+        const promptVideoUrl = row.promptVideoUrl?.trim() || undefined;
+        const explanation = row.explanation?.trim() || '';
+        const points = Number(row.points) > 0 ? Number(row.points) : 10;
+
+        let options: QuestionOption[] = [];
+        let correctOptionId: string = 'A';
+
+        if (questionType === 'TRUE_FALSE') {
+          options = [
+            { id: 'A', text: row.optionA?.trim() || 'True – Đúng', hasOptionAudio: false },
+            { id: 'B', text: row.optionB?.trim() || 'False – Sai', hasOptionAudio: false },
+          ];
+          const rawCorr = String(row.correctOptionId || '').trim().toUpperCase();
+          if (rawCorr === 'B' || rawCorr.includes('FALSE') || rawCorr.includes('SAI')) {
+            correctOptionId = 'B';
+          } else {
+            correctOptionId = 'A';
+          }
+        } else if (questionType === 'FILL_IN_THE_BLANK') {
+          options = [];
+          const ans = targetWord || String(row.correctOptionId || '').trim();
+          correctOptionId = ans.toLowerCase();
+        } else if (questionType === 'CHOOSE_AUDIO') {
+          const optA = row.optionA?.trim() || 'Audio A';
+          const optB = row.optionB?.trim() || 'Audio B';
+          const optC = row.optionC?.trim() || 'Audio C';
+          options = [
+            { id: 'A', text: optA, spokenText: targetWord || optA, hasOptionAudio: true },
+            { id: 'B', text: optB, spokenText: targetWord || optB, hasOptionAudio: true },
+            { id: 'C', text: optC, spokenText: targetWord || optC, hasOptionAudio: true },
+          ];
+          if (row.optionD?.trim()) {
+            options.push({
+              id: 'D',
+              text: row.optionD.trim(),
+              spokenText: targetWord || row.optionD.trim(),
+              hasOptionAudio: true,
+            });
+          }
+          const rawCorr = String(row.correctOptionId || 'A').trim().toUpperCase();
+          correctOptionId = ['A', 'B', 'C', 'D'].includes(rawCorr) ? rawCorr : 'A';
+        } else {
+          // LISTEN_AND_CHOOSE hoặc VOCAB_MEANING
+          const optA = row.optionA?.trim() || 'Option A';
+          const optB = row.optionB?.trim() || 'Option B';
+          const optC = row.optionC?.trim() || '';
+          const optD = row.optionD?.trim() || '';
+
+          options = [
+            { id: 'A', text: optA, spokenText: optA, hasOptionAudio: false },
+            { id: 'B', text: optB, spokenText: optB, hasOptionAudio: false },
+          ];
+          if (optC) {
+            options.push({ id: 'C', text: optC, spokenText: optC, hasOptionAudio: false });
+          }
+          if (optD) {
+            options.push({ id: 'D', text: optD, spokenText: optD, hasOptionAudio: false });
+          }
+          const rawCorr = String(row.correctOptionId || 'A').trim().toUpperCase();
+          correctOptionId = ['A', 'B', 'C', 'D'].includes(rawCorr) ? rawCorr : 'A';
+        }
+
+        const hasPromptAudio = Boolean(
+          promptAudioUrl ||
+            questionType === 'TRUE_FALSE' ||
+            questionType === 'LISTEN_AND_CHOOSE' ||
+            questionType === 'FILL_IN_THE_BLANK'
+        );
+
+        const parsedOrder = Number(row.orderIndex);
+        const finalOrder = !isNaN(parsedOrder) && parsedOrder > 0 ? parsedOrder : currentOrder;
+
+        const newQ: QuestionItem = {
+          id: `day-${dayNumber}-q-${crypto.randomUUID().slice(0, 8)}`,
+          challengeId: challenge.id,
+          orderIndex: finalOrder,
+          questionType,
+          categoryLabel,
+          promptText,
+          statementText,
+          targetWord,
+          hasPromptAudio,
+          audioNote: 'Được tạo hàng loạt qua Excel/CSV',
+          promptAudioUrl,
+          promptVideoUrl,
+          options,
+          correctOptionId,
+          explanation,
+          points,
+        };
+
+        challenge.questions.push(newQ);
+        totalImported++;
+      }
+
+      // Đánh số thứ tự sạch sẽ 1..N
+      challenge.questions.forEach((q, idx) => {
+        q.orderIndex = idx + 1;
+      });
+
+      daysAffected.push(dayNumber);
+      daySummaries[dayNumber] = challenge.questions.length;
+    }
+
+    this.save();
+
+    // Đồng bộ sang Postgres nếu Prisma đang hoạt động
+    if (prisma) {
+      (async () => {
+        try {
+          for (const dayNum of daysAffected) {
+            const ch = this.getChallengeByDay(dayNum);
+            if (!ch) continue;
+            const pChallenge = await prisma.dailyChallenge.upsert({
+              where: { dayNumber: ch.dayNumber },
+              update: {
+                title: ch.title,
+                unlockDate: new Date(ch.unlockDate),
+                isPublished: ch.isPublished,
+              },
+              create: {
+                dayNumber: ch.dayNumber,
+                title: ch.title,
+                unlockDate: new Date(ch.unlockDate),
+                isPublished: ch.isPublished,
+              },
+            });
+            if (mode === 'overwrite') {
+              await prisma.question.deleteMany({ where: { challengeId: pChallenge.id } });
+            }
+            for (const q of ch.questions) {
+              await prisma.question.create({
+                data: {
+                  challengeId: pChallenge.id,
+                  orderIndex: q.orderIndex,
+                  promptText: q.promptText,
+                  targetWord: q.targetWord,
+                  promptAudioUrl: q.promptAudioUrl,
+                  options: q.options as any,
+                  correctOptionId: q.correctOptionId,
+                  explanation: q.explanation,
+                  points: q.points,
+                },
+              });
+            }
+          }
+        } catch (err: any) {
+          console.warn('[Prisma Sync Questions] Failed or table Question not present:', err?.message);
+        }
+      })().catch((err: any) => console.warn('[Prisma Question Sync Error]', err?.message));
+    }
+
+    return {
+      success: true,
+      totalImported,
+      daysAffected: daysAffected.sort((a, b) => a - b),
+      daySummaries,
+    };
+  }
+
   public async recordAttempt(attempt: AttemptRecord): Promise<{
     isFirstOfficialAttempt: boolean;
     climbedToTop1: boolean;
@@ -2100,6 +2476,128 @@ class DataStore {
     );
 
     return { sentCount: targets.length, success: true };
+  }
+
+  // ==================== QUẢN LÝ POP-UP SỰ KIỆN (EVENTS CRUD & TOGGLE ẨN/HIỆN) ====================
+
+  public getEvents(onlyVisible = false): EventPopupItem[] {
+    this.reloadIfChanged();
+    if (!Array.isArray(this.data.events) || this.data.events.length === 0) {
+      this.data.events = JSON.parse(JSON.stringify(DEFAULT_POPUP_EVENTS));
+      this.save();
+    }
+    const events = this.data.events || [];
+    const list = [...events];
+    list.sort((a, b) => a.orderIndex - b.orderIndex);
+    if (onlyVisible) {
+      return list.filter((e) => e.isVisible);
+    }
+    return list;
+  }
+
+  public getEventById(id: string): EventPopupItem | undefined {
+    this.reloadIfChanged();
+    return (this.data.events || []).find((e) => e.id === id);
+  }
+
+  public createEvent(input: Partial<EventPopupItem>): EventPopupItem {
+    this.reloadIfChanged();
+    if (!Array.isArray(this.data.events)) {
+      this.data.events = JSON.parse(JSON.stringify(DEFAULT_POPUP_EVENTS));
+    }
+    const events = this.data.events || [];
+    const id = input.id?.trim() || `event-${Date.now()}`;
+    const nextOrder = events.length + 1;
+    const num = input.num?.trim() || String(input.orderIndex || nextOrder).padStart(2, '0');
+
+    const newEvent: EventPopupItem = {
+      id,
+      orderIndex: input.orderIndex !== undefined ? Number(input.orderIndex) : nextOrder,
+      num,
+      titleA: input.titleA?.trim() || 'SỰ KIỆN',
+      titleB: input.titleB?.trim() || '',
+      titleC: input.titleC?.trim() || 'MỚI',
+      desc: input.desc?.trim() || '',
+      img: input.img?.trim() || 'events/golden-bell.jpg',
+      iconName: input.iconName || 'Sparkles',
+      chips: Array.isArray(input.chips) ? input.chips.filter(Boolean) : [],
+      note: input.note?.trim() || '',
+      more: Array.isArray(input.more) ? input.more.filter(Boolean) : [],
+      themeColor: input.themeColor || 'amber',
+      actionType: input.actionType || 'expand',
+      actionUrl: input.actionUrl?.trim() || '',
+      isVisible: input.isVisible ?? true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    events.push(newEvent);
+    this.data.events = events;
+    this.save();
+    return newEvent;
+  }
+
+  public updateEvent(id: string, patch: Partial<EventPopupItem>): EventPopupItem | null {
+    this.reloadIfChanged();
+    if (!Array.isArray(this.data.events)) {
+      this.data.events = JSON.parse(JSON.stringify(DEFAULT_POPUP_EVENTS));
+    }
+    const events = this.data.events || [];
+    const idx = events.findIndex((e) => e.id === id);
+    if (idx === -1) return null;
+
+    const current = events[idx];
+    const updated: EventPopupItem = {
+      ...current,
+      ...patch,
+      id: current.id,
+      orderIndex: patch.orderIndex !== undefined ? Number(patch.orderIndex) : current.orderIndex,
+      num: patch.num !== undefined ? String(patch.num) : current.num,
+      chips: Array.isArray(patch.chips) ? patch.chips.filter(Boolean) : current.chips,
+      more: Array.isArray(patch.more) ? patch.more.filter(Boolean) : current.more,
+      updatedAt: new Date().toISOString(),
+    };
+
+    events[idx] = updated;
+    this.data.events = events;
+    this.save();
+    return updated;
+  }
+
+  public toggleEventVisibility(id: string): EventPopupItem | null {
+    this.reloadIfChanged();
+    if (!Array.isArray(this.data.events)) {
+      this.data.events = JSON.parse(JSON.stringify(DEFAULT_POPUP_EVENTS));
+    }
+    const events = this.data.events || [];
+    const event = events.find((e) => e.id === id);
+    if (!event) return null;
+
+    event.isVisible = !event.isVisible;
+    event.updatedAt = new Date().toISOString();
+    this.data.events = events;
+    this.save();
+    return event;
+  }
+
+  public deleteEvent(id: string): boolean {
+    this.reloadIfChanged();
+    if (!Array.isArray(this.data.events)) return false;
+    const initialLen = this.data.events.length;
+    this.data.events = this.data.events.filter((e) => e.id !== id);
+    if (this.data.events.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public resetEventsToDefault(): EventPopupItem[] {
+    this.reloadIfChanged();
+    const defaults: EventPopupItem[] = JSON.parse(JSON.stringify(DEFAULT_POPUP_EVENTS));
+    this.data.events = defaults;
+    this.save();
+    return defaults;
   }
 }
 

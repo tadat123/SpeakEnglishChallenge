@@ -13,8 +13,32 @@ import {
   Clapperboard,
   CalendarDays,
   Bell,
+  Sparkles,
+  Star,
+  Flame,
+  Zap,
+  ExternalLink,
 } from 'lucide-react';
 import { Lang } from '../utils/i18n';
+
+export interface EventPopupItem {
+  id: string;
+  orderIndex: number;
+  num: string;
+  titleA: string;
+  titleB?: string;
+  titleC: string;
+  desc: string;
+  img: string;
+  iconName?: string;
+  chips: string[];
+  note?: string;
+  more?: string[];
+  themeColor: 'amber' | 'blue' | 'purple' | 'emerald' | 'rose' | 'indigo';
+  actionType: 'expand' | 'daily' | 'link';
+  actionUrl?: string;
+  isVisible: boolean;
+}
 
 interface SpeakRightEventsPopupProps {
   lang?: Lang;
@@ -22,6 +46,116 @@ interface SpeakRightEventsPopupProps {
   externalOpen?: boolean;
   onExternalClose?: () => void;
   onStartDailyChallenge?: () => void;
+  events?: EventPopupItem[];
+}
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  Bell,
+  Clapperboard,
+  CalendarDays,
+  Trophy,
+  Sparkles,
+  Star,
+  Users,
+  Flame,
+  Zap,
+  PlayCircle,
+  Gift,
+  Target,
+};
+
+const THEME_MAP = {
+  amber: {
+    card: (darkMode: boolean) =>
+      darkMode ? 'from-amber-950/70 to-slate-900 border-amber-600/60' : 'from-amber-50 to-orange-50 border-amber-300',
+    badge: 'bg-orange-500',
+    titleA: (darkMode: boolean) => (darkMode ? 'text-amber-300' : 'text-amber-800'),
+    titleB: (darkMode: boolean) => (darkMode ? 'text-amber-200' : 'text-amber-700'),
+    titleC: 'text-amber-500',
+    chip: (darkMode: boolean) =>
+      darkMode ? 'bg-slate-800/80 border-amber-700/40 text-slate-200' : 'bg-white/90 border-amber-100 text-slate-700',
+    chipIcon: 'text-amber-600',
+    note: (darkMode: boolean) => (darkMode ? 'bg-amber-900/30 text-amber-100' : 'bg-amber-100/70 text-amber-950'),
+    arrow: 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/40',
+  },
+  blue: {
+    card: (darkMode: boolean) =>
+      darkMode ? 'from-sky-950/70 to-slate-900 border-sky-600/60' : 'from-sky-50 to-blue-50 border-sky-300',
+    badge: 'bg-blue-600',
+    titleA: (darkMode: boolean) => (darkMode ? 'text-sky-300' : 'text-blue-800'),
+    titleB: (darkMode: boolean) => (darkMode ? 'text-amber-300' : 'text-amber-500'),
+    titleC: 'text-blue-600 dark:text-sky-400',
+    chip: (darkMode: boolean) =>
+      darkMode ? 'bg-slate-800/80 border-sky-700/40 text-slate-200' : 'bg-white/90 border-sky-100 text-slate-700',
+    chipIcon: 'text-blue-600',
+    note: (darkMode: boolean) => (darkMode ? 'bg-sky-900/30 text-sky-100' : 'bg-sky-100/80 text-blue-950'),
+    arrow: 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/40',
+  },
+  purple: {
+    card: (darkMode: boolean) =>
+      darkMode ? 'from-violet-950/70 to-slate-900 border-violet-600/60' : 'from-violet-50 to-purple-50 border-violet-300',
+    badge: 'bg-violet-600',
+    titleA: (darkMode: boolean) => (darkMode ? 'text-violet-300' : 'text-indigo-900'),
+    titleB: (darkMode: boolean) => (darkMode ? 'text-amber-300' : 'text-amber-500'),
+    titleC: 'text-violet-600 dark:text-violet-400',
+    chip: (darkMode: boolean) =>
+      darkMode ? 'bg-slate-800/80 border-violet-700/40 text-slate-200' : 'bg-white/90 border-violet-100 text-slate-700',
+    chipIcon: 'text-violet-600',
+    note: (darkMode: boolean) => (darkMode ? 'bg-violet-900/30 text-violet-100' : 'bg-violet-100/80 text-violet-950'),
+    arrow: 'bg-violet-600 hover:bg-violet-500 shadow-violet-600/40',
+  },
+  emerald: {
+    card: (darkMode: boolean) =>
+      darkMode ? 'from-emerald-950/70 to-slate-900 border-emerald-600/60' : 'from-emerald-50 to-teal-50 border-emerald-300',
+    badge: 'bg-emerald-600',
+    titleA: (darkMode: boolean) => (darkMode ? 'text-emerald-300' : 'text-emerald-800'),
+    titleB: (darkMode: boolean) => (darkMode ? 'text-teal-300' : 'text-teal-600'),
+    titleC: 'text-emerald-600 dark:text-emerald-400',
+    chip: (darkMode: boolean) =>
+      darkMode ? 'bg-slate-800/80 border-emerald-700/40 text-slate-200' : 'bg-white/90 border-emerald-100 text-slate-700',
+    chipIcon: 'text-emerald-600',
+    note: (darkMode: boolean) => (darkMode ? 'bg-emerald-900/30 text-emerald-100' : 'bg-emerald-100/80 text-emerald-950'),
+    arrow: 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/40',
+  },
+  rose: {
+    card: (darkMode: boolean) =>
+      darkMode ? 'from-rose-950/70 to-slate-900 border-rose-600/60' : 'from-rose-50 to-pink-50 border-rose-300',
+    badge: 'bg-rose-600',
+    titleA: (darkMode: boolean) => (darkMode ? 'text-rose-300' : 'text-rose-800'),
+    titleB: (darkMode: boolean) => (darkMode ? 'text-pink-300' : 'text-pink-600'),
+    titleC: 'text-rose-600 dark:text-rose-400',
+    chip: (darkMode: boolean) =>
+      darkMode ? 'bg-slate-800/80 border-rose-700/40 text-slate-200' : 'bg-white/90 border-rose-100 text-slate-700',
+    chipIcon: 'text-rose-600',
+    note: (darkMode: boolean) => (darkMode ? 'bg-rose-900/30 text-rose-100' : 'bg-rose-100/80 text-rose-950'),
+    arrow: 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/40',
+  },
+  indigo: {
+    card: (darkMode: boolean) =>
+      darkMode ? 'from-indigo-950/70 to-slate-900 border-indigo-600/60' : 'from-indigo-50 to-blue-50 border-indigo-300',
+    badge: 'bg-indigo-600',
+    titleA: (darkMode: boolean) => (darkMode ? 'text-indigo-300' : 'text-indigo-800'),
+    titleB: (darkMode: boolean) => (darkMode ? 'text-sky-300' : 'text-sky-600'),
+    titleC: 'text-indigo-600 dark:text-indigo-400',
+    chip: (darkMode: boolean) =>
+      darkMode ? 'bg-slate-800/80 border-indigo-700/40 text-slate-200' : 'bg-white/90 border-indigo-100 text-slate-700',
+    chipIcon: 'text-indigo-600',
+    note: (darkMode: boolean) => (darkMode ? 'bg-indigo-900/30 text-indigo-100' : 'bg-indigo-100/80 text-indigo-950'),
+    arrow: 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/40',
+  },
+};
+
+function getChipIcon(idx: number): React.ElementType {
+  const icons = [Users, FileText, Trophy, Target, Gift, InfinityIcon];
+  return icons[idx % icons.length];
+}
+
+function resolveEventImg(img: string, baseUrl: string): string {
+  if (!img) return `${baseUrl}events/golden-bell.jpg`;
+  if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) {
+    return img;
+  }
+  return `${baseUrl}${img}`;
 }
 
 const DISMISS_TODAY_KEY = 'sr2026_events_popup_dismissed_date';
@@ -33,7 +167,7 @@ function getTodayKey(): string {
   ).padStart(2, '0')}`;
 }
 
-type ActivityId = 'bell' | 'dub' | 'daily';
+type ActivityId = string;
 
 const COPY = {
   vi: {
@@ -128,6 +262,7 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
   externalOpen = false,
   onExternalClose,
   onStartDailyChallenge,
+  events,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [hideForToday, setHideForToday] = useState(false);
@@ -163,123 +298,99 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
   const c = COPY[lang] || COPY.vi;
   const baseUrl = import.meta.env.BASE_URL || '/';
 
-  const activities: Array<{
-    id: ActivityId;
-    num: string;
-    img: string;
-    titleA: string;
-    titleB: string;
-    titleC: string;
-    TitleIcon: React.ElementType;
-    desc: string;
-    chips: { Icon: React.ElementType; text: string }[];
-    note?: string;
-    more?: readonly string[];
-    theme: {
-      card: string;
-      badge: string;
-      titleA: string;
-      titleB: string;
-      chip: string;
-      chipIcon: string;
-      note: string;
-      arrow: string;
-    };
-  }> = [
-    {
-      id: 'bell',
-      num: '01',
-      img: 'events/golden-bell.jpg',
-      titleA: 'RING',
-      titleB: 'the',
-      titleC: 'GOLDEN BELL',
-      TitleIcon: Bell,
-      desc: c.bellDesc,
-      chips: [
-        { Icon: Users, text: c.bellChips[0] },
-        { Icon: FileText, text: c.bellChips[1] },
-        { Icon: Trophy, text: c.bellChips[2] },
-      ],
-      note: c.deptNote,
-      more: c.bellMore,
-      theme: {
-        card: darkMode
-          ? 'from-amber-950/70 to-slate-900 border-amber-600/60'
-          : 'from-amber-50 to-orange-50 border-amber-300',
-        badge: 'bg-orange-500',
-        titleA: darkMode ? 'text-amber-300' : 'text-amber-800',
-        titleB: darkMode ? 'text-amber-200' : 'text-amber-700',
-        chip: darkMode ? 'bg-slate-800/80 border-amber-700/40' : 'bg-white/90 border-amber-100',
-        chipIcon: 'text-amber-600',
-        note: darkMode ? 'bg-amber-900/30 text-amber-100' : 'bg-amber-100/70 text-amber-950',
-        arrow: 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/40',
-      },
-    },
-    {
-      id: 'dub',
-      num: '02',
-      img: 'events/dub-it-right.jpg',
-      titleA: 'DUB',
-      titleB: 'IT',
-      titleC: 'RIGHT',
-      TitleIcon: Clapperboard,
-      desc: c.dubDesc,
-      chips: [
-        { Icon: Users, text: c.dubChips[0] },
-        { Icon: PlayCircle, text: c.dubChips[1] },
-        { Icon: Trophy, text: c.dubChips[2] },
-      ],
-      note: c.deptNote,
-      more: c.dubMore,
-      theme: {
-        card: darkMode
-          ? 'from-sky-950/70 to-slate-900 border-sky-600/60'
-          : 'from-sky-50 to-blue-50 border-sky-300',
-        badge: 'bg-blue-600',
-        titleA: darkMode ? 'text-sky-300' : 'text-blue-800',
-        titleB: darkMode ? 'text-amber-300' : 'text-amber-500',
-        chip: darkMode ? 'bg-slate-800/80 border-sky-700/40' : 'bg-white/90 border-sky-100',
-        chipIcon: 'text-blue-600',
-        note: darkMode ? 'bg-sky-900/30 text-sky-100' : 'bg-sky-100/80 text-blue-950',
-        arrow: 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/40',
-      },
-    },
-    {
-      id: 'daily',
-      num: '03',
-      img: 'events/daily-challenge.jpg',
-      titleA: 'DAILY',
-      titleB: '',
-      titleC: 'CHALLENGE',
-      TitleIcon: CalendarDays,
-      desc: c.dailyDesc,
-      chips: [
-        { Icon: InfinityIcon, text: c.dailyChips[0] },
-        { Icon: Target, text: c.dailyChips[1] },
-        { Icon: Gift, text: c.dailyChips[2] },
-      ],
-      theme: {
-        card: darkMode
-          ? 'from-violet-950/70 to-slate-900 border-violet-600/60'
-          : 'from-violet-50 to-purple-50 border-violet-300',
-        badge: 'bg-violet-600',
-        titleA: darkMode ? 'text-violet-300' : 'text-indigo-900',
-        titleB: darkMode ? 'text-amber-300' : 'text-amber-500',
-        chip: darkMode ? 'bg-slate-800/80 border-violet-700/40' : 'bg-white/90 border-violet-100',
-        chipIcon: 'text-violet-600',
-        note: darkMode ? 'bg-violet-900/30 text-violet-100' : 'bg-violet-100/80 text-violet-950',
-        arrow: 'bg-violet-600 hover:bg-violet-500 shadow-violet-600/40',
-      },
-    },
-  ];
+  const rawEvents: EventPopupItem[] =
+    events && events.length > 0
+      ? events.filter((e) => e.isVisible !== false)
+      : [
+          {
+            id: 'bell',
+            orderIndex: 1,
+            num: '01',
+            titleA: 'RING',
+            titleB: 'the',
+            titleC: 'GOLDEN BELL',
+            desc: c.bellDesc,
+            img: 'events/golden-bell.jpg',
+            iconName: 'Bell',
+            chips: [...c.bellChips],
+            note: c.deptNote,
+            more: [...c.bellMore],
+            themeColor: 'amber',
+            actionType: 'expand',
+            isVisible: true,
+          },
+          {
+            id: 'dub',
+            orderIndex: 2,
+            num: '02',
+            titleA: 'DUB',
+            titleB: 'IT',
+            titleC: 'RIGHT',
+            desc: c.dubDesc,
+            img: 'events/dub-it-right.jpg',
+            iconName: 'Clapperboard',
+            chips: [...c.dubChips],
+            note: c.deptNote,
+            more: [...c.dubMore],
+            themeColor: 'blue',
+            actionType: 'expand',
+            isVisible: true,
+          },
+          {
+            id: 'daily',
+            orderIndex: 3,
+            num: '03',
+            titleA: 'DAILY',
+            titleB: '',
+            titleC: 'CHALLENGE',
+            desc: c.dailyDesc,
+            img: 'events/daily-challenge.jpg',
+            iconName: 'CalendarDays',
+            chips: [...c.dailyChips],
+            note: '',
+            more: [
+              'Tham gia trả lời 10 câu trắc nghiệm & điền từ mỗi ngày.',
+              'Tự luyện phát âm 5 từ vựng công sở ở câu 11 với AI Coach.',
+              'Tích lũy điểm số và thời gian làm bài để tranh top trên Bảng xếp hạng.',
+            ],
+            themeColor: 'purple',
+            actionType: 'daily',
+            isVisible: true,
+          },
+        ];
 
-  const handleArrow = (id: ActivityId) => {
-    if (id === 'daily') {
+  const activities = rawEvents.map((item, idx) => {
+    const IconComp = (item.iconName && ICON_MAP[item.iconName]) || ICON_MAP.Sparkles || Bell;
+    const theme = (THEME_MAP as any)[item.themeColor || 'amber'] || THEME_MAP.amber;
+    return {
+      ...item,
+      num: item.num || String(item.orderIndex || idx + 1).padStart(2, '0'),
+      TitleIcon: IconComp,
+      theme: {
+        card: theme.card(darkMode),
+        badge: theme.badge,
+        titleA: theme.titleA(darkMode),
+        titleB: theme.titleB(darkMode),
+        titleC: theme.titleC,
+        chip: theme.chip(darkMode),
+        chipIcon: theme.chipIcon,
+        note: theme.note(darkMode),
+        arrow: theme.arrow,
+      },
+    };
+  });
+
+  const handleAction = (item: (typeof activities)[0]) => {
+    if (item.actionType === 'daily') {
       handleClose();
       onStartDailyChallenge?.();
       return;
     }
-    setExpanded((prev) => (prev === id ? null : id));
+    if (item.actionType === 'link' && item.actionUrl) {
+      window.open(item.actionUrl, '_blank');
+      return;
+    }
+    setExpanded((prev) => (prev === item.id ? null : item.id));
   };
 
   return (
@@ -354,7 +465,7 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
               }`}
             >
               <span className="text-amber-400 mr-1">›</span>
-              <span className="text-amber-500 text-lg sm:text-xl mr-1">3</span>
+              <span className="text-amber-500 text-lg sm:text-xl mr-1">{activities.length}</span>
               {c.sectionTitle}
               <span className="text-amber-400 ml-1">‹</span>
             </h3>
@@ -363,116 +474,136 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
             </p>
           </div>
 
-          {/* ===== 3 ACTIVITY CARDS COMPACT & RESPONSIVE ===== */}
+          {/* ===== ACTIVITY CARDS COMPACT & RESPONSIVE ===== */}
           <div className={`px-2.5 sm:px-3.5 pb-3 space-y-2 sm:space-y-2.5 ${darkMode ? 'bg-slate-900' : 'bg-white'}`}>
-            {activities.map((a) => {
-              const isExpanded = expanded === a.id;
-              return (
-                <div
-                  key={a.id}
-                  className={`rounded-xl sm:rounded-2xl border bg-gradient-to-r overflow-hidden shadow-sm ${a.theme.card}`}
-                >
-                  <div className="flex">
-                    {/* Illustration */}
-                    <div className="relative w-24 sm:w-28 md:w-36 shrink-0">
-                      <img
-                        src={`${baseUrl}${a.img}`}
-                        alt={`${a.titleA} ${a.titleB} ${a.titleC}`}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                      <span
-                        className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-white text-[10px] sm:text-xs font-black shadow ${a.theme.badge}`}
-                      >
-                        {a.num}
-                      </span>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0 p-2 sm:p-2.5">
-                      <h4 className="flex items-center gap-1 font-black leading-none">
-                        <span className={`text-sm sm:text-base md:text-lg ${a.theme.titleA}`}>{a.titleA}</span>
-                        {a.titleB && (
-                          <span className={`text-xs sm:text-sm ${a.theme.titleB}`}>{a.titleB}</span>
-                        )}
+            {activities.length === 0 ? (
+              <div className="p-8 text-center text-xs font-bold text-slate-500 dark:text-slate-400">
+                🎉 Chuỗi sự kiện Speak Right 2026 đang chuẩn bị mở, vui lòng theo dõi thông báo từ Ban tổ chức!
+              </div>
+            ) : (
+              activities.map((a) => {
+                const isExpanded = expanded === a.id;
+                return (
+                  <div
+                    key={a.id}
+                    className={`rounded-xl sm:rounded-2xl border bg-gradient-to-r overflow-hidden shadow-sm ${a.theme.card}`}
+                  >
+                    <div className="flex">
+                      {/* Illustration */}
+                      <div className="relative w-24 sm:w-28 md:w-36 shrink-0 bg-slate-950/20">
+                        <img
+                          src={resolveEventImg(a.img, baseUrl)}
+                          alt={`${a.titleA} ${a.titleB || ''} ${a.titleC}`}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = `${baseUrl}events/golden-bell.jpg`;
+                          }}
+                        />
                         <span
-                          className={`text-sm sm:text-base md:text-lg ${
-                            a.id === 'bell' ? a.theme.titleA : 'text-amber-500'
+                          className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-white text-[10px] sm:text-xs font-black shadow ${a.theme.badge}`}
+                        >
+                          {a.num}
+                        </span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 p-2 sm:p-2.5">
+                        <h4 className="flex items-center gap-1 font-black leading-none">
+                          <span className={`text-sm sm:text-base md:text-lg ${a.theme.titleA}`}>{a.titleA}</span>
+                          {a.titleB && (
+                            <span className={`text-xs sm:text-sm ${a.theme.titleB}`}>{a.titleB}</span>
+                          )}
+                          <span className={`text-sm sm:text-base md:text-lg ${a.theme.titleC}`}>
+                            {a.titleC}
+                          </span>
+                          <a.TitleIcon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${a.theme.chipIcon}`} />
+                        </h4>
+                        <p
+                          className={`text-[10px] sm:text-[11px] mt-0.5 leading-snug line-clamp-2 ${
+                            darkMode ? 'text-slate-300' : 'text-slate-700'
                           }`}
                         >
-                          {a.titleC}
-                        </span>
-                        <a.TitleIcon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${a.theme.chipIcon}`} />
-                      </h4>
-                      <p
-                        className={`text-[10px] sm:text-[11px] mt-0.5 leading-snug line-clamp-2 ${
-                          darkMode ? 'text-slate-300' : 'text-slate-700'
-                        }`}
-                      >
-                        {a.desc}
-                      </p>
+                          {a.desc}
+                        </p>
 
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {a.chips.map(({ Icon, text }) => (
-                          <div
-                            key={text}
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${a.theme.chip}`}
-                          >
-                            <Icon className={`w-3 h-3 shrink-0 ${a.theme.chipIcon}`} />
-                            <span
-                              className={`text-[9px] sm:text-[10px] leading-tight font-semibold ${
-                                darkMode ? 'text-slate-200' : 'text-slate-700'
-                              }`}
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {a.chips.map((chipItem: any, cIdx: number) => {
+                            const text = typeof chipItem === 'string' ? chipItem : chipItem?.text || '';
+                            const ChipIcon =
+                              typeof chipItem === 'object' && chipItem?.Icon ? chipItem.Icon : getChipIcon(cIdx);
+                            return (
+                              <div
+                                key={text || cIdx}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${a.theme.chip}`}
+                              >
+                                <ChipIcon className={`w-3 h-3 shrink-0 ${a.theme.chipIcon}`} />
+                                <span
+                                  className={`text-[9px] sm:text-[10px] leading-tight font-semibold ${
+                                    darkMode ? 'text-slate-200' : 'text-slate-700'
+                                  }`}
+                                >
+                                  {text}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          {a.note ? (
+                            <div
+                              className={`flex-1 flex items-center gap-1 px-1.5 py-1 rounded-md text-[8px] sm:text-[9px] leading-tight font-medium truncate ${a.theme.note}`}
                             >
-                              {text}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        {a.note ? (
-                          <div
-                            className={`flex-1 flex items-center gap-1 px-1.5 py-1 rounded-md text-[8px] sm:text-[9px] leading-tight font-medium truncate ${a.theme.note}`}
-                          >
-                            <Users className={`w-3 h-3 shrink-0 ${a.theme.chipIcon}`} />
-                            <span className="truncate">{a.note}</span>
-                          </div>
-                        ) : (
-                          <div className="flex-1" />
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleArrow(a.id)}
-                          title={a.id === 'daily' ? c.joinDaily : c.details}
-                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-white flex items-center justify-center shadow shrink-0 transition active:scale-90 ${a.theme.arrow}`}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4" />
+                              <Users className={`w-3 h-3 shrink-0 ${a.theme.chipIcon}`} />
+                              <span className="truncate">{a.note}</span>
+                            </div>
                           ) : (
-                            <ChevronRight className="w-4 h-4" />
+                            <div className="flex-1" />
                           )}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAction(a)}
+                            title={
+                              a.actionType === 'daily'
+                                ? c.joinDaily
+                                : a.actionType === 'link'
+                                ? 'Mở liên kết'
+                                : c.details
+                            }
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-white flex items-center justify-center shadow shrink-0 transition active:scale-90 ${a.theme.arrow}`}
+                          >
+                            {a.actionType === 'daily' ? (
+                              <PlayCircle className="w-4 h-4" />
+                            ) : a.actionType === 'link' ? (
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            ) : isExpanded ? (
+                              <ChevronDown className="w-4 h-4" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {isExpanded && a.more && (
-                    <ul
-                      className={`px-3 py-2 border-t space-y-0.5 text-[10px] sm:text-[11px] ${
-                        darkMode ? 'border-slate-700 text-slate-200' : 'border-white/80 text-slate-700'
-                      }`}
-                    >
-                      {a.more.map((line) => (
-                        <li key={line} className="flex gap-1.5">
-                          <span className={a.theme.chipIcon}>•</span>
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
+                    {isExpanded && a.more && a.more.length > 0 && (
+                      <ul
+                        className={`px-3 py-2 border-t space-y-0.5 text-[10px] sm:text-[11px] ${
+                          darkMode ? 'border-slate-700 text-slate-200' : 'border-white/80 text-slate-700'
+                        }`}
+                      >
+                        {a.more.map((line: string) => (
+                          <li key={line} className="flex gap-1.5">
+                            <span className={a.theme.chipIcon}>•</span>
+                            <span>{line}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* ===== BOTTOM BANNER COMPACT ===== */}

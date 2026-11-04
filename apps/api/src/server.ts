@@ -1426,6 +1426,54 @@ app.put(
   }
 );
 
+// Tải file mẫu CSV / Excel để nhập câu hỏi hàng loạt
+app.get(
+  '/api/admin/challenges/export-template-csv',
+  { preHandler: [(app as any).requireAdmin] },
+  async (_request: any, reply) => {
+    const csvHeader =
+      'DayNumber,OrderIndex,QuestionType,CategoryLabel,PromptText,StatementText,TargetWord,OptionA,OptionB,OptionC,OptionD,CorrectOption,Explanation,Points,PromptAudioUrl,PromptVideoUrl';
+
+    const sampleRows = [
+      '1,1,CHOOSE_AUDIO,Phát âm chuẩn,"Từ ""Approval"" được phát âm như thế nào? Nghe các phương án và chọn cách phát âm chuẩn nhất.",,/əˈpruːvəl/,Approval,Approval (sai trọng âm),Approval (sai âm cuối),,A,"Từ \'Approval\' có trọng âm rơi vào âm tiết thứ 2 (/əˈpruːvəl/).",10,,',
+      '1,2,TRUE_FALSE,True / False,"Nghe câu sau và xác định nhận định là Đúng hay Sai:","\'Schedule\' chỉ có 1 cách phát âm duy nhất trong tiếng Anh quốc tế.",schedule,True – Đúng,False – Sai,,,B,"Sai vì từ \'schedule\' có 2 cách đọc chuẩn: /ˈskedʒuːl/ (Mỹ) và /ˈʃedʒuːl/ (Anh).",10,,',
+      '1,3,LISTEN_AND_CHOOSE,Nghe & Chọn đáp án,"Nghe đoạn âm thanh sau và chọn từ được nhắc tới trong ngữ cảnh công việc.",,collaboration,collaboration,corporation,celebration,,A,"Từ được phát âm trong đoạn audio là \'collaboration\' (sự hợp tác).",10,,',
+      '1,4,VOCAB_MEANING,Từ vựng công sở,"Trong môi trường doanh nghiệp, từ viết tắt \'KPI\' có nghĩa là gì?",,KPI,Key Performance Indicator,Knowledge Process Integration,Key Project Initiative,Key Product Index,A,"KPI là viết tắt của Key Performance Indicator (Chỉ số đo lường hiệu quả công việc cốt lõi).",10,,',
+      '1,5,FILL_IN_THE_BLANK,Điền từ vựng,"Điền từ tiếng Anh tương ứng với định nghĩa và phiên âm sau:","/ˌrekəˈmend/ (Đưa ra gợi ý, giới thiệu giải pháp)",recommend,,,,recommend,"Từ đúng chính tả là \'recommend\' (2 chữ \'m\' và 1 chữ \'c\').",10,,',
+      '2,1,LISTEN_AND_CHOOSE,Phát âm công sở,"Chọn cách phát âm đúng của từ ""Deadline"".",,deadline,Deadline (/ˈdedlaɪn/),Dead line (/ded ˈlaɪn/),Deline (/ˈdiːlaɪn/),,A,"Trọng âm rơi vào âm tiết đầu tiên /ˈdedlaɪn/.",10,,',
+    ];
+
+    const csvContent = '\uFEFF' + [csvHeader, ...sampleRows].join('\r\n');
+    reply.header('Content-Type', 'text/csv; charset=utf-8');
+    reply.header('Content-Disposition', 'attachment; filename="SpeakRight_Questions_Template.csv"');
+    return reply.send(csvContent);
+  }
+);
+
+// Nhập câu hỏi hàng loạt từ Excel / CSV (Hỗ trợ 1 ngày hoặc toàn bộ 30 ngày)
+app.post(
+  '/api/admin/challenges/bulk-import',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const { questions, mode, targetDayNumber } = request.body || {};
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return reply
+        .status(400)
+        .send({ message: 'Danh sách câu hỏi cần nhập không hợp lệ hoặc đang rỗng.' });
+    }
+
+    const result = store.bulkImportQuestions(questions, {
+      mode: mode === 'append' ? 'append' : 'overwrite',
+      targetDayNumber: targetDayNumber ? Number(targetDayNumber) : undefined,
+    });
+
+    return {
+      message: `Đã nhập thành công ${result.totalImported} câu hỏi cho ${result.daysAffected.length} ngày (${result.daysAffected.map((d) => `Day ${d}`).join(', ')})!`,
+      ...result,
+    };
+  }
+);
+
 // Upload file Audio (.mp3, .wav) hoặc Video (.mp4, .webm) trực tiếp từ máy tính Admin
 app.post(
   '/api/admin/upload-media',
@@ -1557,6 +1605,57 @@ app.get('/api/push/poll', async (request: any, reply: any) => {
   reply.header('Cache-Control', 'private, max-age=3');
   return {
     notifications,
+    serverTime: Date.now(),
+  };
+});
+
+// Lấy danh sách toàn bộ thông báo In-App cho người dùng (bao gồm thông báo chung và thông báo cá nhân/phòng ban)
+app.get('/api/notifications', async (request: any, reply: any) => {
+  let userId: string | null = null;
+  try {
+    await request.jwtVerify();
+    if (request.user?.sub) userId = request.user.sub;
+  } catch {
+    // Không đăng nhập hoặc là khách
+  }
+
+  const all = store.getRecentInAppNotifications(userId, 0);
+
+  // Khởi tạo các thông báo chào mừng & hướng dẫn nếu hệ thống chưa có thông báo nào
+  let list = all;
+  if (!list || list.length === 0) {
+    list = [
+      {
+        id: 'system-notif-welcome',
+        campaignId: 'init-01',
+        type: 'PERSONALIZED' as const,
+        userId: null,
+        title: '🎉 Chào mừng bạn tham gia Speak Right 2026!',
+        body: 'Thử thách phát âm tiếng Anh chuẩn 30 ngày. Tham gia đều đặn mỗi ngày để tích lũy điểm và vươn lên Top 1 Bảng Xếp Hạng nhé!',
+        targetUrl: '#challenges',
+        deliveredAt: new Date().toISOString(),
+      },
+      {
+        id: 'system-notif-schedule',
+        campaignId: 'init-02',
+        type: 'NEW_DAY_UNLOCKED' as const,
+        userId: null,
+        title: '👑 Bản tin Bảng Xếp Hạng & Mở bài thi mới',
+        body: 'Hệ thống chốt điểm lúc 00:00 đêm. Đúng 07:00 sáng hệ thống vinh danh Top 1 hôm qua, và 08:00 sáng mở bài thi của ngày mới!',
+        targetUrl: '#leaderboard',
+        deliveredAt: new Date(Date.now() - 3600000).toISOString(),
+      },
+    ];
+  }
+
+  const sorted = [...list]
+    .sort((a, b) => new Date(b.deliveredAt).getTime() - new Date(a.deliveredAt).getTime())
+    .slice(0, 50);
+
+  reply.header('Cache-Control', 'no-cache');
+  return {
+    notifications: sorted,
+    total: sorted.length,
     serverTime: Date.now(),
   };
 });
@@ -1775,6 +1874,117 @@ app.post(
     }
     ipThreatManager.unbanIp(ip);
     return { message: `Đã mở khóa IP ${ip} thành công!` };
+  }
+);
+
+// ==================== QUẢN LÝ POP-UP SỰ KIỆN (ADMIN CRUD & TOGGLE ẨN / HIỆN) ====================
+
+app.get('/api/public/events', async () => {
+  return {
+    events: store.getEvents(true),
+  };
+});
+
+app.get('/api/events', async (request: any) => {
+  let isAdmin = false;
+  try {
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const decoded: any = app.jwt.verify(authHeader.substring(7));
+      if (decoded && decoded.role === 'ADMIN') {
+        isAdmin = true;
+      }
+    }
+  } catch {}
+
+  return {
+    events: store.getEvents(!isAdmin),
+  };
+});
+
+app.get(
+  '/api/admin/events',
+  { preHandler: [(app as any).requireAdmin] },
+  async () => {
+    return {
+      events: store.getEvents(false),
+    };
+  }
+);
+
+app.post(
+  '/api/admin/events',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const body = request.body || {};
+    if (!body.titleA && !body.titleC) {
+      return reply.status(400).send({ message: 'Vui lòng nhập tiêu đề sự kiện.' });
+    }
+    const newEvent = store.createEvent(body);
+    return {
+      message: 'Đã tạo sự kiện mới thành công!',
+      event: newEvent,
+    };
+  }
+);
+
+app.put(
+  '/api/admin/events/:id',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const id = request.params.id;
+    const body = request.body || {};
+    const updated = store.updateEvent(id, body);
+    if (!updated) {
+      return reply.status(404).send({ message: 'Không tìm thấy sự kiện cần cập nhật.' });
+    }
+    return {
+      message: 'Đã cập nhật thông tin sự kiện thành công!',
+      event: updated,
+    };
+  }
+);
+
+app.patch(
+  '/api/admin/events/:id/toggle',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const id = request.params.id;
+    const updated = store.toggleEventVisibility(id);
+    if (!updated) {
+      return reply.status(404).send({ message: 'Không tìm thấy sự kiện cần đổi trạng thái.' });
+    }
+    return {
+      message: updated.isVisible
+        ? `Đã MỞ hiển thị sự kiện "${updated.titleA} ${updated.titleC}" cho học viên!`
+        : `Đã ẨN sự kiện "${updated.titleA} ${updated.titleC}" khỏi giao diện học viên!`,
+      event: updated,
+    };
+  }
+);
+
+app.delete(
+  '/api/admin/events/:id',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any, reply) => {
+    const id = request.params.id;
+    const success = store.deleteEvent(id);
+    if (!success) {
+      return reply.status(404).send({ message: 'Không tìm thấy sự kiện cần xóa.' });
+    }
+    return { message: 'Đã xóa sự kiện thành công!' };
+  }
+);
+
+app.post(
+  '/api/admin/events/reset',
+  { preHandler: [(app as any).requireAdmin] },
+  async () => {
+    const events = store.resetEventsToDefault();
+    return {
+      message: 'Đã khôi phục 3 sự kiện mẫu ban đầu của Speak Right 2026 thành công!',
+      events,
+    };
   }
 );
 

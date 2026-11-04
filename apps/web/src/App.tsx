@@ -22,6 +22,7 @@ import {
   Zap,
   Sun,
   Moon,
+  Bell,
   BellRing,
   X,
   Smartphone,
@@ -46,7 +47,7 @@ import {
   PronunciationChallengeQ11,
   Q11SubmissionData,
 } from './components/PronunciationChallengeQ11';
-import { SpeakRightEventsPopup } from './components/SpeakRightEventsPopup';
+import { SpeakRightEventsPopup, EventPopupItem } from './components/SpeakRightEventsPopup';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import { playPronunciation } from './utils/audio';
 import { Lang, TRANSLATIONS } from './utils/i18n';
@@ -167,6 +168,7 @@ export const App: React.FC = () => {
   const [showDetailedReview, setShowDetailedReview] = useState(false);
   const [adminPreviewResult, setAdminPreviewResult] = useState(false);
   const [showEventsPopup, setShowEventsPopup] = useState(false);
+  const [popupEvents, setPopupEvents] = useState<EventPopupItem[]>([]);
   // ===== CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP): chỉ làm bài hôm nay + xem bảng xếp hạng, KHÔNG lưu điểm =====
   const [guestMode, setGuestMode] = useState<boolean>(
     () => sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
@@ -196,6 +198,24 @@ export const App: React.FC = () => {
     targetUrl: string;
     type?: string;
   } | null>(null);
+
+  // ===== QUẢN LÝ THÔNG BÁO TỪ BAN TỔ CHỨC / ADMIN =====
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifModal, setShowNotifModal] = useState<boolean>(false);
+  const [lastReadNotifTime, setLastReadNotifTime] = useState<number>(() => {
+    const saved = localStorage.getItem('sr_last_read_notif');
+    return saved ? Number(saved) : 0;
+  });
+
+  const markAllNotifsAsRead = () => {
+    const now = Date.now();
+    setLastReadNotifTime(now);
+    localStorage.setItem('sr_last_read_notif', String(now));
+  };
+
+  const unreadNotifCount = notifications.filter(
+    (n) => new Date(n.deliveredAt).getTime() > lastReadNotifTime
+  ).length;
 
   // Toast thông báo người dùng
   const [toast, setToast] = useState<string>('');
@@ -347,15 +367,31 @@ export const App: React.FC = () => {
           setChallenges(data.challenge ? [data.challenge] : []);
         }
         if (lbRes.ok) setLeaderboardData(await lbRes.json());
+        try {
+          const [notifRes, evRes] = await Promise.all([
+            fetch('/api/notifications').catch(() => null),
+            fetch('/api/events').catch(() => null),
+          ]);
+          if (notifRes && notifRes.ok) {
+            const nData = await notifRes.json();
+            if (Array.isArray(nData.notifications)) setNotifications(nData.notifications);
+          }
+          if (evRes && evRes.ok) {
+            const evData = await evRes.json();
+            if (Array.isArray(evData.events)) setPopupEvents(evData.events);
+          }
+        } catch {}
         return;
       }
 
-      const [chalRes, lbRes, profRes] = await Promise.all([
+      const [chalRes, lbRes, profRes, notifRes, evRes] = await Promise.all([
         fetch('/api/challenges', { headers: getHeaders() }),
         fetch('/api/leaderboard?scope=company', {
           headers: getHeaders(),
         }),
         fetch('/api/profile/me', { headers: getHeaders() }),
+        fetch('/api/notifications', { headers: getHeaders(false) }).catch(() => null),
+        fetch('/api/events', { headers: getHeaders(false) }).catch(() => null),
       ]);
 
       if (chalRes.status === 401) {
@@ -365,6 +401,14 @@ export const App: React.FC = () => {
 
       if (chalRes.ok) setChallenges(await chalRes.json());
       if (lbRes.ok) setLeaderboardData(await lbRes.json());
+      if (notifRes && notifRes.ok) {
+        const nData = await notifRes.json();
+        if (Array.isArray(nData.notifications)) setNotifications(nData.notifications);
+      }
+      if (evRes && evRes.ok) {
+        const evData = await evRes.json();
+        if (Array.isArray(evData.events)) setPopupEvents(evData.events);
+      }
       if (profRes.ok) {
         const prof = await profRes.json();
         setProfileData(prof);
@@ -1038,6 +1082,21 @@ export const App: React.FC = () => {
     return `${m}:${s}`;
   };
 
+  const formatRelativeTime = (isoString?: string) => {
+    if (!isoString) return '';
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return L('Vừa xong', 'Just now', '방금 전');
+    if (diffMins < 60) return `${diffMins} ${L('phút trước', 'mins ago', '분 전')}`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} ${L('giờ trước', 'hours ago', '시간 전')}`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return L('Hôm qua', 'Yesterday', '어제');
+    if (diffDays < 7) return `${diffDays} ${L('ngày trước', 'days ago', '일 전')}`;
+    const d = new Date(isoString);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
   if (authView && (!token || !user)) {
     return (
       <AuthScreen
@@ -1206,6 +1265,39 @@ export const App: React.FC = () => {
                 <span className="sm:hidden">Admin</span>
               </button>
             )}
+            {/* Nút Chuông Thông Báo Ban tổ chức */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !showNotifModal;
+                  setShowNotifModal(nextState);
+                  if (nextState) {
+                    markAllNotifsAsRead();
+                  }
+                }}
+                className={`relative p-2 rounded-xl transition flex items-center justify-center ${
+                  showNotifModal
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : darkMode
+                    ? 'bg-slate-800/80 text-slate-200 hover:text-white hover:bg-slate-700/80'
+                    : 'bg-white/80 text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 border border-slate-200/50 shadow-xs'
+                }`}
+                title={L('Thông báo từ Ban tổ chức', 'Announcements from Admin', '운영진 공지사항')}
+              >
+                {unreadNotifCount > 0 ? (
+                  <BellRing className="w-4 h-4 text-amber-400 animate-bounce" />
+                ) : (
+                  <Bell className="w-4 h-4" />
+                )}
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-md animate-pulse">
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
             <div
               className={`p-0.5 rounded-xl flex items-center ${
                 darkMode ? 'bg-slate-800/70' : 'bg-white/60'
@@ -1295,6 +1387,7 @@ export const App: React.FC = () => {
           externalOpen={showEventsPopup}
           onExternalClose={() => setShowEventsPopup(false)}
           onStartDailyChallenge={() => handleStartDay(todayChallenge)}
+          events={popupEvents}
         />
 
         {/* Thông báo tự động lưu điểm bài làm của khách sau khi đăng nhập */}
@@ -3329,6 +3422,135 @@ export const App: React.FC = () => {
             >
               {t.backToHome}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL TRUNG TÂM THÔNG BÁO BAN TỔ CHỨC ================= */}
+      {showNotifModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div
+            className={`w-full max-w-lg rounded-3xl p-4 sm:p-6 shadow-2xl relative border flex flex-col max-h-[85vh] ${cardBg}`}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className={`text-base font-black flex items-center gap-2 ${textPrimary}`}>
+                    {L('Thông báo Ban tổ chức', 'Admin Announcements', '운영진 공지사항')}
+                    {notifications.length > 0 && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </h3>
+                  <p className={`text-[11px] font-medium ${textSecondary}`}>
+                    {L('Bản tin Bảng Xếp Hạng, bài thi mới & thông báo chính thức', 'Leaderboard bulletin, challenges & announcements', '리더보드 소식, 새 챌린지 및 공식 공지')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNotifModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                title={L('Đóng', 'Close', '닫기')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Danh sách thông báo */}
+            <div className="overflow-y-auto my-3 space-y-2.5 pr-1 divide-y divide-slate-100 dark:divide-slate-800/60">
+              {notifications.length === 0 ? (
+                <div className="py-12 text-center space-y-2">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                    <Bell className="w-6 h-6" />
+                  </div>
+                  <p className={`text-sm font-bold ${textPrimary}`}>
+                    {L('Chưa có thông báo nào', 'No notifications yet', '새로운 알림이 없습니다')}
+                  </p>
+                  <p className={`text-xs ${textSecondary}`}>
+                    {L('Các thông báo từ Ban tổ chức sẽ hiển thị ở đây.', 'Announcements from admin will appear here.', '운영진 공지사항이 여기에 표시됩니다.')}
+                  </p>
+                </div>
+              ) : (
+                notifications.map((notif, idx) => {
+                  const isTop1 = notif.type === 'NEW_TOP_1';
+                  const isNewDay = notif.type === 'NEW_DAY_UNLOCKED';
+                  const isReminder = notif.type === 'UNSTUDIED_REMINDER';
+
+                  return (
+                    <div
+                      key={notif.id || idx}
+                      onClick={() => {
+                        setShowNotifModal(false);
+                        if (notif.targetUrl) {
+                          if (notif.targetUrl.includes('challenges')) {
+                            navigateToTab('challenges');
+                          } else if (notif.targetUrl.includes('leaderboard')) {
+                            navigateToTab('leaderboard');
+                          } else if (notif.targetUrl.includes('profile')) {
+                            navigateToTab('profile');
+                          } else {
+                            navigateToTab('home');
+                          }
+                        }
+                      }}
+                      className={`pt-3 pb-2 px-3 rounded-2xl transition cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-start gap-3 ${
+                        isTop1
+                          ? 'border-l-4 border-amber-500 bg-amber-50/40 dark:bg-amber-950/20'
+                          : isNewDay
+                          ? 'border-l-4 border-blue-500 bg-blue-50/40 dark:bg-blue-950/20'
+                          : isReminder
+                          ? 'border-l-4 border-rose-500 bg-rose-50/40 dark:bg-rose-950/20'
+                          : 'border-l-4 border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/20'
+                      }`}
+                    >
+                      <div className="text-2xl mt-0.5 shrink-0">
+                        {isTop1 ? '👑' : isNewDay ? '🌅' : isReminder ? '⏰' : '📢'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className={`text-xs sm:text-sm font-black truncate ${textPrimary}`}>
+                            {notif.title}
+                          </h4>
+                          <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                            {formatRelativeTime(notif.deliveredAt)}
+                          </span>
+                        </div>
+                        <p className={`text-xs mt-1 leading-relaxed ${textSecondary}`}>
+                          {notif.body}
+                        </p>
+                        {notif.targetUrl && (
+                          <div className="mt-1.5 text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                            <span>{L('Bấm để xem chi tiết', 'Tap to view', '자세히 보기')} →</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
+              <span className={`text-[11px] ${textSecondary}`}>
+                {L('Tự động cập nhật mỗi khi có tin mới', 'Auto-updates on new messages', '새 메시지 시 자동 업데이트')}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  markAllNotifsAsRead();
+                  setShowNotifModal(false);
+                }}
+                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm transition"
+              >
+                {L('Đóng', 'Close', '닫기')}
+              </button>
+            </div>
           </div>
         </div>
       )}

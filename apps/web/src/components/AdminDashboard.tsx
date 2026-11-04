@@ -37,6 +37,10 @@ import {
   Sun,
   Moon,
   Loader2,
+  FileSpreadsheet,
+  FileUp,
+  AlertCircle,
+  Check,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
 import { Lang } from '../utils/i18n';
@@ -79,6 +83,7 @@ const ADMIN_I18N = {
     questionsCountUnit: 'câu',
     questionListSub: 'Hỗ trợ thêm/sửa câu hỏi Chữ, tải file Âm thanh (.mp3/.wav) và Video (.mp4/.webm)',
     cloneAllBtn: 'Áp dụng bộ câu này cho cả 21 ngày',
+    bulkImportBtn: 'Tạo Đề Bulk (Excel / CSV)',
     addQuestionBtn: 'Thêm Câu Hỏi Mới',
     questionPrefix: 'Câu',
     correctAnsBadge: 'Đáp án đúng',
@@ -173,6 +178,7 @@ const ADMIN_I18N = {
     questionsCountUnit: 'questions',
     questionListSub: 'Add/edit Text questions, upload Audio (.mp3/.wav) and Video (.mp4/.webm)',
     cloneAllBtn: 'Clone this set to all 21 days',
+    bulkImportBtn: 'Bulk Import (Excel / CSV)',
     addQuestionBtn: 'Add New Question',
     questionPrefix: 'Q',
     correctAnsBadge: 'Correct',
@@ -267,6 +273,7 @@ const ADMIN_I18N = {
     questionsCountUnit: '문항',
     questionListSub: '텍스트 문제 추가/수정, 오디오(.mp3/.wav) 및 비디오(.mp4/.webm) 업로드 지원',
     cloneAllBtn: '이 문제 세트를 21일 전체에 복사',
+    bulkImportBtn: 'Excel / CSV 대량 등록',
     addQuestionBtn: '새 문제 추가',
     questionPrefix: '문항',
     correctAnsBadge: '정답',
@@ -414,6 +421,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [showQ11Modal, setShowQ11Modal] = useState<boolean>(false);
   const [editingQ11Words, setEditingQ11Words] = useState<WorkplaceWordItem[]>([]);
   const [cloneQ11ToAllDays, setCloneQ11ToAllDays] = useState<boolean>(false);
+
+  // Quản lý Nhập đề thi hàng loạt từ Excel / CSV
+  const [showBulkModal, setShowBulkModal] = useState<boolean>(false);
+  const [bulkRawText, setBulkRawText] = useState<string>('');
+  const [bulkTargetMode, setBulkTargetMode] = useState<'auto' | 'current'>('auto');
+  const [bulkWriteMode, setBulkWriteMode] = useState<'overwrite' | 'append'>('overwrite');
+  const [bulkLoading, setBulkLoading] = useState<boolean>(false);
 
   // Giám sát An ninh Bảo mật (SQL Injection, Chống F12, Chống DDoS)
   const [securityStats, setSecurityStats] = useState<any | null>(null);
@@ -1070,6 +1084,273 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showMessage(data.message);
       fetchDayDetail(selectedDay);
       onRefreshGlobal();
+    }
+  };
+
+  // Tải file mẫu CSV / Excel để nhập câu hỏi hàng loạt
+  const handleDownloadTemplate = () => {
+    const csvHeader =
+      'DayNumber,OrderIndex,QuestionType,CategoryLabel,PromptText,StatementText,TargetWord,OptionA,OptionB,OptionC,OptionD,CorrectOption,Explanation,Points,PromptAudioUrl,PromptVideoUrl';
+
+    const sampleRows = [
+      '1,1,CHOOSE_AUDIO,Phát âm chuẩn,"Từ ""Approval"" được phát âm như thế nào? Nghe các phương án và chọn cách phát âm chuẩn nhất.",,/əˈpruːvəl/,Approval,Approval (sai trọng âm),Approval (sai âm cuối),,A,"Từ \'Approval\' có trọng âm rơi vào âm tiết thứ 2 (/əˈpruːvəl/).",10,,',
+      '1,2,TRUE_FALSE,True / False,"Nghe câu sau và xác định nhận định là Đúng hay Sai:","\'Schedule\' chỉ có 1 cách phát âm duy nhất trong tiếng Anh quốc tế.",schedule,True – Đúng,False – Sai,,,B,"Sai vì từ \'schedule\' có 2 cách đọc chuẩn: /ˈskedʒuːl/ (Mỹ) và /ˈʃedʒuːl/ (Anh).",10,,',
+      '1,3,LISTEN_AND_CHOOSE,Nghe & Chọn đáp án,"Nghe đoạn âm thanh sau và chọn từ được nhắc tới trong ngữ cảnh công việc.",,collaboration,collaboration,corporation,celebration,,A,"Từ được phát âm trong đoạn audio là \'collaboration\' (sự hợp tác).",10,,',
+      '1,4,VOCAB_MEANING,Từ vựng công sở,"Trong môi trường doanh nghiệp, từ viết tắt \'KPI\' có nghĩa là gì?",,KPI,Key Performance Indicator,Knowledge Process Integration,Key Project Initiative,Key Product Index,A,"KPI là viết tắt của Key Performance Indicator (Chỉ số đo lường hiệu quả công việc cốt lõi).",10,,',
+      '1,5,FILL_IN_THE_BLANK,Điền từ vựng,"Điền từ tiếng Anh tương ứng với định nghĩa và phiên âm sau:","/ˌrekəˈmend/ (Đưa ra gợi ý, giới thiệu giải pháp)",recommend,,,,recommend,"Từ đúng chính tả là \'recommend\' (2 chữ \'m\' và 1 chữ \'c\').",10,,',
+      '2,1,LISTEN_AND_CHOOSE,Phát âm công sở,"Chọn cách phát âm đúng của từ ""Deadline"".",,deadline,Deadline (/ˈdedlaɪn/),Dead line (/ded ˈlaɪn/),Deline (/ˈdiːlaɪn/),,A,"Trọng âm rơi vào âm tiết đầu tiên /ˈdedlaɪn/.",10,,',
+    ];
+
+    const blob = new Blob(['\uFEFF' + [csvHeader, ...sampleRows].join('\r\n')], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'SpeakRight_Questions_Template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Đọc file CSV / TSV từ máy tính
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setBulkRawText(content);
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+    e.target.value = '';
+  };
+
+  // Nạp dữ liệu mẫu vào ô nhập
+  const handleLoadSampleData = () => {
+    const csvHeader =
+      'DayNumber,OrderIndex,QuestionType,CategoryLabel,PromptText,StatementText,TargetWord,OptionA,OptionB,OptionC,OptionD,CorrectOption,Explanation,Points,PromptAudioUrl,PromptVideoUrl';
+
+    const sampleRows = [
+      '1,1,CHOOSE_AUDIO,Phát âm chuẩn,"Từ ""Approval"" được phát âm như thế nào? Nghe các phương án và chọn cách phát âm chuẩn nhất.",,/əˈpruːvəl/,Approval,Approval (sai trọng âm),Approval (sai âm cuối),,A,"Từ \'Approval\' có trọng âm rơi vào âm tiết thứ 2 (/əˈpruːvəl/).",10,,',
+      '1,2,TRUE_FALSE,True / False,"Nghe câu sau và xác định nhận định là Đúng hay Sai:","\'Schedule\' chỉ có 1 cách phát âm duy nhất trong tiếng Anh quốc tế.",schedule,True – Đúng,False – Sai,,,B,"Sai vì từ \'schedule\' có 2 cách đọc chuẩn: /ˈskedʒuːl/ (Mỹ) và /ˈʃedʒuːl/ (Anh).",10,,',
+      '1,3,LISTEN_AND_CHOOSE,Nghe & Chọn đáp án,"Nghe đoạn âm thanh sau và chọn từ được nhắc tới trong ngữ cảnh công việc.",,collaboration,collaboration,corporation,celebration,,A,"Từ được phát âm trong đoạn audio là \'collaboration\' (sự hợp tác).",10,,',
+      '1,4,VOCAB_MEANING,Từ vựng công sở,"Trong môi trường doanh nghiệp, từ viết tắt \'KPI\' có nghĩa là gì?",,KPI,Key Performance Indicator,Knowledge Process Integration,Key Project Initiative,Key Product Index,A,"KPI là viết tắt của Key Performance Indicator (Chỉ số đo lường hiệu quả công việc cốt lõi).",10,,',
+      '1,5,FILL_IN_THE_BLANK,Điền từ vựng,"Điền từ tiếng Anh tương ứng với định nghĩa và phiên âm sau:","/ˌrekəˈmend/ (Đưa ra gợi ý, giới thiệu giải pháp)",recommend,,,,recommend,"Từ đúng chính tả là \'recommend\' (2 chữ \'m\' và 1 chữ \'c\').",10,,',
+      '2,1,LISTEN_AND_CHOOSE,Phát âm công sở,"Chọn cách phát âm đúng của từ ""Deadline"".",,deadline,Deadline (/ˈdedlaɪn/),Dead line (/ded ˈlaɪn/),Deline (/ˈdiːlaɪn/),,A,"Trọng âm rơi vào âm tiết đầu tiên /ˈdedlaɪn/.",10,,',
+    ];
+    setBulkRawText([csvHeader, ...sampleRows].join('\n'));
+  };
+
+  // Parser: tách CSV hoặc TSV (copy paste từ Excel)
+  const parseBulkText = (text: string) => {
+    const clean = text.trim();
+    if (!clean) return { parsedList: [], errors: [], dayCounts: {} as Record<number, number> };
+
+    const firstLine = clean.split(/\r?\n/)[0];
+    let delimiter = ',';
+    if (firstLine.includes('\t')) delimiter = '\t';
+    else if (!firstLine.includes(',') && firstLine.includes(';')) delimiter = ';';
+
+    const lines: string[][] = [];
+    let currentRow: string[] = [];
+    let currentField = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < clean.length; i++) {
+      const char = clean[i];
+      const nextChar = clean[i + 1];
+
+      if (char === '"') {
+        if (insideQuotes && nextChar === '"') {
+          currentField += '"';
+          i++;
+        } else {
+          insideQuotes = !insideQuotes;
+        }
+      } else if (char === delimiter && !insideQuotes) {
+        currentRow.push(currentField.trim());
+        currentField = '';
+      } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+        if (char === '\r' && nextChar === '\n') {
+          i++;
+        }
+        currentRow.push(currentField.trim());
+        if (currentRow.some((f) => f.length > 0)) {
+          lines.push(currentRow);
+        }
+        currentRow = [];
+        currentField = '';
+      } else {
+        currentField += char;
+      }
+    }
+    if (currentField.length > 0 || currentRow.length > 0) {
+      currentRow.push(currentField.trim());
+      if (currentRow.some((f) => f.length > 0)) {
+        lines.push(currentRow);
+      }
+    }
+
+    if (lines.length === 0)
+      return {
+        parsedList: [],
+        errors: ['Dữ liệu rỗng.'],
+        dayCounts: {} as Record<number, number>,
+      };
+
+    const header = lines[0].map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+    const hasHeader = header.some(
+      (h) =>
+        h.includes('day') ||
+        h.includes('prompt') ||
+        h.includes('question') ||
+        h.includes('option') ||
+        h.includes('type')
+    );
+
+    const dataRows = hasHeader ? lines.slice(1) : lines;
+
+    const headerMap: Record<string, number> = {};
+    if (hasHeader) {
+      lines[0].forEach((col, idx) => {
+        const key = col.toLowerCase().replace(/[^a-z0-9]/g, '');
+        headerMap[key] = idx;
+      });
+    }
+
+    const getCol = (row: string[], colName: string, defaultIdx: number): string => {
+      if (hasHeader) {
+        for (const key of Object.keys(headerMap)) {
+          if (key.includes(colName)) {
+            return row[headerMap[key]] ?? '';
+          }
+        }
+      }
+      return row[defaultIdx] ?? '';
+    };
+
+    const parsedList: any[] = [];
+    const errors: string[] = [];
+    const dayCounts: Record<number, number> = {};
+
+    dataRows.forEach((cols, idx) => {
+      const lineNum = hasHeader ? idx + 2 : idx + 1;
+      const rawDay = parseInt(getCol(cols, 'day', 0), 10);
+      const dayNumber =
+        !isNaN(rawDay) && rawDay >= 1 && rawDay <= 30
+          ? rawDay
+          : bulkTargetMode === 'current'
+          ? selectedDay
+          : 1;
+      const orderIndex = parseInt(getCol(cols, 'order', 1), 10) || idx + 1;
+      const questionType = getCol(cols, 'type', 2) || 'LISTEN_AND_CHOOSE';
+      const categoryLabel = getCol(cols, 'cat', 3);
+      const promptText = getCol(cols, 'prompt', 4);
+      const statementText = getCol(cols, 'statement', 5);
+      const targetWord = getCol(cols, 'target', 6);
+      const optionA = getCol(cols, 'optiona', 7);
+      const optionB = getCol(cols, 'optionb', 8);
+      const optionC = getCol(cols, 'optionc', 9);
+      const optionD = getCol(cols, 'optiond', 10);
+      const correctOptionId = getCol(cols, 'correct', 11) || 'A';
+      const explanation = getCol(cols, 'explanation', 12);
+      const points = parseInt(getCol(cols, 'points', 13), 10) || 10;
+      const promptAudioUrl = getCol(cols, 'audiourl', 14);
+      const promptVideoUrl = getCol(cols, 'videourl', 15);
+
+      if (!promptText.trim()) {
+        errors.push(`Dòng ${lineNum}: Thiếu nội dung câu hỏi (PromptText).`);
+        return;
+      }
+
+      const rowTargetDay = bulkTargetMode === 'current' ? selectedDay : dayNumber;
+      dayCounts[rowTargetDay] = (dayCounts[rowTargetDay] || 0) + 1;
+
+      parsedList.push({
+        lineNum,
+        dayNumber: rowTargetDay,
+        orderIndex,
+        questionType,
+        categoryLabel,
+        promptText,
+        statementText,
+        targetWord,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOptionId,
+        explanation,
+        points,
+        promptAudioUrl,
+        promptVideoUrl,
+      });
+    });
+
+    return { parsedList, errors, dayCounts };
+  };
+
+  const {
+    parsedList: bulkParsedQuestions,
+    errors: bulkParseErrors,
+    dayCounts: bulkDayCounts,
+  } = parseBulkText(bulkRawText);
+
+  // Gửi request bulk import lên server
+  const handleExecuteBulkImport = async () => {
+    if (bulkParsedQuestions.length === 0) {
+      showMessage('Chưa có câu hỏi hợp lệ nào để nhập!', true);
+      return;
+    }
+
+    const affectedDaysList = Object.keys(bulkDayCounts)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const confirmMsg =
+      bulkWriteMode === 'overwrite'
+        ? `⚠️ CẢNH BÁO: Chế độ GHI ĐÈ sẽ XÓA TOÀN BỘ câu hỏi cũ của các ngày (${affectedDaysList
+            .map((d) => `Day ${d}`)
+            .join(', ')}) và thay bằng ${
+            bulkParsedQuestions.length
+          } câu hỏi mới.\n\nBạn có chắc chắn muốn tiến hành?`
+        : `Bạn có muốn nhập ${bulkParsedQuestions.length} câu hỏi vào các ngày (${affectedDaysList
+            .map((d) => `Day ${d}`)
+            .join(', ')})?`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/admin/challenges/bulk-import', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          questions: bulkParsedQuestions,
+          mode: bulkWriteMode,
+          targetDayNumber: bulkTargetMode === 'current' ? selectedDay : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Lỗi khi nhập câu hỏi hàng loạt.');
+      }
+
+      showMessage(data.message || `Đã nhập thành công ${data.totalImported} câu hỏi!`);
+      setShowBulkModal(false);
+      setBulkRawText('');
+      fetchDayDetail(selectedDay);
+      onRefreshGlobal();
+    } catch (err: any) {
+      showMessage(err.message || 'Lỗi kết nối máy chủ khi nhập đề bulk!', true);
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -1956,6 +2237,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition"
+                  title="Nhập hàng loạt câu hỏi từ file Excel hoặc CSV"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> {at.bulkImportBtn || 'Tạo Đề Bulk (Excel / CSV)'}
+                </button>
                 <button
                   onClick={handleCloneToAllDays}
                   className={`px-3 py-2 rounded-xl border font-extrabold text-xs flex items-center gap-1.5 ${
@@ -4025,6 +4314,326 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL B: NHẬP ĐỀ THI HÀNG LOẠT TỪ EXCEL / CSV */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div
+            className={`w-full max-w-4xl rounded-3xl p-4 sm:p-6 shadow-2xl border space-y-4 my-auto max-h-[94vh] flex flex-col ${cardBg}`}
+          >
+            {/* Header */}
+            <div
+              className={`flex items-center justify-between pb-3 border-b shrink-0 ${
+                darkMode ? 'border-slate-800' : 'border-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
+                    📥 Tạo & Nhập Đề Thi Hàng Loạt (Excel / CSV)
+                  </h3>
+                  <p className={`text-xs ${textSecondary}`}>
+                    Copy/paste trực tiếp các ô từ Excel hoặc tải lên file .csv/.tsv. Hỗ trợ nhập 1 ngày hoặc toàn bộ các ngày.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className={`p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition ${subCardBg}`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {/* Toolbar: Nút tải template, upload file, nạp ví dụ */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className="px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/70 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+                    title="Tải file Excel mẫu chuẩn UTF-8 (không bị lỗi font tiếng Việt)"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Tải File Mẫu Excel (.CSV)
+                  </button>
+
+                  <label className="px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-blue-800 dark:text-blue-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs">
+                    <FileUp className="w-3.5 h-3.5" /> Tải Lên File (.csv / .tsv / .txt)
+                    <input
+                      type="file"
+                      accept=".csv,.tsv,.txt"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleLoadSampleData}
+                    className="px-3 py-1.5 rounded-xl border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/70 text-purple-800 dark:text-purple-300 text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+                    title="Nạp sẵn 6 câu hỏi mẫu đủ cả 5 dạng câu vào khung nhập"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Nạp Dữ Liệu Mẫu
+                  </button>
+                </div>
+
+                {bulkRawText.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setBulkRawText('')}
+                    className="text-xs text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Xóa trắng
+                  </button>
+                )}
+              </div>
+
+              {/* Tùy chọn Phạm vi và Chế độ ghi */}
+              <div className={`p-3.5 rounded-2xl border grid grid-cols-1 md:grid-cols-2 gap-3.5 ${subCardBg}`}>
+                {/* Phạm vi ngày */}
+                <div>
+                  <span className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${textSecondary}`}>
+                    🎯 1. Phạm Vi Ngày Nhập Đề
+                  </span>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <input
+                        type="radio"
+                        name="bulkTargetMode"
+                        value="auto"
+                        checked={bulkTargetMode === 'auto'}
+                        onChange={() => setBulkTargetMode('auto')}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>
+                        Tự động theo cột <b>DayNumber</b> trong file (Nhập được nhiều ngày cùng lúc)
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <input
+                        type="radio"
+                        name="bulkTargetMode"
+                        value="current"
+                        checked={bulkTargetMode === 'current'}
+                        onChange={() => setBulkTargetMode('current')}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>
+                        Chỉ nhập toàn bộ vào <b>Day {selectedDay} ({dayDetail?.title || `Day ${selectedDay}`})</b>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Chế độ ghi */}
+                <div>
+                  <span className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${textSecondary}`}>
+                    ⚙️ 2. Chế Độ Ghi Dữ Liệu
+                  </span>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <input
+                        type="radio"
+                        name="bulkWriteMode"
+                        value="overwrite"
+                        checked={bulkWriteMode === 'overwrite'}
+                        onChange={() => setBulkWriteMode('overwrite')}
+                        className="text-amber-600 focus:ring-amber-500"
+                      />
+                      <span className="text-amber-700 dark:text-amber-400 font-bold">
+                        Ghi đè (Xóa sạch câu hỏi cũ của các ngày được nhập)
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <input
+                        type="radio"
+                        name="bulkWriteMode"
+                        value="append"
+                        checked={bulkWriteMode === 'append'}
+                        onChange={() => setBulkWriteMode('append')}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>Thêm tiếp vào sau (Giữ câu hỏi cũ, nối tiếp vào cuối đề)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Textarea dán dữ liệu */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className={`text-xs font-bold ${textSecondary}`}>
+                    📋 Khung Dán Dữ Liệu (Copy từ Excel rồi Ctrl+V vào đây):
+                  </label>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    {bulkRawText.split(/\r?\n/).filter((l) => l.trim()).length} dòng dữ liệu
+                  </span>
+                </div>
+                <textarea
+                  value={bulkRawText}
+                  onChange={(e) => setBulkRawText(e.target.value)}
+                  rows={6}
+                  placeholder={`Dán nội dung từ bảng Excel hoặc file CSV vào đây...\nVí dụ các cột:\nDayNumber\tOrderIndex\tQuestionType\tCategoryLabel\tPromptText\tStatementText\tTargetWord\tOptionA\tOptionB\tOptionC\tOptionD\tCorrectOption\tExplanation\tPoints\tPromptAudioUrl\tPromptVideoUrl`}
+                  className={`w-full px-3.5 py-2.5 rounded-2xl border font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inputBg}`}
+                />
+              </div>
+
+              {/* Báo cáo trạng thái Parsing & Validation */}
+              {bulkRawText.trim().length > 0 && (
+                <div className="space-y-2.5">
+                  {bulkParseErrors.length > 0 && (
+                    <div className="p-3 rounded-2xl border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 text-xs space-y-1">
+                      <div className="font-black flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-rose-500" />
+                        Có {bulkParseErrors.length} dòng dữ liệu bị lỗi cần chỉnh sửa:
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px] max-h-24 overflow-y-auto">
+                        {bulkParseErrors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800">
+                    <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      Nhận diện hợp lệ: {bulkParsedQuestions.length} câu hỏi
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {Object.entries(bulkDayCounts).map(([d, count]) => (
+                        <span
+                          key={d}
+                          className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white font-mono text-[11px] font-bold"
+                        >
+                          Day {d}: {count} câu
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bảng xem trước (Preview Table) */}
+                  {bulkParsedQuestions.length > 0 && (
+                    <div className="border rounded-2xl overflow-hidden max-h-52 overflow-y-auto shadow-inner">
+                      <table className="w-full text-left text-xs">
+                        <thead
+                          className={`sticky top-0 z-10 text-[10px] uppercase font-black tracking-wider border-b ${
+                            darkMode
+                              ? 'bg-slate-800 text-slate-300 border-slate-700'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}
+                        >
+                          <tr>
+                            <th className="p-2 text-center">Day</th>
+                            <th className="p-2 text-center">#</th>
+                            <th className="p-2">Dạng câu</th>
+                            <th className="p-2">Nội dung câu hỏi (Prompt)</th>
+                            <th className="p-2">Đáp án A / B / C / D</th>
+                            <th className="p-2 text-center">Đ/Án Đúng</th>
+                            <th className="p-2 text-center">Điểm</th>
+                          </tr>
+                        </thead>
+                        <tbody
+                          className={`divide-y ${
+                            darkMode ? 'divide-slate-800 text-slate-200' : 'divide-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {bulkParsedQuestions.map((q, idx) => (
+                            <tr
+                              key={idx}
+                              className={`hover:bg-blue-50/50 dark:hover:bg-slate-800/50 transition`}
+                            >
+                              <td className="p-2 text-center font-bold text-blue-600 dark:text-blue-400">
+                                Day {q.dayNumber}
+                              </td>
+                              <td className="p-2 text-center font-bold text-slate-400">
+                                {q.orderIndex}
+                              </td>
+                              <td className="p-2">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px] font-black">
+                                  {q.questionType}
+                                </span>
+                              </td>
+                              <td className="p-2 max-w-xs truncate" title={q.promptText}>
+                                {q.promptText}
+                              </td>
+                              <td className="p-2 max-w-xs truncate text-[11px] text-slate-500">
+                                {q.questionType === 'FILL_IN_THE_BLANK'
+                                  ? `Từ điền: ${q.targetWord || q.correctOptionId}`
+                                  : [q.optionA, q.optionB, q.optionC, q.optionD]
+                                      .filter(Boolean)
+                                      .join(' | ')}
+                              </td>
+                              <td className="p-2 text-center">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-black text-[11px]">
+                                  {q.correctOptionId}
+                                </span>
+                              </td>
+                              <td className="p-2 text-center font-mono font-bold">{q.points}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div
+              className={`flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t shrink-0 ${
+                darkMode ? 'border-slate-800' : 'border-slate-100'
+              }`}
+            >
+              <div className="text-xs text-slate-500 font-medium text-center sm:text-left">
+                {bulkParsedQuestions.length > 0 ? (
+                  <span>
+                    Chuẩn bị nhập <b>{bulkParsedQuestions.length} câu hỏi</b> vào{' '}
+                    <b>{Object.keys(bulkDayCounts).length} ngày thử thách</b>
+                  </span>
+                ) : (
+                  <span>Hãy tải file mẫu hoặc dán các ô từ Excel để bắt đầu</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkModal(false)}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkParsedQuestions.length === 0 || bulkLoading}
+                  onClick={handleExecuteBulkImport}
+                  className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-xs sm:text-sm shadow-md flex items-center gap-2 transition"
+                >
+                  {bulkLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang xử lý & lưu...
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Tiến Hành Nhập {bulkParsedQuestions.length} Câu Hỏi
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
