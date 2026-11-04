@@ -530,15 +530,32 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
 
   return challenges.map((c) => {
     const attempt = attempts.find((a) => a.dayNumber === c.dayNumber);
+    const activeSession = store.getActiveSession(userId, c.dayNumber);
     const isUnlocked = store.isDayUnlocked(c);
     const isEnded = store.isDayEnded(c);
     const endsAt = store.getDayEndDate(c);
+    const isToday = today?.dayNumber === c.dayNumber;
 
     let stars = 0;
     if (attempt && isEnded) {
-      if (attempt.score >= 90) stars = 3;
-      else if (attempt.score >= 60) stars = 2;
+      const displayScore = attempt.practiceScore ?? attempt.score;
+      if (displayScore >= 90) stars = 3;
+      else if (displayScore >= 60) stars = 2;
       else stars = 1;
+    }
+
+    // 4 trạng thái theo yêu cầu: đã làm / quá hạn / đang làm / chưa làm
+    let status: 'COMPLETED' | 'EXPIRED' | 'IN_PROGRESS' | 'OPEN' | 'LOCKED' = 'LOCKED';
+    if (attempt) {
+      status = 'COMPLETED'; // Đã làm
+    } else if (activeSession) {
+      status = 'IN_PROGRESS'; // Đang làm
+    } else if (isEnded && isUnlocked) {
+      status = 'EXPIRED'; // Quá hạn (Vẫn cho vào làm nhưng không tính điểm)
+    } else if (isUnlocked) {
+      status = 'OPEN'; // Chưa làm (Bài hôm nay đang mở)
+    } else {
+      status = 'LOCKED'; // Chưa làm (Ngày tương lai chưa mở)
     }
 
     return {
@@ -548,16 +565,17 @@ app.get('/api/challenges', { preHandler: [(app as any).authenticate] }, async (r
       dateLabel: c.dateLabel,
       unlockDate: c.unlockDate,
       endsAt,
-      isToday: today?.dayNumber === c.dayNumber,
+      isToday,
       resultsRevealed: isEnded,
       isPublished: c.isPublished,
       questionCount: c.questions.length,
       activePlayersCount: activeCounts[c.dayNumber] || 0,
-      // Lưu ý: Nếu Admin khóa ngày (isUnlocked = false), trạng thái chuyển về LOCKED kể cả trước đó mở
-      status: !isUnlocked ? 'LOCKED' : attempt ? 'COMPLETED' : 'OPEN',
+      status,
       isCompletedByMe: Boolean(attempt),
+      isExpired: Boolean(attempt?.isExpired || (!attempt && isEnded && isUnlocked)),
       stars,
       score: attempt ? (isEnded ? attempt.score : null) : null,
+      practiceScore: attempt ? (isEnded ? (attempt.practiceScore ?? attempt.score) : null) : null,
       timeSpentMs: attempt?.timeSpentMs ?? null,
     };
   });
@@ -604,11 +622,14 @@ app.post(
       points: q.points,
     }));
 
+    const isExpired = store.isDayEnded(challenge);
+
     return {
       dayNumber: challenge.dayNumber,
       title: challenge.title,
       dateLabel: challenge.dateLabel,
       startedAt: session.startedAt,
+      isExpired,
       questions: sanitizedQuestions,
       q11Words: challenge.q11Words || DEFAULT_Q11_5_WORDS,
     };
@@ -801,6 +822,12 @@ app.post(
       };
     });
 
+    const endsAt = store.getDayEndDate(challenge);
+    const isExpired = store.isDayEnded(challenge);
+    const rawScore = score;
+    // Nếu quá hạn (ví dụ bài 03/11 nộp vào ngày 04/11): Vẫn cho làm nhưng KHÔNG tính điểm BXH (officialScore = 0)
+    const officialScore = isExpired ? 0 : rawScore;
+
     const {
       isFirstOfficialAttempt,
       climbedToTop1,
@@ -809,11 +836,16 @@ app.post(
       userId,
       challengeId: challenge.id,
       dayNumber,
-      score,
+      score: officialScore,
+      practiceScore: rawScore,
+      isExpired,
       correctCount,
       wrongCount,
       timeSpentMs: serverElapsedMs,
-      answersDetail: body.answers || {},
+      answersDetail: {
+        ...(body.answers || {}),
+        _meta: { isExpired, rawScore },
+      },
       startedAt: new Date(session?.startedAt || Date.now() - serverElapsedMs).toISOString(),
       completedAt: new Date().toISOString(),
     });
@@ -823,12 +855,14 @@ app.post(
     // Chống spam thông báo khi Top 1 đổi ngôi liên tục trong ngày:
     // Hệ thống KHÔNG bắn Push tức thì mỗi lần đổi Top 1 mà tổng hợp thông báo Top 1 hiện tại đúng 1 lần/ngày vào 19h tối.
 
-    const endsAt = store.getDayEndDate(challenge);
-    const resultsRevealed = store.isDayEnded(challenge);
+    // Ngày quá hạn thì công bố đáp án ngay, còn ngày hôm nay thì chờ 00:00
+    const resultsRevealed = isExpired ? true : store.isDayEnded(challenge);
 
     return {
       dayNumber,
-      score: resultsRevealed ? score : null,
+      score: resultsRevealed ? officialScore : null,
+      practiceScore: resultsRevealed ? rawScore : null,
+      isExpired,
       totalPoints: questionsToGrade.length * 10,
       correctCount: resultsRevealed ? correctCount : null,
       wrongCount: resultsRevealed ? wrongCount : null,
@@ -840,6 +874,9 @@ app.post(
       endsAt,
       resultsRevealed,
       detailedReview: resultsRevealed ? detailedReview : null,
+      notice: isExpired
+        ? 'Bài thi quá hạn. Bạn đã hoàn thành bài để luyện tập và xem đáp án, nhưng không được tính điểm vào Bảng Xếp Hạng.'
+        : undefined,
     };
   }
 );
@@ -861,7 +898,8 @@ app.get(
       return reply.status(404).send({ message: 'Bạn chưa hoàn thành thử thách này.' });
     }
 
-    const resultsRevealed = store.isDayEnded(challenge);
+    const isExpired = Boolean(attempt.isExpired);
+    const resultsRevealed = isExpired ? true : store.isDayEnded(challenge);
     const endsAt = store.getDayEndDate(challenge);
 
     let detailedReview = null;
@@ -913,9 +951,29 @@ app.get(
       });
     }
 
+    if (!resultsRevealed) {
+      return {
+        dayNumber,
+        completed: true,
+        resultsRevealed: false,
+        isExpired,
+        endsAt,
+        score: null,
+        practiceScore: null,
+        correctCount: null,
+        wrongCount: null,
+        timeSpentMs: attempt.timeSpentMs,
+        completedAt: attempt.completedAt,
+        detailedReview: null,
+        message: 'Bài thi đã được ghi nhận thành công! Điểm và đáp án chi tiết sẽ được công bố vào lúc 00:00.',
+      };
+    }
+
     return {
       dayNumber,
       score: resultsRevealed ? attempt.score : null,
+      practiceScore: resultsRevealed ? (attempt.practiceScore ?? attempt.score) : null,
+      isExpired,
       totalPoints: challenge.questions.length * 10,
       correctCount: resultsRevealed ? attempt.correctCount : null,
       wrongCount: resultsRevealed ? attempt.wrongCount : null,
