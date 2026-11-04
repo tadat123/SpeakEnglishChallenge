@@ -105,28 +105,28 @@ const ADMIN_I18N = {
     lockModalTitle: 'Tùy chọn Khóa',
     lockModalSubPrefix: 'Hiện có',
     lockModalSubSuffix: 'nhân viên đang làm bài',
-    gracefulTitle: '🛡️ Cách 1: Khóa Mềm / Ân hạn (Khuyên dùng)',
+    gracefulTitle: 'Khóa Mềm / Ân hạn',
     safeBadge: 'An toàn',
     gracefulDesc:
-      'Chặn người mới bấm vào thi, cho phép người đang làm dở hoàn thành nốt (tối đa 15 phút).',
-    forceTitle: '🚨 Cách 2: Khóa Cưỡng Chế Ngay Lập Tức',
+      'Chặn bắt đầu lượt mới, cho phép người đang làm dở hoàn thành nốt.',
+    forceTitle: 'Khóa Cưỡng Chế',
     forceDesc:
-      'Dừng ngay lập tức các phiên đang thi dở. Không bị tính mất lượt thi.',
+      'Dừng ngay lập tức các phiên đang thi dở. Không mất lượt thi.',
     modalAddTitle: '➕ Thêm Câu Hỏi Mới vào Day',
     modalEditTitle: '✏️ Chỉnh sửa Câu',
     questionTypeLabel: 'Dạng câu hỏi *',
     promptTextLabel: 'Nội dung câu hỏi *',
     targetWordLabel: 'Từ phát âm mẫu',
-    statementTextLabel: 'Câu Nhận Định (True / False)',
-    promptAudioTitle: 'Âm thanh (Audio) đề bài',
+    statementTextLabel: 'Nhận định (True / False)',
+    promptAudioTitle: 'Âm thanh đề bài',
     showSpeakerLabel: 'Hiện nút Loa',
-    uploadAudioBtn: 'Tải file MP3/WAV',
+    uploadAudioBtn: 'Tải file Audio',
     uploadingText: 'Đang tải...',
     testListenBtn: '🔊 Nghe thử',
-    promptVideoTitle: 'Video (.MP4 / Link)',
+    promptVideoTitle: 'Video đề bài',
     uploadVideoBtn: 'Tải Video',
     removeVideoBtn: 'Xóa Video',
-    optionsSectionLabel: 'Phương án trả lời (Tích chọn đáp án đúng):',
+    optionsSectionLabel: 'Phương án trả lời:',
     correctSelectedBadge: '(Đáp án Đúng)',
     hasOptionSpeaker: 'Có nút Loa',
     explanationLabel: 'Giải thích chi tiết',
@@ -135,23 +135,23 @@ const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice – Chọn audio phát âm đúng (3 đáp án)',
+        label: 'Multiple Choice (3 đáp án)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False – Nhận định Đúng/Sai',
+        label: 'True / False (Đúng / Sai)',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Nghe audio / Xem video – Chọn từ đúng (3 đáp án)',
+        label: 'Nghe audio / Video (3 đáp án)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Nghĩa của từ / Từ viết tắt (3 đáp án)',
+        label: 'Nghĩa của từ / Viết tắt (3 đáp án)',
       },
       {
         value: 'FILL_IN_THE_BLANK',
-        label: 'Điền từ – Nhập từ vựng theo phiên âm & nghĩa',
+        label: 'Điền từ (Fill in the blank)',
       },
     ],
     sidebarDashboard: 'Dashboard',
@@ -231,23 +231,23 @@ const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice – Audio pronunciation (3 options)',
+        label: 'Multiple Choice (3 options)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False statement',
+        label: 'True / False',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Listen audio / video – Choose word (3 options)',
+        label: 'Audio / Video (3 options)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Vocabulary meaning / acronym (3 options)',
+        label: 'Vocabulary / Acronym',
       },
       {
         value: 'FILL_IN_THE_BLANK',
-        label: 'Fill in the blank – Type vocabulary from IPA & meaning',
+        label: 'Fill in the blank',
       },
     ],
     sidebarDashboard: 'Dashboard',
@@ -266,85 +266,84 @@ const ADMIN_I18N = {
     backToQuizShort: 'Quiz',
   },
   ko: {
-    headerTitle: '관리자 CMS — 21일 챌린지 및 문제 관리 (텍스트 / 오디오 / 비디오)',
-    headerSub:
-      '아래에서 날짜를 선택하여 일정을 수정하거나, 문제를 추가/수정/삭제하고, 응시 중인 사용자가 있을 때 안전하게 잠글 수 있습니다.',
-    reseedBtn: '기본 데이터 초기화',
-    exportBtn: '시상용 엑셀(CSV) 내보내기',
-    selectDayTitle: '1. 수정할 챌린지 날짜 선택 (Day 1 → Day 21):',
+    headerTitle: '21일 챌린지 및 문제 관리',
+    headerSub: '',
+    reseedBtn: '초기화',
+    exportBtn: '엑셀 내보내기',
+    selectDayTitle: '챌린지 날짜 선택 (Day 1 → Day 21):',
     openStatus: '🔓 열림',
     lockedStatus: '🔒 잠김',
     dayTitleLabel: '일차 제목',
     dayDateLabel: '표시 날짜',
-    saveDayMetaBtn: '제목 및 날짜 저장',
+    saveDayMetaBtn: '저장',
     activePlayersLabel: '명 응시 중',
     lockDayBtn: '잠금',
     unlockDayBtn: '잠금 해제',
     nowSuffix: '즉시',
-    liveBannerTitle: '🟢 현재 실시간 응시 중인 임직원:',
-    liveBannerProtection: '시험지 스냅샷 보호 활성화됨 (문제 수정 시 응시 중인 시험에 영향 없음)',
-    questionListTitle: '2. 문제 목록:',
+    liveBannerTitle: '🟢 응시 중인 임직원:',
+    liveBannerProtection: '스냅샷 보호 활성화',
+    questionListTitle: '문제 목록',
     questionsCountUnit: '문항',
-    questionListSub: '텍스트 문제 추가/수정, 오디오(.mp3/.wav) 및 비디오(.mp4/.webm) 업로드 지원',
-    cloneAllBtn: '이 문제 세트를 21일 전체에 복사',
-    bulkImportBtn: 'Excel / CSV 대량 등록',
+    questionListSub: '',
+    cloneAllBtn: '21일 전체 복사',
+    bulkImportBtn: 'Excel / CSV 등록',
     addQuestionBtn: '새 문제 추가',
     questionPrefix: '문항',
     correctAnsBadge: '정답',
-    mp3Badge: '🎵 MP3 파일',
-    videoBadge: '🎬 비디오 포함',
+    mp3Badge: '🎵 MP3',
+    videoBadge: '🎬 비디오',
     editBtn: '수정',
     deleteBtnTitle: '문제 삭제',
-    lockModalTitle: '잠금 옵션 선택:',
+    lockModalTitle: '잠금 옵션',
     lockModalSubPrefix: '현재',
-    lockModalSubSuffix: '명의 임직원이 응시 중입니다',
-    gracefulTitle: '🛡️ 방법 1: 소프트 잠금 / 유예 시간 부여 (권장)',
+    lockModalSubSuffix: '명 응시 중',
+    gracefulTitle: '소프트 잠금 (권장)',
     safeBadge: '안전',
     gracefulDesc:
-      '신규 진입을 즉시 차단하지만, 현재 풀고 있는 응시자는 최대 15분 동안 정상적으로 제출할 수 있도록 허용합니다.',
-    forceTitle: '🚨 방법 2: 즉시 강제 잠금 (Force Lock)',
+      '신규 진입 차단, 현재 응시자는 제출 허용.',
+    forceTitle: '즉시 강제 잠금',
     forceDesc:
-      '진행 중인 모든 세션을 즉시 중단합니다. 응시 중인 임직원은 일시 중지 알림을 받으며 재오픈 시 공식 응시 기회가 유지됩니다.',
+      '진행 중인 모든 세션 즉시 중단.',
     modalAddTitle: '➕ 새 문제 추가 - Day',
     modalEditTitle: '✏️ 문제 수정 - 문항',
     questionTypeLabel: '문제 유형 *',
-    promptTextLabel: '문제 내용 (표시 텍스트) *',
-    targetWordLabel: '발음 단어 / 구문 (TTS)',
-    statementTextLabel: '진술문 (True / False 전용)',
-    promptAudioTitle: '문제 오디오 (Audio)',
-    showSpeakerLabel: '스피커 버튼 표시',
-    uploadAudioBtn: '.MP3/.WAV 업로드',
+    promptTextLabel: '문제 내용 *',
+    targetWordLabel: '발음 단어 / 구문',
+    statementTextLabel: '진술문 (True / False)',
+    promptAudioTitle: '오디오',
+    showSpeakerLabel: '스피커 표시',
+    uploadAudioBtn: '오디오 업로드',
     uploadingText: '업로드 중...',
-    testListenBtn: '🔊 미리 듣기',
-    promptVideoTitle: '상황 비디오 (.MP4 / 링크)',
-    uploadVideoBtn: '.MP4/.WEBM 업로드',
+    testListenBtn: '🔊 듣기',
+    promptVideoTitle: '비디오',
+    uploadVideoBtn: '비디오 업로드',
     removeVideoBtn: '비디오 삭제',
-    optionsSectionLabel: '답안 보기 (정답 선택 및 개별 오디오 설정):',
+    optionsSectionLabel: '답안 보기:',
     correctSelectedBadge: '(정답)',
-    hasOptionSpeaker: '스피커 버튼',
-    explanationLabel: '상세 해설 (제출 후 표시됨)',
+    hasOptionSpeaker: '스피커',
+    explanationLabel: '상세 해설',
     cancelBtn: '취소',
     saveQuestionBtn: '문제 저장',
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: '객관식 – 올바른 발음 오디오 선택 (3개 오디오 버튼 A/B/C)',
+        label: '객관식 (3개 보기)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False – 오디오를 듣고 진술 확인 (2개 보기 참/거짓)',
+        label: 'True / False (참/거짓)',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: '오디오 듣기 / 비디오 보기 – 올바른 단어 선택 (3개 보기 A/B/C)',
+        label: '듣기 / 비디오 (3개 보기)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: '단어 의미 / 약어 풀이 (3개 보기 A/B/C)',
+        label: '단어 의미 / 약어 (3개 보기)',
       },
       {
         value: 'FILL_IN_THE_BLANK',
-        label: '빈칸 채우기 – 발음기호 및 의미를 보고 단어 입력',
+        label: '빈칸 채우기',
       },
     ],
     sidebarDashboard: '대시보드',
@@ -1963,7 +1962,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
               <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold ${textSecondary}`}>Tổng số Nhân viên</span>
+                <span className={`text-xs font-bold ${textSecondary}`}>Nhân viên</span>
                 <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center">
                   <Users className="w-4 h-4" />
                 </div>
@@ -1972,13 +1971,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {dashboardStats?.totalUsers ?? '...'}
               </div>
               <div className={`text-[11px] mt-1 ${textSecondary}`}>
-                {dashboardStats?.completedUsersCount ?? 0} người đã làm bài
+                {dashboardStats?.completedUsersCount ?? 0} đã làm bài
               </div>
             </div>
 
             <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
               <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold ${textSecondary}`}>Tỉ lệ Hoàn thành Chung</span>
+                <span className={`text-xs font-bold ${textSecondary}`}>Hoàn thành</span>
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
                   <Trophy className="w-4 h-4" />
                 </div>
@@ -1987,13 +1986,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {dashboardStats?.overallCompletionRate ?? 0}%
               </div>
               <div className={`text-[11px] mt-1 ${textSecondary}`}>
-                Tính trên toàn bộ 21 ngày thi
+                Toàn bộ 21 ngày
               </div>
             </div>
 
             <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
               <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold ${textSecondary}`}>Điểm TB Toàn Công ty</span>
+                <span className={`text-xs font-bold ${textSecondary}`}>Điểm trung bình</span>
                 <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center">
                   <Award className="w-4 h-4" />
                 </div>
@@ -2002,13 +2001,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {dashboardStats?.avgScore ?? 0}đ
               </div>
               <div className={`text-[11px] mt-1 ${textSecondary}`}>
-                Thang điểm 100/ngày
+                Thang 100đ
               </div>
             </div>
 
             <div className={`p-4 rounded-3xl border shadow-sm backdrop-blur-md ${cardBg}`}>
               <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold ${textSecondary}`}>Tổng Lượt Nộp Bài</span>
+                <span className={`text-xs font-bold ${textSecondary}`}>Lượt nộp bài</span>
                 <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
@@ -2017,7 +2016,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {dashboardStats?.totalAttempts ?? 0}
               </div>
               <div className={`text-[11px] mt-1 ${textSecondary}`}>
-                Bài thi đã hoàn thành & lưu điểm
+                Đã ghi nhận
               </div>
             </div>
           </div>
@@ -2028,11 +2027,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
                   <Calendar className="w-4 h-4 text-blue-600" />
-                  Tỉ Lệ Hoàn Thành & Điểm Số Theo Ngày
+                  Tỉ Lệ Theo Ngày
                 </h3>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold ${textSecondary}`}>Chọn nhanh:</span>
+                <span className={`text-xs font-bold ${textSecondary}`}>Ngày:</span>
                 <select
                   value={selectedStatDay}
                   onChange={(e) => setSelectedStatDay(Number(e.target.value))}
@@ -2134,11 +2133,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
           </div>
 
-          {/* Bảng Tiến độ Hoàn thành toàn bộ 21 Ngày (Progress Visual) */}
+          {/* Bảng Tiến độ Hoàn thành toàn bộ 21 Ngày */}
           <div className={`rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-3 ${cardBg}`}>
             <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
               <BarChart3 className="w-4 h-4 text-emerald-600" />
-              Tiến độ Tỉ lệ Hoàn thành 21 Ngày Toàn Công ty
+              Tiến độ 21 Ngày
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {dashboardStats?.allDaysStats?.map((st: any) => (
@@ -2186,7 +2185,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && fetchAdminUsers()}
-                    placeholder="Tìm theo Số GEN 8 số, Tên, hoặc Gmail..."
+                    placeholder="Tìm GEN, Tên, Email..."
                     className={`w-full pl-9 pr-3 py-2.5 rounded-2xl border text-xs sm:text-sm font-semibold outline-none ${inputBg}`}
                   />
                 </div>
@@ -2195,7 +2194,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) => setUserDeptFilter(e.target.value)}
                   className={`px-3 py-2.5 rounded-2xl border text-xs font-bold outline-none ${inputBg}`}
                 >
-                  <option value="ALL">Tất cả Phòng ban</option>
+                  <option value="ALL">Tất cả phòng ban</option>
                   <option value="Engineering">Engineering</option>
                   <option value="Quality Assurance">Quality Assurance</option>
                   <option value="Production">Production</option>
@@ -2207,7 +2206,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onClick={fetchAdminUsers}
                   className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 shrink-0"
                 >
-                  <Search className="w-3.5 h-3.5" /> Tìm kiếm
+                  <Search className="w-3.5 h-3.5" /> Tìm
                 </button>
               </div>
             </div>
@@ -2480,7 +2479,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {at.questionListTitle} {dayDetail.title} ({dayDetail.questions?.length || 0}{' '}
                   {at.questionsCountUnit})
                 </h3>
-                <p className={`text-xs ${textSecondary}`}>{at.questionListSub}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -2936,13 +2934,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {/* Đối tượng nhận */}
               <div className="space-y-1.5">
                 <label className={`block text-xs font-bold ${textSecondary}`}>
-                  Đối tượng nhận thông báo:
+                  Đối tượng
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'all', label: '🏢 Toàn Công Ty' },
-                    { id: 'department', label: '👥 Theo Phòng Ban' },
-                    { id: 'user', label: '👤 1 Cá Nhân' },
+                    { id: 'all', label: 'Toàn Công Ty' },
+                    { id: 'department', label: 'Phòng Ban' },
+                    { id: 'user', label: 'Cá Nhân' },
                   ].map((tg) => (
                     <button
                       key={tg.id}
@@ -2966,13 +2964,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {/* Lựa chọn Phòng ban hoặc Cá nhân */}
               {notifTargetType === 'department' && (
                 <div className="space-y-1">
-                  <label className={`block text-xs font-bold ${textSecondary}`}>Chọn Phòng Ban:</label>
+                  <label className={`block text-xs font-bold ${textSecondary}`}>Phòng Ban:</label>
                   <select
                     value={notifTargetValue}
                     onChange={(e) => setNotifTargetValue(e.target.value)}
                     className={`w-full px-3 py-2 rounded-xl border text-xs font-bold outline-none ${inputBg}`}
                   >
-                    <option value="">-- Chọn Phòng ban nhận thông báo --</option>
+                    <option value="">-- Chọn phòng ban --</option>
                     <option value="Engineering">Engineering</option>
                     <option value="Quality Assurance">Quality Assurance</option>
                     <option value="Production">Production</option>
@@ -2985,13 +2983,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {notifTargetType === 'user' && (
                 <div className="space-y-1">
-                  <label className={`block text-xs font-bold ${textSecondary}`}>Chọn Nhân Viên:</label>
+                  <label className={`block text-xs font-bold ${textSecondary}`}>Nhân Viên:</label>
                   <select
                     value={notifTargetValue}
                     onChange={(e) => setNotifTargetValue(e.target.value)}
                     className={`w-full px-3 py-2 rounded-xl border text-xs font-bold outline-none ${inputBg}`}
                   >
-                    <option value="">-- Chọn 1 Nhân viên cụ thể --</option>
+                    <option value="">-- Chọn nhân viên --</option>
                     {userList.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.fullName} (GEN: {u.employeeId} - {u.department} - {u.totalScore}đ)
@@ -3001,10 +2999,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {/* Các mẫu gợi ý sẵn (Preset Templates) */}
+              {/* Các mẫu gợi ý sẵn */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className={textSecondary}>Mẫu thông báo gợi ý sẵn:</span>
+                  <span className={textSecondary}>Mẫu gợi ý:</span>
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -3018,7 +3016,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }}
                     className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-900 dark:text-amber-300 hover:scale-[1.02] transition"
                   >
-                    🔔 Nhắc học hôm nay
+                    🔔 Nhắc học
                   </button>
                   <button
                     type="button"
@@ -3030,41 +3028,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }}
                     className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-900 dark:text-emerald-300 hover:scale-[1.02] transition"
                   >
-                    🏆 Khen ngợi thành tích
+                    🏆 Khen ngợi
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setNotifTitle('⏰ Bài thi sắp đóng lúc 00:00!');
                       setNotifBody(
-                        'Chào {name}, chỉ còn ít giờ nữa là kết thúc ngày thi. Vào làm bài ngay để không bị ngắt chuỗi 30 ngày nhé! 🔥'
+                        'Chào {name}, chỉ còn ít giờ nữa là kết thúc ngày thi. Vào làm bài ngay để không bị ngắt chuỗi 21 ngày nhé! 🔥'
                       );
                     }}
                     className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-purple-50 dark:bg-purple-950/40 border-purple-200 text-purple-900 dark:text-purple-300 hover:scale-[1.02] transition"
                   >
-                    ⏰ Cảnh báo trước 00:00
+                    ⏰ Cảnh báo
                   </button>
                 </div>
               </div>
 
               {/* Tiêu đề & Nội dung */}
               <div className="space-y-1">
-                <label className={`block text-xs font-bold ${textSecondary}`}>Tiêu đề thông báo:</label>
+                <label className={`block text-xs font-bold ${textSecondary}`}>Tiêu đề</label>
                 <input
                   type="text"
                   value={notifTitle}
                   onChange={(e) => setNotifTitle(e.target.value)}
-                  placeholder="Tiêu đề thông báo..."
+                  placeholder="Tiêu đề..."
                   className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-bold outline-none ${inputBg}`}
                 />
               </div>
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <label className={`block text-xs font-bold ${textSecondary}`}>Nội dung thông báo:</label>
+                  <label className={`block text-xs font-bold ${textSecondary}`}>Nội dung</label>
                   {/* Quick Tag Chips */}
                   <div className="flex items-center gap-1">
-                    <span className={`text-[10px] ${textSecondary}`}>Chèn nhanh:</span>
+                    <span className={`text-[10px] ${textSecondary}`}>Chèn:</span>
                     <button
                       type="button"
                       onClick={() => setNotifBody((prev) => prev + ' {name}')}
@@ -3092,14 +3090,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   rows={4}
                   value={notifBody}
                   onChange={(e) => setNotifBody(e.target.value)}
-                  placeholder="Nội dung thông báo gửi tới nhân viên..."
+                  placeholder="Nội dung..."
                   className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-medium outline-none ${inputBg}`}
                 />
               </div>
 
               <div className="space-y-1">
                 <label className={`block text-xs font-bold ${textSecondary}`}>
-                  Liên kết mở ra khi bấm vào (Target URL):
+                  Đường dẫn (URL)
                 </label>
                 <input
                   type="text"
@@ -3117,7 +3115,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                {sendingNotif ? 'Đang gửi thông báo...' : 'Gửi Thông Báo Cá Nhân Hóa Ngay'}
+                {sendingNotif ? 'Đang gửi...' : 'Gửi Thông Báo'}
               </button>
             </div>
 
@@ -3126,7 +3124,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className={`lg:col-span-5 rounded-3xl p-5 border shadow-sm backdrop-blur-md space-y-3 flex flex-col items-center justify-center ${subCardBg}`}
             >
               <div className={`text-xs font-black uppercase tracking-wider ${textSecondary}`}>
-                📱 Xem trước trên Màn hình Điện thoại Nhân viên
+                Xem trước
               </div>
 
               {/* Mobile Device Mockup Frame */}
@@ -3179,33 +3177,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-      {/* ================= HỆ THỐNG PUSH NOTIFICATION PWA (CHIA ĐỀU REQUEST - KHÔNG GỬI DỒN CÙNG LÚC) ================= */}
+      {/* ================= HỆ THỐNG PUSH NOTIFICATION PWA ================= */}
       {pushStatus && (
         <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 ${cardBg}`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-800">
             <div>
               <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
                 <BellRing className="w-5 h-5 text-amber-500" />
-                3. Lịch Push PWA Chống Tràn Lan (3 Khung Giờ Cố Định / Ngày & Chia Đều Request)
+                Lịch Thông Báo Tự Động
               </h3>
-              <p className={`text-xs mt-0.5 ${textSecondary}`}>
-                Chống làm phiền user khi thứ hạng hoặc bài học thay đổi liên tục: Mỗi ngày chỉ gửi đúng{' '}
-                <strong>
-                  1 lần buổi sáng ({String(morningHour).padStart(2, '0')}:
-                  {String(morningMinute).padStart(2, '0')} - Có bài mới)
-                </strong>
-                ,{' '}
-                <strong>
-                  1 lần tối ({String(eveningTop1Hour).padStart(2, '0')}:
-                  {String(eveningTop1Minute).padStart(2, '0')} - Top 1 hiện tại)
-                </strong>{' '}
-                và{' '}
-                <strong>
-                  1 lần đêm ({String(nightUnstudiedHour).padStart(2, '0')}:
-                  {String(nightUnstudiedMinute).padStart(2, '0')} - Nhắc USER chưa làm bài)
-                </strong>
-                , chia đều từng request.
-              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               {pushStatus.queueStatus?.currentVnTime && (
@@ -3222,21 +3202,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Smartphone className="w-4 h-4" />
                 {pushStatus.queueStatus?.isProcessing
-                  ? `Đang chia đều: còn ${pushStatus.queueStatus.pendingRequestsCount} request...`
-                  : `${pushStatus.stats?.totalPwaDevices || 0} Thiết bị cài PWA sẵn sàng`}
+                  ? `Đang gửi: còn ${pushStatus.queueStatus.pendingRequestsCount}...`
+                  : `${pushStatus.stats?.totalPwaDevices || 0} Thiết bị PWA`}
               </span>
             </div>
           </div>
 
-          {/* 3 Khung giờ Push cố định trong ngày (Chống spam thông báo tràn lan) */}
+          {/* 3 Khung giờ Push trong ngày */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {/* Khung 1: Buổi sáng — Có bài mới */}
+            {/* Khung 1: Buổi sáng */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-600 text-white">
-                    🌅 Buổi sáng ({String(morningHour).padStart(2, '0')}:
-                    {String(morningMinute).padStart(2, '0')}) • 1 lần/ngày
+                    Sáng ({String(morningHour).padStart(2, '0')}:
+                    {String(morningMinute).padStart(2, '0')})
                   </span>
                   <span
                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
@@ -3245,16 +3225,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    {pushStatus.queueStatus?.sentToday?.morningNewDay ? '✓ Đã gửi hôm nay' : 'Chưa gửi hôm nay'}
+                    {pushStatus.queueStatus?.sentToday?.morningNewDay ? 'Đã gửi hôm nay' : 'Chưa gửi'}
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  🔓 Có bài mới (Mở khóa ngày học)
+                  Bài học mới
                 </h4>
-                <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Chỉ thông báo <strong>1 lần vào buổi sáng</strong> (hoặc lần mở khóa đầu tiên trong ngày). Rải đều request tới{' '}
-                  <strong>{pushStatus.stats?.totalPwaDevices || 0} thiết bị PWA</strong>.
-                </p>
               </div>
               <button
                 type="button"
@@ -3263,18 +3239,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Send className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.morningNewDay
-                  ? `Đã gửi sáng nay (Bấm để gửi lại Day ${selectedDay})`
-                  : `Push "Có bài mới" (Day ${selectedDay})`}
+                  ? `Gửi lại (Ngày ${selectedDay})`
+                  : `Gửi thông báo (Ngày ${selectedDay})`}
               </button>
             </div>
 
-            {/* Khung 2: Thông báo Top 1 Bảng xếp hạng */}
+            {/* Khung 2: Thông báo Top 1 */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
-                    👑 {String(eveningTop1Hour).padStart(2, '0')}:
-                    {String(eveningTop1Minute).padStart(2, '0')} • 1 lần/ngày
+                    Tối ({String(eveningTop1Hour).padStart(2, '0')}:
+                    {String(eveningTop1Minute).padStart(2, '0')})
                   </span>
                   <span
                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
@@ -3283,25 +3259,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    {pushStatus.queueStatus?.sentToday?.evening19hTop1 ? '✓ Đã gửi hôm nay' : 'Chờ gửi'}
+                    {pushStatus.queueStatus?.sentToday?.evening19hTop1 ? 'Đã gửi hôm nay' : 'Chưa gửi'}
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  👑 Vinh danh Top 1 Bảng Xếp Hạng ({String(eveningTop1Hour).padStart(2, '0')}:
-                  {String(eveningTop1Minute).padStart(2, '0')})
+                  Vinh danh Top 1
                 </h4>
-                <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Đúng{' '}
-                  <strong>
-                    {String(eveningTop1Hour).padStart(2, '0')}:{String(eveningTop1Minute).padStart(2, '0')}
-                  </strong>{' '}
-                  hệ thống gửi thông báo vinh danh Top 1 Bảng xếp hạng:{' '}
-                  <strong>
-                    {pushStatus.stats?.currentTop1?.fullName || 'Chưa có'} (
-                    {pushStatus.stats?.currentTop1?.totalScore?.toLocaleString() || 0}đ)
-                  </strong>
-                  .
-                </p>
               </div>
               <button
                 type="button"
@@ -3310,18 +3273,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Trophy className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.evening19hTop1
-                  ? 'Đã gửi bản tin Top 1 (Bấm để gửi lại)'
-                  : `Push Bản tin Top 1 (${String(eveningTop1Hour).padStart(2, '0')}:${String(eveningTop1Minute).padStart(2, '0')})`}
+                  ? 'Gửi lại Top 1'
+                  : 'Gửi thông báo Top 1'}
               </button>
             </div>
 
-            {/* Khung 3: 23h đêm — Thông báo cho những ai là USER mà chưa làm bài */}
+            {/* Khung 3: Đêm — Nhắc người chưa làm bài */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
-                    🌙 {String(nightUnstudiedHour).padStart(2, '0')}:
-                    {String(nightUnstudiedMinute).padStart(2, '0')} Đêm • Chỉ USER chưa làm
+                    Đêm ({String(nightUnstudiedHour).padStart(2, '0')}:
+                    {String(nightUnstudiedMinute).padStart(2, '0')})
                   </span>
                   <span
                     className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
@@ -3330,24 +3293,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    {pushStatus.queueStatus?.sentToday?.night23hUnstudied ? '✓ Đã gửi hôm nay' : 'Chờ gửi'}
+                    {pushStatus.queueStatus?.sentToday?.night23hUnstudied ? 'Đã gửi hôm nay' : 'Chưa gửi'}
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  ⏰ Nhắc USER chưa làm bài ({String(nightUnstudiedHour).padStart(2, '0')}:
-                  {String(nightUnstudiedMinute).padStart(2, '0')})
+                  Nhắc chưa làm bài ({pushStatus.stats?.unstudiedAccountsCount || 0})
                 </h4>
-                <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                  Đúng{' '}
-                  <strong>
-                    {String(nightUnstudiedHour).padStart(2, '0')}:{String(nightUnstudiedMinute).padStart(2, '0')} đêm
-                  </strong>{' '}
-                  chỉ lọc các tài khoản có <code>role = USER</code> cài PWA mà chưa hoàn thành bài ({' '}
-                  <strong className="text-rose-500">
-                    {pushStatus.stats?.unstudiedAccountsCount || 0} USER
-                  </strong>{' '}
-                  chưa làm {pushStatus.stats?.latestUnlockedDay?.title || 'bài hôm nay'}).
-                </p>
               </div>
               <button
                 type="button"
@@ -3356,22 +3307,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <BellRing className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.night23hUnstudied
-                  ? `Đã nhắc (Bấm để gửi lại ${pushStatus.stats?.unstudiedAccountsCount || 0} USER)`
-                  : `Push Nhắc ${pushStatus.stats?.unstudiedAccountsCount || 0} USER chưa làm`}
+                  ? 'Gửi lại nhắc nhở'
+                  : 'Gửi nhắc nhở'}
               </button>
             </div>
           </div>
 
-          {/* Bộ điều khiển Khung Giờ & Tốc độ chia đều Request (Staggered Rate-Limit Config) */}
+          {/* Bộ điều khiển Khung Giờ & Tốc độ */}
           <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className={`text-xs sm:text-sm font-black ${textPrimary}`}>
-                  ⚙️ Cấu hình 3 Khung Giờ Trong Ngày & Chia Đều Request (Không gửi dồn cùng lúc)
+                  ⚙️ Cài đặt khung giờ & Tốc độ gửi
                 </h4>
-                <p className={`text-[11px] ${textSecondary}`}>
-                  Mỗi khung giờ chỉ tự động kích hoạt tối đa 1 lần/ngày và chia đều khoảng cách giữa từng request để chống quá tải & chống spam thông báo.
-                </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <label className="text-xs font-extrabold flex items-center gap-1.5 cursor-pointer">
@@ -3380,14 +3328,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     checked={autoRemindUnstudied}
                     onChange={(e) => setAutoRemindUnstudied(e.target.checked)}
                   />
-                  <span>Bật lịch tự động</span>
+                  <span>Tự động theo lịch</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => handleSavePushConfig(true)}
                   className="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-[11px] font-extrabold transition"
                 >
-                  Đặt lại hạn mức hôm nay
+                  Đặt lại lượt hôm nay
                 </button>
               </div>
             </div>
@@ -3395,7 +3343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  ⏰ Giờ & Phút Bài mới (Sáng)
+                  Giờ sáng (Bài mới)
                 </label>
                 <input
                   type="time"
@@ -3412,7 +3360,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }}
                   style={{ colorScheme: darkMode ? 'dark' : 'light' }}
                   className={`w-full px-2.5 py-2 rounded-xl border text-center text-xs sm:text-sm font-black outline-none tracking-wide cursor-pointer ${inputBg}`}
-                  title="Chọn giờ và phút bài mới (HH:mm)"
                 />
                 <div className="flex items-center justify-between gap-1 mt-1.5">
                   {[0, 15, 30, 45].map((m) => (
@@ -3425,7 +3372,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           ? 'bg-blue-600 text-white shadow-xs'
                           : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
                       }`}
-                      title={`Đặt phút là :${String(m).padStart(2, '0')}`}
                     >
                       :{String(m).padStart(2, '0')}
                     </button>
@@ -3434,7 +3380,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  ⏰ Giờ & Phút Top 1 (Tối)
+                  Giờ tối (Top 1)
                 </label>
                 <input
                   type="time"
@@ -3451,7 +3397,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }}
                   style={{ colorScheme: darkMode ? 'dark' : 'light' }}
                   className={`w-full px-2.5 py-2 rounded-xl border text-center text-xs sm:text-sm font-black outline-none tracking-wide cursor-pointer ${inputBg}`}
-                  title="Chọn giờ và phút vinh danh Top 1 (HH:mm)"
                 />
                 <div className="flex items-center justify-between gap-1 mt-1.5">
                   {[0, 15, 30, 45].map((m) => (
@@ -3464,7 +3409,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                           : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
                       }`}
-                      title={`Đặt phút là :${String(m).padStart(2, '0')}`}
                     >
                       :{String(m).padStart(2, '0')}
                     </button>
@@ -3473,7 +3417,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  ⏰ Giờ & Phút Nhắc USER (Đêm)
+                  Giờ đêm (Nhắc nhở)
                 </label>
                 <input
                   type="time"
@@ -3490,7 +3434,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }}
                   style={{ colorScheme: darkMode ? 'dark' : 'light' }}
                   className={`w-full px-2.5 py-2 rounded-xl border text-center text-xs sm:text-sm font-black outline-none tracking-wide cursor-pointer ${inputBg}`}
-                  title="Chọn giờ và phút nhắc USER (HH:mm)"
                 />
                 <div className="flex items-center justify-between gap-1 mt-1.5">
                   {[0, 15, 30, 45].map((m) => (
@@ -3503,7 +3446,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           ? 'bg-rose-600 text-white shadow-xs'
                           : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
                       }`}
-                      title={`Đặt phút là :${String(m).padStart(2, '0')}`}
                     >
                       :{String(m).padStart(2, '0')}
                     </button>
@@ -3512,7 +3454,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Tổng khung rải đều (giây)
+                  Thời gian rải đều (giây)
                 </label>
                 <input
                   type="number"
@@ -3541,7 +3483,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Cách nhau tối thiểu (ms)
+                  Khoảng cách tối thiểu (ms)
                 </label>
                 <input
                   type="number"
@@ -3578,30 +3520,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Save className="w-3.5 h-3.5" />
                   Lưu cấu hình
                 </button>
-                <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 mt-1.5 truncate">
-                  Đồng bộ tức thì 3 API
-                </p>
               </div>
             </div>
           </div>
 
-          {/* Danh sách tài khoản cài PWA chưa học & Tiến độ chiến dịch Push đang rải đều */}
+          {/* Danh sách tài khoản chưa học & Tiến độ gửi */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Cột trái: Danh sách những ai có tài khoản PWA mà chưa học */}
+            {/* Cột trái: Chưa học */}
             <div className={`lg:col-span-5 p-4 rounded-2xl border space-y-2.5 ${subCardBg}`}>
               <div className="flex items-center justify-between">
                 <h4 className={`text-xs font-black uppercase tracking-wider ${textPrimary}`}>
-                  📋 Danh sách USER cài PWA chưa làm bài ({pushStatus.stats?.unstudiedAccountsCount || 0})
+                  Chưa làm bài ({pushStatus.stats?.unstudiedAccountsCount || 0})
                 </h4>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                  Nhắc lúc {String(nightUnstudiedHour).padStart(2, '0')}:{String(nightUnstudiedMinute).padStart(2, '0')} đêm
+                  {String(nightUnstudiedHour).padStart(2, '0')}:{String(nightUnstudiedMinute).padStart(2, '0')}
                 </span>
               </div>
 
               <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 {(pushStatus.stats?.unstudiedAccounts || []).length === 0 ? (
                   <p className="text-xs text-emerald-600 font-bold py-4 text-center">
-                    🎉 Tất cả tài khoản cài PWA đều đã hoàn thành bài học hôm nay!
+                    Tất cả tài khoản đều đã hoàn thành bài học hôm nay!
                   </p>
                 ) : (
                   (pushStatus.stats?.unstudiedAccounts || []).map((u: any) => (
@@ -3622,8 +3561,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                         <div className={`text-[10px] ${textSecondary}`}>
                           {u.neverStudiedAnyDay
-                            ? '⚠️ Có tài khoản nhưng chưa học ngày nào (0/21)'
-                            : `Đã học ${u.completedDays}/21 ngày • Chưa làm ${u.targetDayTitle}`}
+                            ? 'Chưa học ngày nào (0/21)'
+                            : `Đã học ${u.completedDays}/21 ngày`}
                         </div>
                       </div>
                       <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-extrabold shrink-0">
@@ -3635,21 +3574,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Cột phải: Tiến độ rải đều Request thời gian thực (Staggered Queue Monitor) */}
+            {/* Cột phải: Tiến độ */}
             <div className={`lg:col-span-7 p-4 rounded-2xl border space-y-2.5 ${subCardBg}`}>
               <div className="flex items-center justify-between">
                 <h4 className={`text-xs font-black uppercase tracking-wider ${textPrimary}`}>
-                  📡 Tiến độ rải đều Request Push (Trực tiếp từng nhịp)
+                  Tiến độ gửi thông báo
                 </h4>
-                <span className={`text-[10px] font-bold ${textSecondary}`}>
-                  Tuần tự 1 request / nhịp
-                </span>
               </div>
 
               <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
                 {(pushStatus.campaigns || []).length === 0 ? (
                   <p className={`text-xs py-6 text-center ${textSecondary}`}>
-                    Chưa có chiến dịch Push nào. Hãy bấm 1 trong 3 nút Push bên trên hoặc mở khóa ngày mới để xem các request được chia đều!
+                    Chưa có thông báo nào.
                   </p>
                 ) : (
                   (pushStatus.campaigns || []).slice(0, 5).map((camp: any) => {
@@ -3717,60 +3653,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* ================= 5. TAB AN NINH & BẢO MẬT (SECURITY) ================= */}
       {adminSubTab === 'security' && (
         <div className="space-y-4">
-      {/* ================= 4. LÁ CHẮN AN NINH & PHÒNG THỦ TẤN CÔNG (SQL INJECTION, CHỐNG F12, CHỐNG DDOS) ================= */}
       <div className={`rounded-3xl p-4 sm:p-6 border shadow-sm backdrop-blur-md space-y-5 ${cardBg}`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200/60 dark:border-slate-800">
           <div>
             <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
               <ShieldCheck className="w-5 h-5 text-emerald-500" />
-              4. Lá Chắn An Ninh & Phòng Thủ Tấn Công Cao Cấp (SQL Injection, Chống F12, Chống DDoS)
+              Bảo Mật & Tường Lửa
             </h3>
-            <p className={`text-xs mt-0.5 ${textSecondary}`}>
-              Bảo vệ đa lớp: WAF đệ quy chống SQLi, chặn phím F12 & DevTools chống lộ đề thi / gian lận, và cơ chế IP Jail tự động triệt tiêu DDoS.
-            </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              Hệ thống bảo vệ đang BẬT
+              Đang hoạt động
             </span>
           </div>
         </div>
 
-        {/* 3 Cột chức năng an ninh trọng điểm */}
+        {/* 3 Cột chức năng an ninh */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {/* Cột 1: Chống SQL Injection */}
           <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-600 text-white">
-                  Lớp WAF • Mức Tối Đa
+                  WAF
                 </span>
-                <span className="text-xs font-black text-indigo-500">24/7 Active</span>
+                <span className="text-xs font-black text-indigo-500">Active</span>
               </div>
               <h4 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
-                🛡️ Chống SQL Injection
+                Chống SQL Injection
               </h4>
-              <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                Bộ lọc WAF quét sâu đệ quy mọi URL, Query, Route Params, Headers và Body JSON.
-              </p>
               <ul className="text-[11px] space-y-1 font-bold text-slate-600 dark:text-slate-300">
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Chặn <code>UNION SELECT</code> & DDL (<code>DROP</code>, <code>ALTER</code>)
+                  ✓ Chặn <code>UNION SELECT</code> & DDL
                 </li>
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Chặn Tautology (<code>' OR '1'='1</code>, <code>admin'--</code>)
+                  ✓ Chặn Tautology (<code>' OR '1'='1</code>)
                 </li>
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Chặn Time-based Blind (<code>pg_sleep</code>, <code>benchmark</code>)
+                  ✓ Chặn Time-based Blind
                 </li>
                 <li className="flex items-center gap-1 text-rose-500">
-                  ⚡ Phát hiện SQLi phạt 3 strikes = Khóa IP lập tức
+                  ⚡ 3 strikes = Khóa IP lập tức
                 </li>
               </ul>
-            </div>
-            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-500">
-              Trạng thái: <strong>Tự động phân tích & từ chối HTTP 403</strong>
             </div>
           </div>
 
@@ -3779,33 +3705,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
-                  Phía Client • Toàn Cục
+                  Client
                 </span>
                 <span className="text-xs font-black text-rose-500">Anti-Cheat</span>
               </div>
               <h4 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
-                🚫 Chống F12 & DevTools
+                Chống F12 & DevTools
               </h4>
-              <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                Chống người thi xem đáp án ẩn, soi mã nguồn hoặc gian lận điểm số.
-              </p>
               <ul className="text-[11px] space-y-1 font-bold text-slate-600 dark:text-slate-300">
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Chặn phím <code>F12</code>, <code>Ctrl+Shift+I/J/C</code>, <code>Ctrl+U</code>
+                  ✓ Chặn phím <code>F12</code>, <code>Ctrl+Shift+I</code>
                 </li>
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Vô hiệu hóa chuột phải (Context Menu)
+                  ✓ Vô hiệu hóa chuột phải
                 </li>
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Bẫy phát hiện mở DevTools (Window Metrics & Console Trap)
+                  ✓ Bẫy phát hiện DevTools
                 </li>
                 <li className="flex items-center gap-1 text-amber-500">
-                  ⚠️ Hiển thị màn hình chắn cảnh báo khi phát hiện mở DevTools
+                  ⚠️ Cảnh báo khi mở DevTools
                 </li>
               </ul>
-            </div>
-            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-500">
-              Trạng thái: <strong>Vô hiệu hóa Console & Tắt Source Maps</strong>
             </div>
           </div>
 
@@ -3814,47 +3734,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
-                  Tầng Mạng • IP Jail
+                  IP Jail
                 </span>
                 <span className="text-xs font-black text-amber-500">DDoS Defense</span>
               </div>
               <h4 className={`text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
-                ⚡ Chống DDoS & Bot Scanners
+                Chống DDoS & Bot
               </h4>
-              <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                Tự động ngăn chặn lũ lụt request, tấn công Slowloris và cạn kiệt tài nguyên.
-              </p>
               <ul className="text-[11px] space-y-1 font-bold text-slate-600 dark:text-slate-300">
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Rate-limit phân tầng (Auth: 8-10 req/10p, API: 120 req/p)
+                  ✓ Rate-limit phân tầng API
                 </li>
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Chặn đứng Bot dò quét <code>.env</code>, <code>.git</code>, <code>wp-admin</code>
+                  ✓ Chặn Bot quét file hệ thống
                 </li>
                 <li className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  ✓ Chặn Burst Flood (&gt;35 req/giây từ 1 IP)
+                  ✓ Chặn Burst Flood (&gt;35 req/s)
                 </li>
                 <li className="flex items-center gap-1 text-indigo-500">
-                  🛡️ Timeouts chống Slowloris (10s) & Body Limit nghiêm ngặt
+                  🛡️ Timeout 10s & Body Limit
                 </li>
               </ul>
-            </div>
-            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-500">
-              Trạng thái: <strong>Tự động giam IP vi phạm (30 phút)</strong>
             </div>
           </div>
         </div>
 
-        {/* Danh sách IP đang bị khóa (IP Threat Jail) */}
+        {/* Danh sách IP đang bị khóa */}
         <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
           <div className="flex items-center justify-between">
             <div>
               <h4 className={`text-xs sm:text-sm font-black flex items-center gap-1.5 ${textPrimary}`}>
-                🔒 Danh sách IP Đang Bị Khóa Tạm Thời (IP Jail)
+                🔒 Danh sách IP bị khóa (IP Jail)
               </h4>
-              <p className={`text-[11px] ${textSecondary}`}>
-                Các IP cố tình tấn công SQL Injection, quét file hệ thống hoặc vi phạm tần suất sẽ bị ngắt kết nối ngay từ tầng tiếp nhận để tiết kiệm 100% tài nguyên server.
-              </p>
             </div>
             <span
               className={`px-2.5 py-1 rounded-xl text-xs font-black ${
@@ -3870,7 +3781,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {(!securityStats?.threatStats?.bannedIps || securityStats.threatStats.bannedIps.length === 0) ? (
               <p className="text-xs text-center py-4 text-emerald-600 dark:text-emerald-400 font-bold">
-                🎉 Không có địa chỉ IP nào đang bị cấm. Hệ thống đang vận hành an toàn và ổn định!
+                Không có địa chỉ IP nào bị cấm.
               </p>
             ) : (
               securityStats.threatStats.bannedIps.map((item: any) => (
@@ -4251,7 +4162,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {editingQuestion.questionType === 'FILL_IN_THE_BLANK' && (
               <div>
                 <label className="block text-xs font-bold text-indigo-500 mb-1">
-                  Phiên âm & Nghĩa hiển thị mẫu (statementText)
+                  Phiên âm & Nghĩa (statementText)
                 </label>
                 <input
                   type="text"
@@ -4412,16 +4323,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* 4. Danh sách Đáp án & Chọn đáp án đúng (Hoặc Ô nhập cho câu hỏi điền từ) */}
+            {/* 4. Danh sách Đáp án hoặc Điền từ */}
             {editingQuestion.questionType === 'FILL_IN_THE_BLANK' ? (
               <div className={`p-4 rounded-2xl border space-y-3 ${subCardBg}`}>
                 <div className="flex items-center gap-2 text-indigo-500 font-black text-sm">
                   <Sparkles className="w-4 h-4" />
-                  <span>Dạng câu hỏi điền từ (Fill in the blank)</span>
+                  <span>Câu hỏi điền từ</span>
                 </div>
                 <div>
                   <label className={`block text-xs font-bold mb-1 ${textSecondary}`}>
-                    Từ vựng cần điền chính xác (Đáp án đúng) *
+                    Từ cần điền (Đáp án đúng) *
                   </label>
                   <input
                     type="text"
@@ -4434,12 +4345,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         correctOptionId: e.target.value.trim().toLowerCase(),
                       })
                     }
-                    placeholder="ví dụ: registration"
+                    placeholder="registration"
                     className={`w-full px-3.5 py-2.5 rounded-xl border border-indigo-400 text-sm font-black ${inputBg}`}
                   />
-                  <p className={`text-[11px] mt-1 ${textSecondary}`}>
-                    Học viên sẽ gõ từ này vào ô trả lời. Hệ thống chấm điểm tự động bỏ khoảng trắng thừa và không phân biệt chữ hoa/thường.
-                  </p>
                 </div>
               </div>
             ) : (
@@ -4637,11 +4545,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
                 <div>
                   <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
-                    Sửa 5 Từ Vựng Luyện Đọc Câu 11 — {dayDetail?.title || `Day ${selectedDay}`}
+                    Từ Vựng Câu 11 ({dayDetail?.title || `Day ${selectedDay}`})
                   </h3>
-                  <p className={`text-xs ${textSecondary}`}>
-                    Thay đổi từ, phiên âm IPA, nghĩa tiếng Việt và mẹo phát âm cho 5 từ luyện đọc.
-                  </p>
                 </div>
               </div>
               <button
@@ -4662,7 +4567,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     <div className="flex items-center justify-between">
                       <span className="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-xs font-black">
-                        Từ vựng #{idx + 1}
+                        Từ #{idx + 1}
                       </span>
                       <button
                         type="button"
@@ -4677,7 +4582,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
                         <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Từ tiếng Anh (Word) *
+                          Từ vựng *
                         </label>
                         <input
                           type="text"
@@ -4692,13 +4597,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             };
                             setEditingQ11Words(next);
                           }}
-                          placeholder="ví dụ: Approval"
+                          placeholder="Approval"
                           className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-black ${inputBg}`}
                         />
                       </div>
                       <div>
                         <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Phiên âm quốc tế (IPA) *
+                          Phiên âm (IPA) *
                         </label>
                         <input
                           type="text"
@@ -4709,7 +4614,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             next[idx] = { ...next[idx], ipa: e.target.value };
                             setEditingQ11Words(next);
                           }}
-                          placeholder="ví dụ: /əˈpruː.vəl/"
+                          placeholder="/əˈpruː.vəl/"
                           className={`w-full px-3 py-2 rounded-xl border font-mono text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 ${inputBg}`}
                         />
                       </div>
@@ -4718,7 +4623,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
                         <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Nghĩa tiếng Việt (Meaning) *
+                          Nghĩa tiếng Việt *
                         </label>
                         <input
                           type="text"
@@ -4729,13 +4634,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             next[idx] = { ...next[idx], meaningVi: e.target.value };
                             setEditingQ11Words(next);
                           }}
-                          placeholder="ví dụ: Sự phê duyệt"
+                          placeholder="Sự phê duyệt"
                           className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-semibold ${inputBg}`}
                         />
                       </div>
                       <div>
                         <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Mẹo phát âm (Tip)
+                          Mẹo phát âm
                         </label>
                         <input
                           type="text"
@@ -4745,7 +4650,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             next[idx] = { ...next[idx], tip: e.target.value };
                             setEditingQ11Words(next);
                           }}
-                          placeholder="ví dụ: Nhấn âm 2, âm /uː/ kéo dài"
+                          placeholder="Nhấn âm 2..."
                           className={`w-full px-3 py-2 rounded-xl border text-xs ${inputBg}`}
                         />
                       </div>
@@ -4794,7 +4699,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* MODAL B: NHẬP ĐỀ THI HÀNG LOẠT TỪ EXCEL / CSV */}
+      {/* MODAL: NHẬP ĐỀ THI HÀNG LOẠT (EXCEL / CSV) */}
       {showBulkModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div
@@ -4812,11 +4717,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
                 <div>
                   <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
-                    📥 Tạo & Nhập Đề Thi Hàng Loạt (Excel / CSV)
+                    Nhập Đề Thi (Excel / CSV)
                   </h3>
-                  <p className={`text-xs ${textSecondary}`}>
-                    Copy/paste trực tiếp các ô từ Excel hoặc tải lên file .csv/.tsv. Hỗ trợ nhập 1 ngày hoặc toàn bộ các ngày.
-                  </p>
                 </div>
               </div>
               <button
@@ -4830,20 +4732,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Scrollable content */}
             <div className="space-y-4 overflow-y-auto pr-1 flex-1">
-              {/* Toolbar: Nút tải template, upload file, nạp ví dụ */}
+              {/* Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={handleDownloadTemplate}
                     className="px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/70 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
-                    title="Tải file Excel mẫu chuẩn UTF-8 (không bị lỗi font tiếng Việt)"
                   >
-                    <Download className="w-3.5 h-3.5" /> Tải File Mẫu Excel (.CSV)
+                    <Download className="w-3.5 h-3.5" /> File Mẫu (.CSV)
                   </button>
 
                   <label className="px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-blue-800 dark:text-blue-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs">
-                    <FileUp className="w-3.5 h-3.5" /> Tải Lên File (.csv / .tsv / .txt)
+                    <FileUp className="w-3.5 h-3.5" /> Tải Lên File
                     <input
                       type="file"
                       accept=".csv,.tsv,.txt"
@@ -4856,9 +4757,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     type="button"
                     onClick={handleLoadSampleData}
                     className="px-3 py-1.5 rounded-xl border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/70 text-purple-800 dark:text-purple-300 text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
-                    title="Nạp sẵn 6 câu hỏi mẫu đủ cả 5 dạng câu vào khung nhập"
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> Nạp Dữ Liệu Mẫu
+                    <Sparkles className="w-3.5 h-3.5" /> Dữ Liệu Mẫu
                   </button>
                 </div>
 
@@ -4878,7 +4778,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* Phạm vi ngày */}
                 <div>
                   <span className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${textSecondary}`}>
-                    🎯 1. Phạm Vi Ngày Nhập Đề
+                    Phạm Vi Ngày
                   </span>
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
@@ -4891,7 +4791,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className="text-emerald-600 focus:ring-emerald-500"
                       />
                       <span>
-                        Tự động theo cột <b>DayNumber</b> trong file (Nhập được nhiều ngày cùng lúc)
+                        Theo cột <b>DayNumber</b> trong file
                       </span>
                     </label>
                     <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
@@ -4904,7 +4804,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className="text-emerald-600 focus:ring-emerald-500"
                       />
                       <span>
-                        Chỉ nhập toàn bộ vào <b>Day {selectedDay} ({dayDetail?.title || `Day ${selectedDay}`})</b>
+                        Chỉ nhập vào <b>Day {selectedDay}</b>
                       </span>
                     </label>
                   </div>
@@ -4913,7 +4813,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* Chế độ ghi */}
                 <div>
                   <span className={`block text-[11px] font-black uppercase tracking-wider mb-2 ${textSecondary}`}>
-                    ⚙️ 2. Chế Độ Ghi Dữ Liệu
+                    Chế Độ Ghi
                   </span>
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
@@ -4926,7 +4826,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className="text-amber-600 focus:ring-amber-500"
                       />
                       <span className="text-amber-700 dark:text-amber-400 font-bold">
-                        Ghi đè (Xóa sạch câu hỏi cũ của các ngày được nhập)
+                        Ghi đè (xóa câu hỏi cũ)
                       </span>
                     </label>
                     <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
@@ -4938,7 +4838,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onChange={() => setBulkWriteMode('append')}
                         className="text-emerald-600 focus:ring-emerald-500"
                       />
-                      <span>Thêm tiếp vào sau (Giữ câu hỏi cũ, nối tiếp vào cuối đề)</span>
+                      <span>Thêm tiếp vào sau</span>
                     </label>
                   </div>
                 </div>
@@ -4948,7 +4848,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className={`text-xs font-bold ${textSecondary}`}>
-                    📋 Khung Dán Dữ Liệu (Copy từ Excel rồi Ctrl+V vào đây):
+                    Dán dữ liệu từ Excel / CSV:
                   </label>
                   <span className="text-[11px] font-mono text-slate-400">
                     {bulkRawText.split(/\r?\n/).filter((l) => l.trim()).length} dòng dữ liệu
@@ -4958,7 +4858,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   value={bulkRawText}
                   onChange={(e) => setBulkRawText(e.target.value)}
                   rows={6}
-                  placeholder={`Dán nội dung từ bảng Excel hoặc file CSV vào đây...\nVí dụ các cột:\nDayNumber\tOrderIndex\tQuestionType\tCategoryLabel\tPromptText\tStatementText\tTargetWord\tOptionA\tOptionB\tOptionC\tOptionD\tCorrectOption\tExplanation\tPoints\tPromptAudioUrl\tPromptVideoUrl`}
+                  placeholder="Dán nội dung từ bảng Excel hoặc file CSV vào đây..."
                   className={`w-full px-3.5 py-2.5 rounded-2xl border font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inputBg}`}
                 />
               </div>
@@ -5114,7 +5014,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* ================= MODAL THÊM / SỬA SỰ KIỆN (EVENT POPUP MODAL) ================= */}
+      {/* ================= MODAL THÊM / SỬA SỰ KIỆN ================= */}
       {showEventModal && editingEvent && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div
@@ -5133,12 +5033,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div>
                   <h3 className={`text-base font-black truncate ${textPrimary}`}>
                     {isCreatingEvent
-                      ? '✨ Thêm Sự Kiện Pop-up Mới'
-                      : `✏️ Chỉnh Sửa Sự Kiện: ${editingEvent.titleC || editingEvent.titleA}`}
+                      ? 'Thêm Sự Kiện'
+                      : 'Chỉnh Sửa Sự Kiện'}
                   </h3>
-                  <p className={`text-xs ${textSecondary}`}>
-                    Cấu hình tiêu đề, ảnh minh họa, màu chủ đạo, thể lệ chi tiết và trạng thái hiển thị
-                  </p>
                 </div>
               </div>
               <button
@@ -5152,7 +5049,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Form Body (Scrollable) */}
             <form onSubmit={handleSaveEvent} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-              {/* 1. Trạng Thái Ẩn/Hiện Công Khai (Feature cốt lõi) */}
+              {/* 1. Trạng Thái Ẩn/Hiện Công Khai */}
               <div
                 className={`p-3.5 sm:p-4 rounded-2xl border transition flex items-center justify-between gap-3 ${
                   editingEvent.isVisible !== false
@@ -5176,12 +5073,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <div>
                     <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
-                      Trạng thái hiển thị công khai
-                    </div>
-                    <div className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400">
-                      {editingEvent.isVisible !== false
-                        ? '🟢 Đang mở: Người dùng sẽ thấy sự kiện này trên Pop-up và Trang chủ.'
-                        : '🔒 Đang ẩn: Học viên không nhìn thấy. Dùng để mở dần từng sự kiện sau.'}
+                      Trạng thái hiển thị
                     </div>
                   </div>
                 </div>
@@ -5199,7 +5091,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       : 'bg-slate-700 hover:bg-slate-600 text-amber-300'
                   }`}
                 >
-                  {editingEvent.isVisible !== false ? 'Đang Mở' : 'Đang Ẩn'}
+                  {editingEvent.isVisible !== false ? 'Hiển thị' : 'Đang ẩn'}
                 </button>
               </div>
 
@@ -5207,7 +5099,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Mã số hiển thị (Num)
+                    Mã số
                   </label>
                   <input
                     type="text"
@@ -5217,14 +5109,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         prev ? { ...prev, num: e.target.value } : null
                       )
                     }
-                    placeholder="01, 02, 03..."
+                    placeholder="01"
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                     required
                   />
                 </div>
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Thứ tự sắp xếp (Order Index)
+                    Thứ tự
                   </label>
                   <input
                     type="number"
@@ -5240,11 +5132,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* 3. Tiêu đề 3 dòng (Poster Design: Title A, B, C) */}
+              {/* 3. Tiêu đề 3 dòng */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Tiêu đề chính 1 (Title A)
+                    Tiêu đề 1
                   </label>
                   <input
                     type="text"
@@ -5254,14 +5146,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         prev ? { ...prev, titleA: e.target.value } : null
                       )
                     }
-                    placeholder="vd: RING THE, RUNG CHUÔNG"
+                    placeholder="RING THE"
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                     required
                   />
                 </div>
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Phụ đề dòng 2 (Title B) - tùy chọn
+                    Tiêu đề 2 (tùy chọn)
                   </label>
                   <input
                     type="text"
@@ -5271,13 +5163,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         prev ? { ...prev, titleB: e.target.value } : null
                       )
                     }
-                    placeholder="vd: GOLDEN, THE"
+                    placeholder="GOLDEN"
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                   />
                 </div>
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Điểm nhấn dòng 3 (Title C)
+                    Tiêu đề 3
                   </label>
                   <input
                     type="text"
@@ -5287,18 +5179,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         prev ? { ...prev, titleC: e.target.value } : null
                       )
                     }
-                    placeholder="vd: BELL, CHUÔNG VÀNG"
+                    placeholder="BELL"
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                     required
                   />
                 </div>
               </div>
 
-              {/* 4. Màu chủ đạo (Theme Color) & Biểu tượng (Icon) */}
+              {/* 4. Màu chủ đạo & Biểu tượng */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Màu sắc chủ đạo (Theme)
+                    Màu sắc
                   </label>
                   <div className="grid grid-cols-3 gap-1.5">
                     {[
@@ -5332,7 +5224,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Biểu tượng hiển thị (Icon)
+                    Biểu tượng
                   </label>
                   <select
                     value={editingEvent.iconName || 'Sparkles'}
@@ -5343,24 +5235,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                   >
-                    <option value="Bell">🔔 Bell (Chuông vàng)</option>
-                    <option value="Clapperboard">🎬 Clapperboard (Lồng tiếng / Phim)</option>
-                    <option value="CalendarDays">📅 CalendarDays (Lịch / Daily)</option>
-                    <option value="Trophy">🏆 Trophy (Cúp vô địch)</option>
-                    <option value="Sparkles">✨ Sparkles (Tỏa sáng / Nổi bật)</option>
-                    <option value="Star">⭐ Star (Ngôi sao)</option>
-                    <option value="Target">🎯 Target (Mục tiêu)</option>
-                    <option value="Gift">🎁 Gift (Phần thưởng)</option>
-                    <option value="Flame">🔥 Flame (Ngọn lửa / Sôi động)</option>
-                    <option value="Zap">⚡ Zap (Tốc độ / Năng lượng)</option>
+                    <option value="Bell">🔔 Chuông</option>
+                    <option value="Clapperboard">🎬 Lồng tiếng</option>
+                    <option value="CalendarDays">📅 Lịch</option>
+                    <option value="Trophy">🏆 Cúp</option>
+                    <option value="Sparkles">✨ Tỏa sáng</option>
+                    <option value="Star">⭐ Ngôi sao</option>
+                    <option value="Target">🎯 Mục tiêu</option>
+                    <option value="Gift">🎁 Phần thưởng</option>
+                    <option value="Flame">🔥 Ngọn lửa</option>
+                    <option value="Zap">⚡ Tốc độ</option>
                   </select>
                 </div>
               </div>
 
-              {/* 5. Mô tả ngắn (Desc) */}
+              {/* 5. Mô tả ngắn */}
               <div>
                 <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                  Mô tả ngắn gọn (Hiển thị trực tiếp trên thẻ)
+                  Mô tả
                 </label>
                 <textarea
                   rows={2}
@@ -5370,21 +5262,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       prev ? { ...prev, desc: e.target.value } : null
                     )
                   }
-                  placeholder="vd: Kiểm tra kiến thức tiếng Anh và trở thành người trụ lại cuối cùng!"
+                  placeholder="Mô tả ngắn sự kiện..."
                   className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                   required
                 />
               </div>
 
-              {/* 6. Hình ảnh minh họa (Img) + Tải ảnh từ máy tính */}
+              {/* 6. Hình ảnh */}
               <div>
                 <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                  Hình ảnh minh họa sự kiện
+                  Hình ảnh
                 </label>
 
                 {/* Chọn nhanh ảnh mẫu */}
                 <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                  <span className="text-[11px] text-slate-400">Chọn nhanh ảnh mẫu:</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -5436,7 +5327,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                   <label className="cursor-pointer px-3.5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 shrink-0 transition">
                     <FileUp className="w-3.5 h-3.5 text-blue-500" />
-                    <span>{uploadingEventImg ? 'Đang tải ảnh...' : '📁 Tải ảnh từ máy'}</span>
+                    <span>{uploadingEventImg ? 'Đang tải...' : 'Tải ảnh'}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -5459,17 +5350,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       alt="Preview"
                       className="w-16 h-12 object-cover rounded-lg border shrink-0"
                     />
-                    <div className="text-[11px] text-slate-500 truncate min-w-0">
-                      Đang dùng: <span className="font-mono text-slate-700 dark:text-slate-300">{editingEvent.img}</span>
+                    <div className="text-[11px] text-slate-500 font-mono truncate min-w-0">
+                      {editingEvent.img}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* 7. Nhãn nổi bật (Chips tags) */}
+              {/* 7. Nhãn (Chips) */}
               <div>
                 <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                  Nhãn nổi bật (Chips) — Phân cách bằng dấu phẩy
+                  Nhãn (Chips)
                 </label>
                 <input
                   type="text"
@@ -5481,15 +5372,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       .filter(Boolean);
                     setEditingEvent((prev) => (prev ? { ...prev, chips: list } : null));
                   }}
-                  placeholder="vd: ~100 thí sinh, Trắc nghiệm, 1 Chung kết"
+                  placeholder="Phân cách bằng dấu phẩy..."
                   className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                 />
               </div>
 
-              {/* 8. Ghi chú bộ phận (Note) */}
+              {/* 8. Ghi chú (Note) */}
               <div>
                 <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                  Ghi chú đăng ký / Bộ phận (Note)
+                  Ghi chú
                 </label>
                 <input
                   type="text"
@@ -5499,16 +5390,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       prev ? { ...prev, note: e.target.value } : null
                     )
                   }
-                  placeholder="vd: Mỗi bộ phận tự tổng hợp danh sách đăng ký và tổ chức vòng sơ loại."
+                  placeholder="Ghi chú ngắn..."
                   className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                 />
               </div>
 
-              {/* 9. Hành động khi bấm vào thẻ (Action Type) */}
+              {/* 9. Hành động khi bấm */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                    Hành động khi học viên bấm vào thẻ
+                    Hành động khi bấm
                   </label>
                   <select
                     value={editingEvent.actionType || 'expand'}
@@ -5519,16 +5410,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }
                     className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                   >
-                    <option value="expand">📜 Mở rộng đọc thể lệ chi tiết (Modal Popup)</option>
-                    <option value="daily">📅 Chuyển ngay sang làm bài thi Daily Challenge</option>
-                    <option value="link">🔗 Mở đường dẫn liên kết ngoài (URL)</option>
+                    <option value="expand">Mở thể lệ chi tiết</option>
+                    <option value="daily">Mở bài thi Daily</option>
+                    <option value="link">Mở liên kết ngoài (URL)</option>
                   </select>
                 </div>
 
                 {editingEvent.actionType === 'link' && (
                   <div>
                     <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                      Đường dẫn URL liên kết ngoài
+                      Đường dẫn (URL)
                     </label>
                     <input
                       type="url"
@@ -5538,7 +5429,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           prev ? { ...prev, actionUrl: e.target.value } : null
                         )
                       }
-                      placeholder="https://forms.google.com/... hoặc link Zalo/Teams"
+                      placeholder="https://..."
                       className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                       required
                     />
@@ -5546,10 +5437,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </div>
 
-              {/* 10. Thể lệ chi tiết (More rules) */}
+              {/* 10. Thể lệ chi tiết */}
               <div>
                 <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
-                  Thể lệ chi tiết (Mỗi dòng là một gạch đầu dòng thể lệ)
+                  Thể lệ chi tiết
                 </label>
                 <textarea
                   rows={4}
@@ -5561,7 +5452,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       .filter((l) => l.length > 0);
                     setEditingEvent((prev) => (prev ? { ...prev, more: lines } : null));
                   }}
-                  placeholder="Vòng sơ loại do từng bộ phận tự tổ chức để chọn đại diện.&#10;Vòng Chung kết offline: trả lời trắc nghiệm, sai là bị loại.&#10;Người cuối cùng trụ lại sẽ rung Chuông Vàng 🔔."
+                  placeholder="Mỗi dòng một điều khoản..."
                   className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
                 />
               </div>
@@ -5584,7 +5475,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isCreatingEvent ? 'Tạo Sự Kiện Mới' : 'Lưu Thay Đổi'}</span>
+                  <span>{isCreatingEvent ? 'Tạo Sự Kiện' : 'Lưu Thay Đổi'}</span>
                 </button>
               </div>
             </form>
@@ -5604,7 +5495,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <p className={`text-xs sm:text-sm leading-relaxed ${textSecondary}`}>
-              Bạn có chắc chắn muốn xóa sự kiện này? Sự kiện sẽ bị xóa khỏi Pop-up và Trang chủ. Bạn luôn có thể bấm "Khôi phục 3 sự kiện gốc" nếu muốn lấy lại.
+              Xác nhận xóa sự kiện này khỏi Pop-up và Trang chủ?
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -5620,7 +5511,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onClick={() => handleDeleteEvent(deletingEventId)}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs shadow-md transition"
               >
-                Xóa Vĩnh Viễn
+                Xác nhận xóa
               </button>
             </div>
           </div>
