@@ -482,10 +482,12 @@ export const App: React.FC = () => {
       }
     };
 
-    // Lấy thông báo gửi trong vòng 24 giờ qua nếu chưa xem
+    // TẦNG CACHE 3: SMART ADAPTIVE POLLING (TỰ ĐỘNG GIÃN CÁCH NHỊP POLLING THEO TRẠNG THÁI ACTIVE / BACKGROUND)
     let lastPollTime = Date.now() - 24 * 60 * 60 * 1000;
+    let pollTimer: any = null;
+    let consecutiveEmpties = 0;
 
-    const pollInterval = setInterval(async () => {
+    const executePoll = async () => {
       const pwaEnabled =
         isRunningStandalonePwa() || localStorage.getItem('sr_pwa_push_active') === 'true';
       if (!pwaEnabled && !token) return;
@@ -502,36 +504,72 @@ export const App: React.FC = () => {
           lastPollTime = data.serverTime;
         }
 
-        for (const n of notifs) {
-          if (seenIds.has(n.id)) continue;
-          saveSeenId(n.id);
+        if (notifs.length > 0) {
+          consecutiveEmpties = 0;
+          for (const n of notifs) {
+            if (seenIds.has(n.id)) continue;
+            saveSeenId(n.id);
 
-          setLivePushAlert({
-            id: n.id,
-            title: n.title,
-            body: n.body,
-            targetUrl: n.targetUrl || '/#challenges',
-            type: n.type,
-          });
+            setLivePushAlert({
+              id: n.id,
+              title: n.title,
+              body: n.body,
+              targetUrl: n.targetUrl || '/#challenges',
+              type: n.type,
+            });
 
-          triggerLocalServiceWorkerNotification({
-            title: n.title,
-            body: n.body,
-            targetUrl: n.targetUrl || './#challenges',
-            type: n.type,
-            tag: n.id,
-          });
+            triggerLocalServiceWorkerNotification({
+              title: n.title,
+              body: n.body,
+              targetUrl: n.targetUrl || './#challenges',
+              type: n.type,
+              tag: n.id,
+            });
 
-          fetchAllData();
+            fetchAllData();
+          }
+        } else {
+          consecutiveEmpties += 1;
         }
       } catch {
         // ignore transient poll error
       }
-    }, 3500);
+    };
+
+    const scheduleNextPoll = () => {
+      if (pollTimer) clearTimeout(pollTimer);
+
+      // Nếu tab đang bị ẩn (người dùng chuyển tab / màn hình tắt / idle), giãn nhịp lên 25s
+      // Nếu tab đang active, nhịp bình thường là 5s, nếu liên tiếp không có tin mới giãn nhẹ lên 10s
+      let delay = 5000;
+      if (typeof document !== 'undefined' && document.hidden) {
+        delay = 25000;
+      } else if (consecutiveEmpties > 5) {
+        delay = 10000;
+      }
+
+      pollTimer = setTimeout(async () => {
+        await executePoll();
+        scheduleNextPoll();
+      }, delay);
+    };
+
+    // Khi người dùng quay lại tab (visibilitychange), poll ngay lập tức và reset nhịp nhanh
+    const onVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        consecutiveEmpties = 0;
+        executePoll();
+        scheduleNextPoll();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    scheduleNextPoll();
 
     return () => {
       navigator.serviceWorker?.removeEventListener('message', onSwMessage);
-      clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (pollTimer) clearTimeout(pollTimer);
     };
   }, [token, user?.id]);
 

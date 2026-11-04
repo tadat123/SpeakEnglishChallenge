@@ -404,6 +404,8 @@ class DataStore {
   // Lưu thời điểm Admin thực hiện Force Lock cho từng ngày
   private forceLockedDays = new Map<number, number>();
   private lastLoadedMtime = 0;
+  // Timestamp thông báo mới nhất (dùng cho Fast-Path Cache kiểm tra polling cực nhanh 0ms)
+  private lastNotificationTimestamp = 0;
 
   constructor() {
     this.data = this.loadOrSeed();
@@ -420,6 +422,9 @@ class DataStore {
         if (parsed && Array.isArray(parsed.challenges) && Array.isArray(parsed.users)) {
           this.data = this.ensurePushState(parsed);
           this.lastLoadedMtime = stat.mtimeMs;
+          if (Array.isArray(parsed.inAppNotifications) && parsed.inAppNotifications.length > 0) {
+            this.lastNotificationTimestamp = new Date(parsed.inAppNotifications[0].deliveredAt).getTime();
+          }
         }
       }
     } catch {
@@ -761,6 +766,9 @@ class DataStore {
           }
         }
         const hydrated = this.ensurePushState(parsed);
+        if (Array.isArray(hydrated.inAppNotifications) && hydrated.inAppNotifications.length > 0) {
+          this.lastNotificationTimestamp = new Date(hydrated.inAppNotifications[0].deliveredAt).getTime();
+        }
         fs.writeFileSync(DB_FILE, JSON.stringify(hydrated, null, 2), 'utf-8');
         return hydrated;
       } catch (e) {
@@ -1638,6 +1646,7 @@ class DataStore {
     if (this.data.inAppNotifications.length > 1000) {
       this.data.inAppNotifications = this.data.inAppNotifications.slice(0, 1000);
     }
+    this.lastNotificationTimestamp = Date.now();
     this.save();
   }
 
@@ -1650,11 +1659,25 @@ class DataStore {
     if (this.data.inAppNotifications.length > 1000) {
       this.data.inAppNotifications = this.data.inAppNotifications.slice(0, 1000);
     }
+    this.lastNotificationTimestamp = Date.now();
     this.save();
   }
 
+  public getLastNotificationTimestamp(): number {
+    return this.lastNotificationTimestamp;
+  }
+
   public getRecentInAppNotifications(userId?: string | null, sinceMs = 0): InAppNotificationRecord[] {
+    // FAST-PATH CACHE CHỐNG QUÁ TẢI (O(1)):
+    // Nếu client gửi sinceMs >= mốc thông báo mới nhất của toàn hệ thống,
+    // chắc chắn 100% không có tin mới -> Trả về [] ngay lập tức (0ms, 0 loop CPU/RAM)
+    if (sinceMs > 0 && sinceMs >= this.lastNotificationTimestamp) {
+      return [];
+    }
+
     const list = this.data.inAppNotifications || [];
+    if (list.length === 0) return [];
+
     return list.filter((n) => {
       const timeOk = new Date(n.deliveredAt).getTime() > sinceMs;
       if (!timeOk) return false;

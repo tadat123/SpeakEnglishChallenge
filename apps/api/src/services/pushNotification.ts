@@ -660,6 +660,17 @@ class StaggeredPushService {
         if (!cfg.autoRemindUnstudied) return;
 
         const { dateKey, hour, minute } = getVietnamDateAndHour();
+
+        // TẦNG CACHE 2: Nếu cả 3 khung thông báo trong ngày (sáng, tối, đêm) đã hoàn thành hôm nay,
+        // không cần tính toán hay quét gì thêm trong các chu kỳ 20 giây tiếp theo của ngày hôm nay!
+        const alreadyDoneMorning = cfg.lastMorningNotifiedDate === dateKey;
+        const alreadyDoneEvening = cfg.lastEveningTop1NotifiedDate === dateKey;
+        const alreadyDoneNight = cfg.lastNightUnstudiedNotifiedDate === dateKey;
+
+        if (alreadyDoneMorning && alreadyDoneEvening && alreadyDoneNight) {
+          return;
+        }
+
         const currentMinutes = hour * 60 + minute;
 
         const morningHour = cfg.morningHour ?? 8;

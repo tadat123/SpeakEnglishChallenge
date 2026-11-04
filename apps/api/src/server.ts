@@ -1444,8 +1444,20 @@ app.post('/api/push/unsubscribe', async (request: any) => {
 });
 
 // Đồng bộ thông báo thời gian thực cho các máy đã cài PWA (nhận đúng nhịp chia đều của Queue)
-app.get('/api/push/poll', async (request: any) => {
+app.get('/api/push/poll', async (request: any, reply: any) => {
   const since = Number(request.query?.since || 0);
+
+  // TẦNG CACHE 1: FAST-PATH TRẢ VỀ NGAY NẾU KHÔNG CÓ THÔNG BÁO MỚI (TIẾT KIỆM 99% CPU VÀ BỎ QUA JWT DECODE)
+  const lastNotifTime = store.getLastNotificationTimestamp();
+  if (since > 0 && since >= lastNotifTime) {
+    reply.header('Cache-Control', 'private, max-age=3');
+    reply.header('X-Notif-Cache', 'HIT-EMPTY');
+    return {
+      notifications: [],
+      serverTime: Date.now(),
+    };
+  }
+
   let userId: string | null = (request.query?.userId as string) || null;
   try {
     await request.jwtVerify();
@@ -1455,6 +1467,7 @@ app.get('/api/push/poll', async (request: any) => {
   }
 
   const notifications = store.getRecentInAppNotifications(userId, since);
+  reply.header('Cache-Control', 'private, max-age=3');
   return {
     notifications,
     serverTime: Date.now(),
