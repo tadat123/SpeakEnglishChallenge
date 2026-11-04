@@ -426,8 +426,30 @@ export const App: React.FC = () => {
       }
     });
 
-    let lastPollTime = Date.now() - 2000;
-    const seenIds = new Set<string>();
+    // Đọc danh sách ID thông báo đã hiển thị từ localStorage để không bị lặp lại,
+    // nhưng vẫn đảm bảo người mở app sau vẫn nhận được thông báo gửi trong vòng 24 giờ qua!
+    const SEEN_NOTIF_KEY = `sr_seen_notif_${user?.id || 'guest'}`;
+    const storedSeenIds = (() => {
+      try {
+        return new Set<string>(JSON.parse(localStorage.getItem(SEEN_NOTIF_KEY) || '[]'));
+      } catch {
+        return new Set<string>();
+      }
+    })();
+    const seenIds = storedSeenIds;
+
+    const saveSeenId = (id: string) => {
+      seenIds.add(id);
+      try {
+        const arr = Array.from(seenIds).slice(-100);
+        localStorage.setItem(SEEN_NOTIF_KEY, JSON.stringify(arr));
+      } catch {
+        // ignore
+      }
+    };
+
+    // Lấy thông báo gửi trong vòng 24 giờ qua nếu chưa xem
+    let lastPollTime = Date.now() - 24 * 60 * 60 * 1000;
 
     const pollInterval = setInterval(async () => {
       const pwaEnabled =
@@ -448,7 +470,7 @@ export const App: React.FC = () => {
 
         for (const n of notifs) {
           if (seenIds.has(n.id)) continue;
-          seenIds.add(n.id);
+          saveSeenId(n.id);
 
           setLivePushAlert({
             id: n.id,

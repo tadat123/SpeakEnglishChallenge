@@ -958,18 +958,28 @@ app.post(
   '/api/admin/notifications/send',
   { preHandler: [(app as any).requireAdmin] },
   async (request: any, reply) => {
-    const { targetType, targetValue, title, body, targetUrl, type } = request.body || {};
-    if (!title || !body) {
-      return reply.status(400).send({ message: 'Tiêu đề và nội dung thông báo là bắt buộc' });
+    const { targetType, targetValue, title, body, targetUrl } = request.body || {};
+    if (!title?.trim() || !body?.trim()) {
+      return reply.status(400).send({ success: false, message: 'Tiêu đề và nội dung thông báo là bắt buộc' });
     }
-    const result = store.sendPersonalizedNotification({
+    if (targetType === 'department' && !targetValue) {
+      return reply.status(400).send({ success: false, message: 'Vui lòng chọn phòng ban nhận thông báo' });
+    }
+    if (targetType === 'user' && !targetValue) {
+      return reply.status(400).send({ success: false, message: 'Vui lòng chọn nhân viên nhận thông báo' });
+    }
+
+    const result = pushService.enqueuePersonalizedNotification({
       targetType: targetType || 'all',
       targetValue,
-      title,
-      body,
-      targetUrl,
-      type,
+      title: title.trim(),
+      body: body.trim(),
+      targetUrl: targetUrl?.trim() || '#challenges',
     });
+
+    if (!result.success) {
+      return reply.status(400).send(result);
+    }
     return result;
   }
 );
@@ -1520,8 +1530,24 @@ app.post(
   }
 );
 
-// Khởi động bộ lập lịch tự động kiểm tra Mở khóa ngày mới & Nhắc người chưa học
-pushService.startAutoScheduler();
+// Khởi động bộ lập lịch tự động: Chỉ instance LEADER (api-1 hoặc standalone) được kích hoạt
+// api-2 và api-3 chỉ phục vụ tải HTTP requests từ Nginx để chống gửi lặp thông báo nhân 3 lần
+const isCronLeader =
+  process.env.IS_CRON_LEADER !== 'false' &&
+  (process.env.IS_CRON_LEADER === 'true' ||
+    process.env.INSTANCE_ID === 'api-1' ||
+    !process.env.INSTANCE_ID);
+
+if (isCronLeader) {
+  console.log(
+    `[Push Scheduler] 👑 Instance [${process.env.INSTANCE_ID || 'standalone'}] là CRON LEADER -> Khởi động bộ lập lịch thông báo tự động (8h, 19h, 23h).`
+  );
+  pushService.startAutoScheduler();
+} else {
+  console.log(
+    `[Push Scheduler] 🛡️ Instance [${process.env.INSTANCE_ID}] là WORKER REPLICA -> Bỏ qua lập lịch tự động để tránh gửi lặp thông báo qua các server.`
+  );
+}
 
 const port = Number(process.env.PORT || 4000);
 app.listen({ port, host: '0.0.0.0' }, (err, address) => {

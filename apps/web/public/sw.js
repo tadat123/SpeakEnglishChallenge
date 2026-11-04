@@ -36,12 +36,18 @@ self.addEventListener('push', (event) => {
 
   const iconUrl = new URL(payload.icon || 'logo.png', self.registration.scope).href;
   const badgeUrl = new URL(payload.badge || 'logo.png', self.registration.scope).href;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const notifTag =
+    payload.tag ||
+    (payload.type
+      ? `sr-${payload.type}-${todayStr}`
+      : `sr-general-${todayStr}`);
 
   const showPromise = self.registration.showNotification(payload.title, {
     body: payload.body,
     icon: iconUrl,
     badge: badgeUrl,
-    tag: payload.tag || `sr-${Date.now()}`,
+    tag: notifTag,
     renotify: true,
     vibrate: [200, 100, 200],
     requireInteraction: false,
@@ -74,13 +80,19 @@ self.addEventListener('message', (event) => {
   if (self.Notification && self.Notification.permission === 'granted') {
     const iconUrl = new URL(payload.icon || 'logo.png', self.registration.scope).href;
     const badgeUrl = new URL(payload.badge || 'logo.png', self.registration.scope).href;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const notifTag =
+      payload.tag ||
+      (payload.type
+        ? `sr-${payload.type}-${todayStr}`
+        : `sr-local-${todayStr}`);
 
     event.waitUntil(
       self.registration.showNotification(payload.title || 'SPEAK RIGHT 2026', {
         body: payload.body || '',
         icon: iconUrl,
         badge: badgeUrl,
-        tag: payload.tag || `sr-local-${Date.now()}`,
+        tag: notifTag,
         renotify: true,
         vibrate: [200, 100, 200],
         requireInteraction: false,

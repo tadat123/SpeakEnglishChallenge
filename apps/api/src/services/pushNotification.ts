@@ -676,6 +676,7 @@ class StaggeredPushService {
 
         // 1. Khung buổi sáng (1 lần/ngày): Thông báo Có bài mới
         if (currentMinutes >= morningTargetMinutes && cfg.lastMorningNotifiedDate !== dateKey) {
+          store.updatePushConfig({ lastMorningNotifiedDate: dateKey });
           const latestDay = store.getLatestUnlockedChallenge();
           if (latestDay && store.isDayUnlocked(latestDay)) {
             this.enqueueNewDayUnlocked(latestDay);
@@ -685,6 +686,7 @@ class StaggeredPushService {
 
         // 2. Khung tối (1 lần/ngày): Thông báo Top 1 hiện tại
         if (currentMinutes >= eveningTargetMinutes && cfg.lastEveningTop1NotifiedDate !== dateKey) {
+          store.updatePushConfig({ lastEveningTop1NotifiedDate: dateKey });
           const leaderboard = store.getLeaderboard();
           const currentTop1 = leaderboard[0];
           const runnerUp = leaderboard[1] || null;
@@ -696,11 +698,10 @@ class StaggeredPushService {
 
         // 3. Khung đêm (1 lần/ngày): Thông báo cho những ai là USER mà chưa làm bài
         if (currentMinutes >= nightTargetMinutes && cfg.lastNightUnstudiedNotifiedDate !== dateKey) {
+          store.updatePushConfig({ lastNightUnstudiedNotifiedDate: dateKey });
           const unstudied = store.getUnstudiedAccountsWithPwa();
           if (unstudied.length > 0) {
             this.enqueueUnstudiedAccountsReminder();
-          } else {
-            store.updatePushConfig({ lastNightUnstudiedNotifiedDate: dateKey });
           }
         }
       } catch (e) {

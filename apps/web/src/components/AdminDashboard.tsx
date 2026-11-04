@@ -579,6 +579,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showMessage('Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo', true);
       return;
     }
+    if (notifTargetType === 'department' && !notifTargetValue) {
+      showMessage('Vui lòng chọn Phòng Ban nhận thông báo', true);
+      return;
+    }
+    if (notifTargetType === 'user' && !notifTargetValue) {
+      showMessage('Vui lòng chọn 1 Nhân Viên cụ thể nhận thông báo', true);
+      return;
+    }
     setSendingNotif(true);
     try {
       const res = await fetch('/api/admin/notifications/send', {
@@ -594,7 +602,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showMessage(`📢 Đã gửi thành công thông báo cá nhân hóa tới ${data.sentCount} nhân viên!`);
+        showMessage(
+          `📢 Đã gửi thành công tới ${data.sentCount} nhân viên (${data.pwaDevicesCount || 0} thiết bị PWA)!`
+        );
+        fetchPushStatus(false);
       } else {
         showMessage(data.message || 'Lỗi gửi thông báo', true);
       }
