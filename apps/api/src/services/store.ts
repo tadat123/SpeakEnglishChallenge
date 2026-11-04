@@ -1466,6 +1466,7 @@ class DataStore {
   // ==================== QUẢN LÝ PWA PUSH SUBSCRIPTIONS & CHIẾN DỊCH CHIA ĐỀU REQUEST ====================
 
   public getPushConfig(): PushStaggerConfig {
+    this.reloadIfChanged();
     if (!this.data.pushConfig) {
       this.ensurePushState(this.data);
     }
@@ -1473,6 +1474,7 @@ class DataStore {
   }
 
   public updatePushConfig(patch: Partial<PushStaggerConfig>): PushStaggerConfig {
+    this.reloadIfChanged();
     const current = this.getPushConfig();
     this.data.pushConfig = {
       ...current,
