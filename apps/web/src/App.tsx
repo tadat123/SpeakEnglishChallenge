@@ -104,6 +104,73 @@ function getTabFromHash(): TabType {
   return VALID_TABS.includes(hash) ? hash : 'home';
 }
 
+const HOME_EVENT_THEMES: Record<
+  string,
+  {
+    borderBg: string;
+    badgeBg: string;
+    titleColor: string;
+    chipBg: string;
+    noteBg: string;
+    arrowBg: string;
+  }
+> = {
+  amber: {
+    borderBg:
+      'border-amber-300 dark:border-amber-800/60 bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-100/50 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-950/30',
+    badgeBg: 'bg-amber-500',
+    titleColor: 'text-amber-900 dark:text-amber-300',
+    chipBg: 'border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200',
+    noteBg: 'bg-amber-100/60 dark:bg-amber-950/60 text-amber-900/80 dark:text-amber-200/80',
+    arrowBg: 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/30',
+  },
+  blue: {
+    borderBg:
+      'border-sky-300 dark:border-sky-800/60 bg-gradient-to-r from-sky-50/90 via-blue-50/60 to-sky-100/50 dark:from-sky-950/40 dark:via-slate-900 dark:to-blue-950/30',
+    badgeBg: 'bg-blue-600',
+    titleColor: 'text-blue-900 dark:text-sky-300',
+    chipBg: 'border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200',
+    noteBg: 'bg-sky-100/60 dark:bg-sky-950/60 text-blue-900/80 dark:text-sky-200/80',
+    arrowBg: 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30',
+  },
+  purple: {
+    borderBg:
+      'border-purple-300 dark:border-purple-800/60 bg-gradient-to-r from-purple-50/90 via-violet-50/60 to-purple-100/50 dark:from-purple-950/40 dark:via-slate-900 dark:to-violet-950/30',
+    badgeBg: 'bg-purple-600',
+    titleColor: 'text-purple-900 dark:text-purple-300',
+    chipBg: 'border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200',
+    noteBg: 'bg-purple-100/60 dark:bg-purple-950/60 text-purple-900/80 dark:text-purple-200/80',
+    arrowBg: 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/30',
+  },
+  emerald: {
+    borderBg:
+      'border-emerald-300 dark:border-emerald-800/60 bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-emerald-100/50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-emerald-950/30',
+    badgeBg: 'bg-emerald-600',
+    titleColor: 'text-emerald-900 dark:text-emerald-300',
+    chipBg: 'border-emerald-200 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200',
+    noteBg: 'bg-emerald-100/60 dark:bg-emerald-950/60 text-emerald-900/80 dark:text-emerald-200/80',
+    arrowBg: 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30',
+  },
+  rose: {
+    borderBg:
+      'border-rose-300 dark:border-rose-800/60 bg-gradient-to-r from-rose-50/90 via-pink-50/60 to-rose-100/50 dark:from-rose-950/40 dark:via-slate-900 dark:to-rose-950/30',
+    badgeBg: 'bg-rose-600',
+    titleColor: 'text-rose-900 dark:text-rose-300',
+    chipBg: 'border-rose-200 dark:border-rose-800/40 text-rose-900 dark:text-rose-200',
+    noteBg: 'bg-rose-100/60 dark:bg-rose-950/60 text-rose-900/80 dark:text-rose-200/80',
+    arrowBg: 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30',
+  },
+  indigo: {
+    borderBg:
+      'border-indigo-300 dark:border-indigo-800/60 bg-gradient-to-r from-indigo-50/90 via-blue-50/60 to-indigo-100/50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-indigo-950/30',
+    badgeBg: 'bg-indigo-600',
+    titleColor: 'text-indigo-900 dark:text-indigo-300',
+    chipBg: 'border-indigo-200 dark:border-indigo-800/40 text-indigo-900 dark:text-indigo-200',
+    noteBg: 'bg-indigo-100/60 dark:bg-indigo-950/60 text-indigo-900/80 dark:text-indigo-200/80',
+    arrowBg: 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30',
+  },
+};
+
 export const App: React.FC = () => {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('sr_token'));
   const [user, setUser] = useState<any>(() => {
@@ -2538,224 +2605,337 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 3 EXCITING ACTIVITIES — MATCHING OFFICIAL POSTER DESIGN */}
-                <div className={`rounded-3xl p-4 sm:p-6 border shadow-md space-y-4 ${cardBg}`}>
-                  <div className="text-center space-y-1">
-                    <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-black text-amber-500 uppercase tracking-widest">
-                      <span>✦</span> {t.activitiesTitle} <span>✦</span>
-                    </div>
-                    <h2 className={`text-base sm:text-xl font-black ${textPrimary}`}>
-                      {t.activitiesHeading}
-                    </h2>
-                    <p className={`text-xs sm:text-sm ${textSecondary}`}>
-                      {t.activitiesSub}
-                    </p>
-                  </div>
+                {/* EXCITING ACTIVITIES — DYNAMIC FROM ADMIN / OFFICIAL POSTER DESIGN */}
+                {(() => {
+                  const visibleActivities =
+                    popupEvents && popupEvents.length > 0
+                      ? popupEvents.filter((e) => e.isVisible !== false)
+                      : null;
+                  const displayCount =
+                    visibleActivities !== null ? visibleActivities.length : 3;
+                  const displayTitle = t.activitiesTitle.replace(/^3/, String(displayCount));
+                  const chipIcons = [Users, FileText, Trophy, Target, Gift, InfinityIcon];
 
-                  <div className="space-y-3 sm:space-y-3.5">
-                    {/* Activity 01: Ring The Golden Bell */}
-                    <div
-                      onClick={() => setShowEventsPopup(true)}
-                      className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-amber-300 dark:border-amber-800/60 bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-100/50 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
-                    >
-                      <div className="flex flex-col sm:flex-row">
-                        {/* Illustration */}
-                        <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-amber-100 dark:bg-amber-950/60">
-                          <img
-                            src={`${baseUrl}events/golden-bell.jpg`}
-                            alt={t.bellTitle}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                          />
-                          <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-amber-500 shadow-md">
-                            01
-                          </span>
+                  return (
+                    <div className={`rounded-3xl p-4 sm:p-6 border shadow-md space-y-4 ${cardBg}`}>
+                      <div className="text-center space-y-1">
+                        <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-black text-amber-500 uppercase tracking-widest">
+                          <span>✦</span> {displayTitle} <span>✦</span>
                         </div>
+                        <h2 className={`text-base sm:text-xl font-black ${textPrimary}`}>
+                          {t.activitiesHeading}
+                        </h2>
+                        <p className={`text-xs sm:text-sm ${textSecondary}`}>
+                          {t.activitiesSub}
+                        </p>
+                      </div>
 
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
-                          <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="text-base sm:text-lg font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                                🔔 {t.bellTitle}
-                              </h3>
-                              <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition">
-                                {t.viewDetails}
-                              </span>
+                      {visibleActivities !== null && visibleActivities.length === 0 ? (
+                        <div className="py-8 px-4 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+                          <Sparkles className="w-8 h-8 mx-auto text-amber-500 mb-2 opacity-80" />
+                          <p className={`text-xs sm:text-sm font-bold ${textPrimary}`}>
+                            Chuỗi hoạt động sự kiện đang được cập nhật!
+                          </p>
+                          <p className={`text-[11px] sm:text-xs mt-1 ${textSecondary}`}>
+                            Ban tổ chức sẽ sớm mở các hoạt động hấp dẫn tiếp theo. Hãy đón chờ nhé!
+                          </p>
+                        </div>
+                      ) : visibleActivities !== null ? (
+                        <div className="space-y-3 sm:space-y-3.5">
+                          {visibleActivities.map((act, actIdx) => {
+                            const theme = HOME_EVENT_THEMES[act.themeColor] || HOME_EVENT_THEMES.amber;
+                            const numDisplay = act.num || String(actIdx + 1).padStart(2, '0');
+                            const imgSrc = act.img
+                              ? (act.img.startsWith('http://') || act.img.startsWith('https://') || act.img.startsWith('/')
+                                  ? act.img
+                                  : `${baseUrl}${act.img}`)
+                              : `${baseUrl}events/golden-bell.jpg`;
+
+                            return (
+                              <div
+                                key={act.id || actIdx}
+                                onClick={() => {
+                                  if (act.actionType === 'daily') {
+                                    navigateToTab('challenges');
+                                  } else if (act.actionType === 'link' && act.actionUrl) {
+                                    window.open(act.actionUrl, '_blank');
+                                  } else {
+                                    setShowEventsPopup(true);
+                                  }
+                                }}
+                                className={`group cursor-pointer rounded-2xl sm:rounded-3xl border shadow-sm hover:shadow-md transition overflow-hidden ${theme.borderBg}`}
+                              >
+                                <div className="flex flex-col sm:flex-row">
+                                  {/* Illustration */}
+                                  <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-slate-100 dark:bg-slate-900">
+                                    <img
+                                      src={imgSrc}
+                                      alt={act.titleC}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                    />
+                                    <span
+                                      className={`absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black shadow-md ${theme.badgeBg}`}
+                                    >
+                                      {numDisplay}
+                                    </span>
+                                  </div>
+
+                                  {/* Content */}
+                                  <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
+                                    <div>
+                                      <div className="flex items-center justify-between gap-2">
+                                        <h3
+                                          className={`text-base sm:text-lg font-black flex items-center gap-1.5 ${theme.titleColor}`}
+                                        >
+                                          {act.titleA} {act.titleB ? `${act.titleB} ` : ''}{act.titleC}
+                                        </h3>
+                                        <span
+                                          className={`hidden sm:inline-flex items-center gap-1 text-xs font-black group-hover:translate-x-1 transition ${theme.titleColor}`}
+                                        >
+                                          {act.actionType === 'daily'
+                                            ? t.joinDaily
+                                            : act.actionType === 'link'
+                                            ? 'Tham gia'
+                                            : t.viewDetails}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
+                                        {act.desc}
+                                      </p>
+                                    </div>
+
+                                    {act.chips && act.chips.length > 0 && (
+                                      <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                                        {act.chips.map((chip, cIdx) => {
+                                          const IconComp = chipIcons[cIdx % chipIcons.length];
+                                          return (
+                                            <span
+                                              key={cIdx}
+                                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border shadow-xs ${theme.chipBg}`}
+                                            >
+                                              <IconComp className="w-3.5 h-3.5 shrink-0" />
+                                              <span>{chip}</span>
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+
+                                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/40">
+                                      <div
+                                        className={`flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium px-2.5 py-1 rounded-lg truncate ${theme.noteBg}`}
+                                      >
+                                        <Users className="w-3 h-3 shrink-0" />
+                                        <span className="truncate">{act.note || t.deptNote}</span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className={`w-8 h-8 rounded-full text-white flex items-center justify-center shadow-md shrink-0 group-hover:scale-110 transition active:scale-95 ${theme.arrowBg}`}
+                                        title={act.actionType === 'daily' ? t.joinDaily : t.viewDetails}
+                                      >
+                                        <ChevronRight className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        /* Fallback 3 static cards during initial load */
+                        <div className="space-y-3 sm:space-y-3.5">
+                          {/* Activity 01: Ring The Golden Bell */}
+                          <div
+                            onClick={() => setShowEventsPopup(true)}
+                            className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-amber-300 dark:border-amber-800/60 bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-100/50 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
+                          >
+                            <div className="flex flex-col sm:flex-row">
+                              <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-amber-100 dark:bg-amber-950/60">
+                                <img
+                                  src={`${baseUrl}events/golden-bell.jpg`}
+                                  alt={t.bellTitle}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-amber-500 shadow-md">
+                                  01
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
+                                <div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <h3 className="text-base sm:text-lg font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                                      🔔 {t.bellTitle}
+                                    </h3>
+                                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition">
+                                      {t.viewDetails}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
+                                    {t.bellDesc}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
+                                    <Users className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[0]}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
+                                    <FileText className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[1]}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
+                                    <Trophy className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[2]}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/50 dark:border-amber-800/30">
+                                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-amber-900/80 dark:text-amber-200/80 bg-amber-100/60 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg truncate">
+                                    <Users className="w-3 h-3 text-amber-600 shrink-0" />
+                                    <span className="truncate">{t.deptNote}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-white flex items-center justify-center shadow-md shadow-amber-500/30 shrink-0 group-hover:scale-110 transition active:scale-95"
+                                    title={t.viewDetails}
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
-                              {t.bellDesc}
-                            </p>
                           </div>
 
-                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
-                              <Users className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[0]}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
-                              <FileText className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[1]}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
-                              <Trophy className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[2]}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/50 dark:border-amber-800/30">
-                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-amber-900/80 dark:text-amber-200/80 bg-amber-100/60 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg truncate">
-                              <Users className="w-3 h-3 text-amber-600 shrink-0" />
-                              <span className="truncate">{t.deptNote}</span>
+                          {/* Activity 02: Dub It Right */}
+                          <div
+                            onClick={() => setShowEventsPopup(true)}
+                            className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-sky-300 dark:border-sky-800/60 bg-gradient-to-r from-sky-50/90 via-blue-50/60 to-sky-100/50 dark:from-sky-950/40 dark:via-slate-900 dark:to-blue-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
+                          >
+                            <div className="flex flex-col sm:flex-row">
+                              <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-sky-100 dark:bg-sky-950/60">
+                                <img
+                                  src={`${baseUrl}events/dub-it-right.jpg`}
+                                  alt={t.dubTitle}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-blue-600 shadow-md">
+                                  02
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
+                                <div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <h3 className="text-base sm:text-lg font-black text-blue-900 dark:text-sky-300 flex items-center gap-1.5">
+                                      🎬 {t.dubTitle}
+                                    </h3>
+                                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition">
+                                      {t.viewDetails}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
+                                    {t.dubDesc}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
+                                    <Users className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[0]}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
+                                    <Clapperboard className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[1]}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
+                                    <Trophy className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[2]}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-sky-200/50 dark:border-sky-800/30">
+                                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-blue-900/80 dark:text-sky-200/80 bg-sky-100/60 dark:bg-sky-950/60 px-2.5 py-1 rounded-lg truncate">
+                                    <Users className="w-3 h-3 text-blue-600 shrink-0" />
+                                    <span className="truncate">{t.deptNote}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md shadow-blue-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
+                                    title={t.viewDetails}
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            <button
-                              type="button"
-                              className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-white flex items-center justify-center shadow-md shadow-amber-500/30 shrink-0 group-hover:scale-110 transition active:scale-95"
-                              title={t.viewDetails}
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
                           </div>
+
+                          {/* Activity 03: Daily Challenge */}
+                          <div
+                            onClick={() => navigateToTab('challenges')}
+                            className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-purple-300 dark:border-purple-800/60 bg-gradient-to-r from-purple-50/90 via-violet-50/60 to-purple-100/50 dark:from-purple-950/40 dark:via-slate-900 dark:to-violet-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
+                          >
+                            <div className="flex flex-col sm:flex-row">
+                              <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-purple-100 dark:bg-purple-950/60">
+                                <img
+                                  src={`${baseUrl}events/daily-challenge.jpg`}
+                                  alt={t.dailyTitle}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-purple-600 shadow-md">
+                                  03
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
+                                <div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <h3 className="text-base sm:text-lg font-black text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                                      📅 {t.dailyTitle}
+                                    </h3>
+                                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition">
+                                      {t.joinDaily}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
+                                    {t.dailyDesc}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
+                                    <InfinityIcon className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[0]}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
+                                    <Target className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[1]}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
+                                    <Gift className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[2]}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-purple-200/50 dark:border-purple-800/30">
+                                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-purple-900/80 dark:text-purple-200/80 bg-purple-100/60 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg truncate">
+                                    <CalendarDays className="w-3 h-3 text-purple-600 shrink-0" />
+                                    <span className="truncate">Pronunciation • Vocabulary • Accent</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center shadow-md shadow-purple-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
+                                    title={t.joinDaily}
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Campaign Tagline Footer Banner */}
+                      <div className="relative rounded-2xl px-4 py-3 bg-gradient-to-r from-blue-700 via-blue-600 to-sky-500 text-white flex flex-col sm:flex-row items-center justify-between gap-2 shadow-sm">
+                        <div className="leading-tight text-center sm:text-left">
+                          <div className="text-xs sm:text-sm font-bold italic opacity-90">{t.bePartOf}</div>
+                          <div className="text-sm sm:text-base font-black text-amber-300 italic">
+                            SPEAK RIGHT 2026 ✦
+                          </div>
+                        </div>
+                        <div className="px-3 py-1.5 rounded-xl bg-white text-blue-700 text-xs font-black italic text-center shadow -rotate-1 max-w-full sm:max-w-[55%]">
+                          “{t.tagline}” 🙂
                         </div>
                       </div>
                     </div>
-
-                    {/* Activity 02: Dub It Right */}
-                    <div
-                      onClick={() => setShowEventsPopup(true)}
-                      className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-sky-300 dark:border-sky-800/60 bg-gradient-to-r from-sky-50/90 via-blue-50/60 to-sky-100/50 dark:from-sky-950/40 dark:via-slate-900 dark:to-blue-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
-                    >
-                      <div className="flex flex-col sm:flex-row">
-                        {/* Illustration */}
-                        <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-sky-100 dark:bg-sky-950/60">
-                          <img
-                            src={`${baseUrl}events/dub-it-right.jpg`}
-                            alt={t.dubTitle}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                          />
-                          <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-blue-600 shadow-md">
-                            02
-                          </span>
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
-                          <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="text-base sm:text-lg font-black text-blue-900 dark:text-sky-300 flex items-center gap-1.5">
-                                🎬 {t.dubTitle}
-                              </h3>
-                              <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition">
-                                {t.viewDetails}
-                              </span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
-                              {t.dubDesc}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
-                              <Users className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[0]}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
-                              <Clapperboard className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[1]}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
-                              <Trophy className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[2]}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-sky-200/50 dark:border-sky-800/30">
-                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-blue-900/80 dark:text-sky-200/80 bg-sky-100/60 dark:bg-sky-950/60 px-2.5 py-1 rounded-lg truncate">
-                              <Users className="w-3 h-3 text-blue-600 shrink-0" />
-                              <span className="truncate">{t.deptNote}</span>
-                            </div>
-                            <button
-                              type="button"
-                              className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md shadow-blue-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
-                              title={t.viewDetails}
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Activity 03: Daily Challenge */}
-                    <div
-                      onClick={() => navigateToTab('challenges')}
-                      className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-purple-300 dark:border-purple-800/60 bg-gradient-to-r from-purple-50/90 via-violet-50/60 to-purple-100/50 dark:from-purple-950/40 dark:via-slate-900 dark:to-violet-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
-                    >
-                      <div className="flex flex-col sm:flex-row">
-                        {/* Illustration */}
-                        <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-purple-100 dark:bg-purple-950/60">
-                          <img
-                            src={`${baseUrl}events/daily-challenge.jpg`}
-                            alt={t.dailyTitle}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                          />
-                          <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-purple-600 shadow-md">
-                            03
-                          </span>
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
-                          <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="text-base sm:text-lg font-black text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
-                                📅 {t.dailyTitle}
-                              </h3>
-                              <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition">
-                                {t.joinDaily}
-                              </span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
-                              {t.dailyDesc}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
-                              <InfinityIcon className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[0]}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
-                              <Target className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[1]}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
-                              <Gift className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[2]}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-purple-200/50 dark:border-purple-800/30">
-                            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-purple-900/80 dark:text-purple-200/80 bg-purple-100/60 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg truncate">
-                              <CalendarDays className="w-3 h-3 text-purple-600 shrink-0" />
-                              <span className="truncate">Pronunciation • Vocabulary • Accent</span>
-                            </div>
-                            <button
-                              type="button"
-                              className="w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center shadow-md shadow-purple-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
-                              title={t.joinDaily}
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Campaign Tagline Footer Banner */}
-                  <div className="relative rounded-2xl px-4 py-3 bg-gradient-to-r from-blue-700 via-blue-600 to-sky-500 text-white flex flex-col sm:flex-row items-center justify-between gap-2 shadow-sm">
-                    <div className="leading-tight text-center sm:text-left">
-                      <div className="text-xs sm:text-sm font-bold italic opacity-90">{t.bePartOf}</div>
-                      <div className="text-sm sm:text-base font-black text-amber-300 italic">
-                        SPEAK RIGHT 2026 ✦
-                      </div>
-                    </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-white text-blue-700 text-xs font-black italic text-center shadow -rotate-1 max-w-full sm:max-w-[55%]">
-                      “{t.tagline}” 🙂
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             )}
 

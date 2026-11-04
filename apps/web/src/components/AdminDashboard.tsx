@@ -29,6 +29,9 @@ import {
   Laptop,
   Tablet,
   Eye,
+  EyeOff,
+  RotateCcw,
+  Layers,
   Calendar,
   Award,
   ArrowLeft,
@@ -41,10 +44,19 @@ import {
   FileUp,
   AlertCircle,
   Check,
+  ExternalLink,
+  Image as ImageIcon,
+  Clapperboard,
+  CalendarDays,
+  Bell,
+  Flame,
+  Target,
+  Gift,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
 import { Lang } from '../utils/i18n';
 import { WORKPLACE_5_WORDS, WorkplaceWordItem } from './PronunciationChallengeQ11';
+import { EventPopupItem } from './SpeakRightEventsPopup';
 
 interface AdminDashboardProps {
   token: string;
@@ -149,6 +161,8 @@ const ADMIN_I18N = {
     sidebarUsersSub: 'Danh sách, GEN & thiết bị',
     sidebarChallenges: '21 Ngày & Đề Thi',
     sidebarChallengesSub: 'Câu hỏi, Audio & Video',
+    sidebarEvents: 'Pop-up Sự Kiện',
+    sidebarEventsSub: 'Quản lý & Ẩn/Hiện sự kiện',
     sidebarNotifications: 'Thông Báo Cá Nhân',
     sidebarNotificationsSub: 'Push PWA & Cá nhân hóa',
     sidebarSecurity: 'An Ninh & Anti-Cheat',
@@ -244,6 +258,8 @@ const ADMIN_I18N = {
     sidebarUsersSub: 'Employees, GEN & devices',
     sidebarChallenges: '21 Days & Questions',
     sidebarChallengesSub: 'Questions, audio & video',
+    sidebarEvents: 'Event Pop-ups',
+    sidebarEventsSub: 'Manage & Show/Hide Events',
     sidebarNotifications: 'Push Notifications',
     sidebarNotificationsSub: 'PWA push & targeted alerts',
     sidebarSecurity: 'Security & Anti-Cheat',
@@ -339,6 +355,8 @@ const ADMIN_I18N = {
     sidebarUsersSub: '사번, 계정 및 기기 목록',
     sidebarChallenges: '21일 챌린지 & 문제',
     sidebarChallengesSub: '문제, 음원 및 영상',
+    sidebarEvents: '이벤트 팝업',
+    sidebarEventsSub: '이벤트 관리 및 숨김/표시',
     sidebarNotifications: '맞춤형 알림',
     sidebarNotificationsSub: 'PWA 푸시 & 개인화 알림',
     sidebarSecurity: '보안 및 치팅 방지',
@@ -362,8 +380,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
 }) => {
   const at = ADMIN_I18N[lang];
+  const baseUrl = import.meta.env.BASE_URL || '/';
   // Quản lý các Sub-Tab của Admin CMS
-  type AdminSubTab = 'dashboard' | 'users' | 'challenges' | 'notifications' | 'security';
+  type AdminSubTab = 'dashboard' | 'users' | 'challenges' | 'events' | 'notifications' | 'security';
   const [adminSubTab, setAdminSubTab] = useState<AdminSubTab>('dashboard');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
@@ -428,6 +447,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [bulkTargetMode, setBulkTargetMode] = useState<'auto' | 'current'>('auto');
   const [bulkWriteMode, setBulkWriteMode] = useState<'overwrite' | 'append'>('overwrite');
   const [bulkLoading, setBulkLoading] = useState<boolean>(false);
+
+  // Quản lý Pop-up Sự Kiện (CRUD + Toggle Ẩn/Hiện)
+  const [eventList, setEventList] = useState<EventPopupItem[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState<boolean>(false);
+  const [editingEvent, setEditingEvent] = useState<EventPopupItem | null>(null);
+  const [showEventModal, setShowEventModal] = useState<boolean>(false);
+  const [isCreatingEvent, setIsCreatingEvent] = useState<boolean>(false);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [togglingEventId, setTogglingEventId] = useState<string | null>(null);
+  const [uploadingEventImg, setUploadingEventImg] = useState<boolean>(false);
 
   // Giám sát An ninh Bảo mật (SQL Injection, Chống F12, Chống DDoS)
   const [securityStats, setSecurityStats] = useState<any | null>(null);
@@ -633,6 +662,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     fetchDashboardStats(selectedStatDay);
     fetchAdminUsers();
+    fetchAdminEvents();
   }, []);
 
   useEffect(() => {
@@ -1354,6 +1384,243 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // ==================== QUẢN LÝ POP-UP SỰ KIỆN (CRUD & TOGGLE ẨN/HIỆN) ====================
+  const fetchAdminEvents = async () => {
+    setLoadingEvents(true);
+    try {
+      const res = await fetch('/api/admin/events', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.events)) {
+          setEventList(data.events);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải danh sách sự kiện:', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const handleToggleEvent = async (ev: EventPopupItem) => {
+    setTogglingEventId(ev.id);
+    try {
+      const res = await fetch(`/api/admin/events/${ev.id}/toggle`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.events)) {
+          setEventList(data.events);
+        } else if (data.event) {
+          setEventList((prev) =>
+            prev.map((item) => (item.id === ev.id ? data.event : item))
+          );
+        }
+        showMessage(
+          ev.isVisible !== false
+            ? `Đã ẩn sự kiện "${ev.titleC}" khỏi người dùng.`
+            : `Đã mở hiển thị công khai sự kiện "${ev.titleC}"!`
+        );
+        onRefreshGlobal();
+      } else {
+        showMessage('Không thể cập nhật trạng thái ẩn/hiện sự kiện!', true);
+      }
+    } catch (err) {
+      showMessage('Lỗi kết nối khi thay đổi trạng thái sự kiện!', true);
+    } finally {
+      setTogglingEventId(null);
+    }
+  };
+
+  const handleOpenCreateEvent = () => {
+    const nextIdx = (eventList.length || 0) + 1;
+    const newTemplate: EventPopupItem = {
+      id: `custom-${Date.now()}`,
+      orderIndex: nextIdx,
+      num: String(nextIdx).padStart(2, '0'),
+      titleA: 'SỰ KIỆN',
+      titleB: '',
+      titleC: 'MỚI',
+      desc: 'Mô tả ngắn gọn về sự kiện để người dùng nắm bắt thông tin nhanh chóng.',
+      img: 'events/golden-bell.jpg',
+      iconName: 'Sparkles',
+      chips: ['Sự kiện hot', 'Giải thưởng lớn', 'Đăng ký ngay'],
+      note: 'Mỗi bộ phận tự tổng hợp danh sách đăng ký và gửi BTC.',
+      more: [
+        'Vòng sơ loại do từng bộ phận tự tổ chức để chọn đại diện.',
+        'Vòng Chung kết offline dự kiến tổ chức vào tuần sau.',
+        'Cơ cấu giải thưởng hấp dẫn dành cho cá nhân và tập thể xuất sắc.',
+      ],
+      themeColor: 'amber',
+      actionType: 'expand',
+      actionUrl: '',
+      isVisible: true,
+    };
+    setEditingEvent(newTemplate);
+    setIsCreatingEvent(true);
+    setShowEventModal(true);
+  };
+
+  const handleOpenEditEvent = (ev: EventPopupItem) => {
+    setEditingEvent({
+      ...ev,
+      chips: Array.isArray(ev.chips) ? [...ev.chips] : [],
+      more: Array.isArray(ev.more) ? [...ev.more] : [],
+    });
+    setIsCreatingEvent(false);
+    setShowEventModal(true);
+  };
+
+  const handleSaveEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEvent) return;
+
+    try {
+      const url = isCreatingEvent
+        ? '/api/admin/events'
+        : `/api/admin/events/${editingEvent.id}`;
+      const method = isCreatingEvent ? 'POST' : 'PUT';
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(editingEvent),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.events)) {
+          setEventList(data.events);
+        } else {
+          await fetchAdminEvents();
+        }
+        setShowEventModal(false);
+        setEditingEvent(null);
+        showMessage(
+          isCreatingEvent
+            ? 'Đã tạo sự kiện mới thành công!'
+            : 'Đã lưu thay đổi sự kiện thành công!'
+        );
+        onRefreshGlobal();
+      } else {
+        const err = await res.json();
+        showMessage(err.message || 'Lỗi khi lưu sự kiện!', true);
+      }
+    } catch (err) {
+      showMessage('Lỗi kết nối máy chủ khi lưu sự kiện!', true);
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/events/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.events)) {
+          setEventList(data.events);
+        } else {
+          await fetchAdminEvents();
+        }
+        setDeletingEventId(null);
+        showMessage('Đã xóa sự kiện thành công!');
+        onRefreshGlobal();
+      } else {
+        showMessage('Không thể xóa sự kiện này!', true);
+      }
+    } catch (err) {
+      showMessage('Lỗi kết nối khi xóa sự kiện!', true);
+    }
+  };
+
+  const handleResetEvents = async () => {
+    if (
+      !window.confirm(
+        'Bạn có chắc chắn muốn khôi phục danh sách về 3 Sự Kiện Mặc Định (Ring The Golden Bell, Dub It Right, Daily Challenge) không?'
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/admin/events/reset', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.events)) {
+          setEventList(data.events);
+        } else {
+          await fetchAdminEvents();
+        }
+        showMessage('Đã khôi phục 3 sự kiện gốc thành công!');
+        onRefreshGlobal();
+      } else {
+        showMessage('Không thể khôi phục sự kiện!', true);
+      }
+    } catch (err) {
+      showMessage('Lỗi kết nối máy chủ khi reset sự kiện!', true);
+    }
+  };
+
+  const handleUploadEventImg = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingEvent) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      showMessage('File ảnh không được vượt quá 20MB!', true);
+      return;
+    }
+
+    setUploadingEventImg(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+        const res = await fetch('/api/admin/upload-media', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            base64Data,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEditingEvent((prev) => (prev ? { ...prev, img: data.url } : null));
+          showMessage('Đã tải ảnh sự kiện lên thành công!');
+        } else {
+          showMessage('Không thể tải ảnh lên máy chủ!', true);
+        }
+        setUploadingEventImg(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      showMessage('Lỗi khi tải ảnh lên!', true);
+      setUploadingEventImg(false);
+    }
+  };
+
   const activePlayersCount = dayDetail?.activePlayers?.length || 0;
 
   const ADMIN_SIDEBAR_ITEMS: {
@@ -1383,6 +1650,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       sub: at.sidebarChallengesSub,
       icon: Edit3,
       badge: '21D',
+    },
+    {
+      id: 'events',
+      label: at.sidebarEvents,
+      sub: at.sidebarEventsSub,
+      icon: Sparkles,
+      badge:
+        eventList.length > 0
+          ? `${eventList.filter((e) => e.isVisible !== false).length}/${eventList.length}`
+          : null,
     },
     {
       id: 'notifications',
@@ -1502,6 +1779,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   setMobileSidebarOpen(false);
                   if (item.id === 'dashboard') fetchDashboardStats(selectedStatDay);
                   if (item.id === 'users') fetchAdminUsers();
+                  if (item.id === 'events') fetchAdminEvents();
                 }}
                 className={`w-full p-2.5 rounded-2xl text-left flex items-center justify-between transition group ${
                   isActive
@@ -1673,6 +1951,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ? 'Quản Lý Nhân Viên'
                     : adminSubTab === 'challenges'
                     ? '21 Ngày & Đề Thi'
+                    : adminSubTab === 'events'
+                    ? 'Pop-up Sự Kiện'
                     : adminSubTab === 'notifications'
                     ? 'Thông Báo Cá Nhân Hóa'
                     : 'An Ninh & Bảo Mật'}
@@ -1685,6 +1965,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ? '👥 Quản Lý Tài Khoản Nhân Viên & Thiết Bị'
                   : adminSubTab === 'challenges'
                   ? '📝 Quản Lý 21 Ngày Thi & Câu Hỏi'
+                  : adminSubTab === 'events'
+                  ? '🎉 Quản Lý Pop-up & Chuỗi Hoạt Động Sự Kiện'
                   : adminSubTab === 'notifications'
                   ? '📢 Soạn & Gửi Thông Báo Cá Nhân Hóa'
                   : '🛡️ Lá Chắn An Ninh & Phòng Thủ Tấn Công'}
@@ -2436,6 +2718,298 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       ) : null}
       </div>
+      )}
+
+      {/* ================= TAB POP-UP SỰ KIỆN (EVENTS CRUD & VISIBILITY) ================= */}
+      {adminSubTab === 'events' && (
+        <div className="space-y-4">
+          {/* Header Action Bar */}
+          <div
+            className={`rounded-3xl p-4 sm:p-5 border shadow-sm backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${cardBg}`}
+          >
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider mb-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                Pop-up & Hoạt Động Sự Kiện
+              </div>
+              <h2 className={`text-base sm:text-lg font-black ${textPrimary}`}>
+                Quản Lý Pop-up & Chuỗi Hoạt Động Sự Kiện
+              </h2>
+              <p className={`text-xs mt-0.5 ${textSecondary}`}>
+                Bật/Tắt (Toggle) ẩn hiện từng sự kiện để mở dần cho học viên. Hỗ trợ tạo mới, chỉnh sửa thể lệ, hình ảnh và liên kết.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={fetchAdminEvents}
+                disabled={loadingEvents}
+                className={`p-2.5 rounded-xl font-bold text-xs border shadow-xs transition active:scale-95 flex items-center gap-1.5 ${subCardBg}`}
+                title="Tải lại danh sách"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingEvents ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Làm mới</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetEvents}
+                className="px-3.5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-800 dark:text-slate-200 font-bold text-xs shadow-xs transition flex items-center gap-1.5"
+                title="Khôi phục 3 sự kiện gốc ban đầu"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Khôi phục 3 sự kiện gốc</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenCreateEvent}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs shadow-md shadow-blue-500/20 transition flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm Sự Kiện Mới</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Stats KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`rounded-2xl p-4 border shadow-sm ${cardBg} flex items-center gap-3.5`}>
+              <div className="w-11 h-11 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className={`text-xs font-bold ${textSecondary}`}>Tổng số sự kiện</div>
+                <div className={`text-xl font-black ${textPrimary}`}>{eventList.length}</div>
+                <div className="text-[10px] text-slate-400">Được cấu hình trong hệ thống</div>
+              </div>
+            </div>
+
+            <div className={`rounded-2xl p-4 border shadow-sm ${cardBg} flex items-center gap-3.5`}>
+              <div className="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <Eye className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">🟢 Đang Mở Công Khai</div>
+                <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                  {eventList.filter((e) => e.isVisible !== false).length}
+                </div>
+                <div className="text-[10px] text-slate-400">Học viên đang thấy trên Pop-up & Trang chủ</div>
+              </div>
+            </div>
+
+            <div className={`rounded-2xl p-4 border shadow-sm ${cardBg} flex items-center gap-3.5`}>
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <EyeOff className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-amber-600 dark:text-amber-400">🔒 Đang Ẩn (Sắp Mở)</div>
+                <div className="text-xl font-black text-amber-600 dark:text-amber-400">
+                  {eventList.filter((e) => e.isVisible === false).length}
+                </div>
+                <div className="text-[10px] text-slate-400">Chỉ Admin thấy trong tab này</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Banner Hướng Dẫn Vận Hành */}
+          <div className="rounded-2xl p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 dark:from-slate-900 dark:via-blue-950/30 dark:to-slate-900 border border-blue-200 dark:border-blue-900/40 flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+              <strong className="text-blue-600 dark:text-blue-400">Mẹo vận hành cho Admin:</strong> Ban tổ chức có thể tạo sẵn tất cả các hoạt động sự kiện (Golden Bell, Dub It Right, Daily Challenge, v.v.), sau đó chỉ cần bấm nút <strong>"Bật/Tắt Ẩn Hiện"</strong> bên dưới để mở dần từng sự kiện theo đúng lộ trình cuộc thi mà không mất công tạo lại dữ liệu.
+            </div>
+          </div>
+
+          {/* Danh Sách Sự Kiện (Cards) */}
+          {loadingEvents ? (
+            <div className="py-16 text-center space-y-2">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+              <p className={`text-sm font-bold ${textSecondary}`}>Đang tải danh sách sự kiện...</p>
+            </div>
+          ) : eventList.length === 0 ? (
+            <div className={`rounded-3xl p-10 border text-center space-y-3 ${cardBg}`}>
+              <Sparkles className="w-12 h-12 mx-auto text-amber-500 opacity-60" />
+              <h3 className={`text-base font-black ${textPrimary}`}>Chưa có sự kiện nào</h3>
+              <p className={`text-xs max-w-md mx-auto ${textSecondary}`}>
+                Hiện tại chưa có sự kiện nào được tạo. Bạn có thể bấm "Khôi phục 3 sự kiện gốc" hoặc "+ Thêm Sự Kiện Mới".
+              </p>
+              <div className="flex justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleResetEvents}
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs"
+                >
+                  Khôi phục 3 sự kiện gốc
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              {eventList.map((ev, idx) => {
+                const isVis = ev.isVisible !== false;
+                const isToggling = togglingEventId === ev.id;
+                const imgSrc = ev.img
+                  ? (ev.img.startsWith('http://') || ev.img.startsWith('https://') || ev.img.startsWith('/')
+                      ? ev.img
+                      : `${baseUrl}${ev.img}`)
+                  : `${baseUrl}events/golden-bell.jpg`;
+
+                return (
+                  <div
+                    key={ev.id || idx}
+                    className={`rounded-3xl border transition shadow-sm overflow-hidden ${
+                      isVis
+                        ? darkMode
+                          ? 'bg-slate-900/90 border-slate-700/80 hover:border-blue-500/60'
+                          : 'bg-white border-slate-200/90 hover:border-blue-400'
+                        : darkMode
+                        ? 'bg-slate-950/60 border-dashed border-slate-800 opacity-75'
+                        : 'bg-slate-50/80 border-dashed border-slate-300 opacity-80'
+                    }`}
+                  >
+                    <div className="p-4 sm:p-5 flex flex-col md:flex-row gap-4">
+                      {/* Cột trái: Ảnh minh họa & Số thứ tự */}
+                      <div className="relative w-full md:w-56 h-36 md:h-auto shrink-0 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        <img
+                          src={imgSrc}
+                          alt={ev.titleC}
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-blue-600 shadow-md">
+                          #{ev.num || String(idx + 1).padStart(2, '0')}
+                        </span>
+                        <span
+                          className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                            isVis
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'bg-slate-900/80 text-amber-300 backdrop-blur-xs'
+                          }`}
+                        >
+                          {isVis ? '🟢 Đang Mở' : '🔒 Đang Ẩn'}
+                        </span>
+                      </div>
+
+                      {/* Cột giữa: Chi tiết sự kiện */}
+                      <div className="flex-1 min-w-0 space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black uppercase tracking-wider ${
+                                ev.themeColor === 'amber'
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                  : ev.themeColor === 'blue'
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                                  : ev.themeColor === 'purple'
+                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                                  : ev.themeColor === 'emerald'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                  : ev.themeColor === 'rose'
+                                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                                  : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
+                              }`}
+                            >
+                              Theme: {ev.themeColor || 'amber'}
+                            </span>
+
+                            <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              Hành động: {ev.actionType === 'daily' ? '📅 Daily Challenge' : ev.actionType === 'link' ? '🔗 Link ngoài' : '📜 Đọc thể lệ'}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-slate-400 font-mono">
+                            Thứ tự: {ev.orderIndex ?? idx + 1}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
+                            {ev.titleA} {ev.titleB ? `${ev.titleB} ` : ''}{ev.titleC}
+                          </h3>
+                          <p className={`text-xs mt-1 leading-relaxed ${textSecondary}`}>
+                            {ev.desc}
+                          </p>
+                        </div>
+
+                        {/* Chips Tags */}
+                        {ev.chips && ev.chips.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                            {ev.chips.map((c, cIdx) => (
+                              <span
+                                key={cIdx}
+                                className={`px-2 py-0.5 rounded-md border text-[11px] font-medium ${subCardBg}`}
+                              >
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Note & Rules summary */}
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                          {ev.note && (
+                            <div className="truncate max-w-md">
+                              <strong>Ghi chú:</strong> {ev.note}
+                            </div>
+                          )}
+                          {ev.more && ev.more.length > 0 && (
+                            <div className="text-blue-600 dark:text-blue-400 font-medium">
+                              • Có {ev.more.length} điều khoản thể lệ chi tiết
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Cột phải: Các nút thao tác nhanh (CRUD + Toggle 1 chạm) */}
+                      <div className="flex md:flex-col justify-end md:justify-center items-stretch gap-2 shrink-0 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 border-slate-200 dark:border-slate-800">
+                        {/* NÚT TOGGLE ẨN / HIỆN 1 CHẠM (TRỌNG TÂM CỦA REQUEST) */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleEvent(ev)}
+                          disabled={isToggling}
+                          className={`px-3.5 py-2 rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5 ${
+                            isVis
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                              : 'bg-slate-700 hover:bg-slate-600 text-amber-300'
+                          }`}
+                          title={isVis ? 'Nhấn để ẨN sự kiện này khỏi người dùng' : 'Nhấn để MỞ CÔNG KHAI sự kiện này'}
+                        >
+                          {isToggling ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : isVis ? (
+                            <Eye className="w-3.5 h-3.5" />
+                          ) : (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          )}
+                          <span>{isVis ? '🟢 Đang Mở (Bấm Ẩn)' : '🔒 Đang Ẩn (Bấm Mở)'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditEvent(ev)}
+                          className={`px-3.5 py-2 rounded-xl font-bold text-xs border shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 ${subCardBg} hover:border-blue-400`}
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Chỉnh Sửa</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeletingEventId(ev.id)}
+                          className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 font-bold text-xs border border-rose-200 dark:border-rose-800/40 transition active:scale-95 flex items-center justify-center gap-1.5"
+                          title="Xóa sự kiện"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Xóa</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ================= 4. TAB THÔNG BÁO CÁ NHÂN HÓA (NOTIFICATIONS) ================= */}
@@ -4633,6 +5207,519 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL THÊM / SỬA SỰ KIỆN (EVENT POPUP MODAL) ================= */}
+      {showEventModal && editingEvent && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div
+            className={`w-full max-w-3xl my-8 rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${cardBg}`}
+          >
+            {/* Header */}
+            <div
+              className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 ${
+                darkMode ? 'border-slate-800' : 'border-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className={`text-base font-black truncate ${textPrimary}`}>
+                    {isCreatingEvent
+                      ? '✨ Thêm Sự Kiện Pop-up Mới'
+                      : `✏️ Chỉnh Sửa Sự Kiện: ${editingEvent.titleC || editingEvent.titleA}`}
+                  </h3>
+                  <p className={`text-xs ${textSecondary}`}>
+                    Cấu hình tiêu đề, ảnh minh họa, màu chủ đạo, thể lệ chi tiết và trạng thái hiển thị
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEventModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form Body (Scrollable) */}
+            <form onSubmit={handleSaveEvent} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {/* 1. Trạng Thái Ẩn/Hiện Công Khai (Feature cốt lõi) */}
+              <div
+                className={`p-3.5 sm:p-4 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                  editingEvent.isVisible !== false
+                    ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
+                    : 'bg-slate-100/80 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      editingEvent.isVisible !== false
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-600 text-slate-200'
+                    }`}
+                  >
+                    {editingEvent.isVisible !== false ? (
+                      <Eye className="w-5 h-5" />
+                    ) : (
+                      <EyeOff className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
+                      Trạng thái hiển thị công khai
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400">
+                      {editingEvent.isVisible !== false
+                        ? '🟢 Đang mở: Người dùng sẽ thấy sự kiện này trên Pop-up và Trang chủ.'
+                        : '🔒 Đang ẩn: Học viên không nhìn thấy. Dùng để mở dần từng sự kiện sau.'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingEvent((prev) =>
+                      prev ? { ...prev, isVisible: !prev.isVisible } : null
+                    )
+                  }
+                  className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition active:scale-95 ${
+                    editingEvent.isVisible !== false
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                      : 'bg-slate-700 hover:bg-slate-600 text-amber-300'
+                  }`}
+                >
+                  {editingEvent.isVisible !== false ? 'Đang Mở' : 'Đang Ẩn'}
+                </button>
+              </div>
+
+              {/* 2. Số hiển thị & Thứ tự sắp xếp */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Mã số hiển thị (Num)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEvent.num || ''}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, num: e.target.value } : null
+                      )
+                    }
+                    placeholder="01, 02, 03..."
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Thứ tự sắp xếp (Order Index)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingEvent.orderIndex ?? 1}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, orderIndex: parseInt(e.target.value) || 1 } : null
+                      )
+                    }
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 3. Tiêu đề 3 dòng (Poster Design: Title A, B, C) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Tiêu đề chính 1 (Title A)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEvent.titleA || ''}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, titleA: e.target.value } : null
+                      )
+                    }
+                    placeholder="vd: RING THE, RUNG CHUÔNG"
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Phụ đề dòng 2 (Title B) - tùy chọn
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEvent.titleB || ''}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, titleB: e.target.value } : null
+                      )
+                    }
+                    placeholder="vd: GOLDEN, THE"
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Điểm nhấn dòng 3 (Title C)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEvent.titleC || ''}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, titleC: e.target.value } : null
+                      )
+                    }
+                    placeholder="vd: BELL, CHUÔNG VÀNG"
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 4. Màu chủ đạo (Theme Color) & Biểu tượng (Icon) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Màu sắc chủ đạo (Theme)
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'amber', label: '🟡 Vàng Cam', color: 'bg-amber-500' },
+                      { id: 'blue', label: '🔵 Xanh Dương', color: 'bg-blue-600' },
+                      { id: 'purple', label: '🟣 Tím Violet', color: 'bg-purple-600' },
+                      { id: 'emerald', label: '🟢 Xanh Ngọc', color: 'bg-emerald-600' },
+                      { id: 'rose', label: '🔴 Hồng Đỏ', color: 'bg-rose-600' },
+                      { id: 'indigo', label: '🔷 Chàm Indigo', color: 'bg-indigo-600' },
+                    ].map((col) => (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() =>
+                          setEditingEvent((prev) =>
+                            prev ? { ...prev, themeColor: col.id as any } : null
+                          )
+                        }
+                        className={`p-2 rounded-xl text-[11px] font-bold border flex items-center justify-center gap-1.5 transition ${
+                          editingEvent.themeColor === col.id
+                            ? 'ring-2 ring-blue-500 border-blue-500 font-black'
+                            : 'opacity-80 hover:opacity-100'
+                        } ${subCardBg}`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
+                        <span>{col.label.split(' ')[1]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Biểu tượng hiển thị (Icon)
+                  </label>
+                  <select
+                    value={editingEvent.iconName || 'Sparkles'}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, iconName: e.target.value } : null
+                      )
+                    }
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                  >
+                    <option value="Bell">🔔 Bell (Chuông vàng)</option>
+                    <option value="Clapperboard">🎬 Clapperboard (Lồng tiếng / Phim)</option>
+                    <option value="CalendarDays">📅 CalendarDays (Lịch / Daily)</option>
+                    <option value="Trophy">🏆 Trophy (Cúp vô địch)</option>
+                    <option value="Sparkles">✨ Sparkles (Tỏa sáng / Nổi bật)</option>
+                    <option value="Star">⭐ Star (Ngôi sao)</option>
+                    <option value="Target">🎯 Target (Mục tiêu)</option>
+                    <option value="Gift">🎁 Gift (Phần thưởng)</option>
+                    <option value="Flame">🔥 Flame (Ngọn lửa / Sôi động)</option>
+                    <option value="Zap">⚡ Zap (Tốc độ / Năng lượng)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 5. Mô tả ngắn (Desc) */}
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                  Mô tả ngắn gọn (Hiển thị trực tiếp trên thẻ)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingEvent.desc || ''}
+                  onChange={(e) =>
+                    setEditingEvent((prev) =>
+                      prev ? { ...prev, desc: e.target.value } : null
+                    )
+                  }
+                  placeholder="vd: Kiểm tra kiến thức tiếng Anh và trở thành người trụ lại cuối cùng!"
+                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                  required
+                />
+              </div>
+
+              {/* 6. Hình ảnh minh họa (Img) + Tải ảnh từ máy tính */}
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                  Hình ảnh minh họa sự kiện
+                </label>
+
+                {/* Chọn nhanh ảnh mẫu */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                  <span className="text-[11px] text-slate-400">Chọn nhanh ảnh mẫu:</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, img: 'events/golden-bell.jpg' } : null
+                      )
+                    }
+                    className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[11px] font-bold"
+                  >
+                    🔔 Chuông Vàng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, img: 'events/dub-it-right.jpg' } : null
+                      )
+                    }
+                    className="px-2 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-[11px] font-bold"
+                  >
+                    🎬 Lồng Tiếng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, img: 'events/daily-challenge.jpg' } : null
+                      )
+                    }
+                    className="px-2 py-0.5 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 text-[11px] font-bold"
+                  >
+                    📅 Daily Challenge
+                  </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5">
+                  <input
+                    type="text"
+                    value={editingEvent.img || ''}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, img: e.target.value } : null
+                      )
+                    }
+                    placeholder="events/golden-bell.jpg hoặc link URL ảnh..."
+                    className={`flex-1 w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                    required
+                  />
+
+                  <label className="cursor-pointer px-3.5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 shrink-0 transition">
+                    <FileUp className="w-3.5 h-3.5 text-blue-500" />
+                    <span>{uploadingEventImg ? 'Đang tải ảnh...' : '📁 Tải ảnh từ máy'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUploadEventImg}
+                      className="hidden"
+                      disabled={uploadingEventImg}
+                    />
+                  </label>
+                </div>
+
+                {/* Preview ảnh nhỏ */}
+                {editingEvent.img && (
+                  <div className="mt-2 flex items-center gap-2.5 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <img
+                      src={
+                        editingEvent.img.startsWith('http') || editingEvent.img.startsWith('/')
+                          ? editingEvent.img
+                          : `${baseUrl}${editingEvent.img}`
+                      }
+                      alt="Preview"
+                      className="w-16 h-12 object-cover rounded-lg border shrink-0"
+                    />
+                    <div className="text-[11px] text-slate-500 truncate min-w-0">
+                      Đang dùng: <span className="font-mono text-slate-700 dark:text-slate-300">{editingEvent.img}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 7. Nhãn nổi bật (Chips tags) */}
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                  Nhãn nổi bật (Chips) — Phân cách bằng dấu phẩy
+                </label>
+                <input
+                  type="text"
+                  value={(editingEvent.chips || []).join(', ')}
+                  onChange={(e) => {
+                    const list = e.target.value
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    setEditingEvent((prev) => (prev ? { ...prev, chips: list } : null));
+                  }}
+                  placeholder="vd: ~100 thí sinh, Trắc nghiệm, 1 Chung kết"
+                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                />
+              </div>
+
+              {/* 8. Ghi chú bộ phận (Note) */}
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                  Ghi chú đăng ký / Bộ phận (Note)
+                </label>
+                <input
+                  type="text"
+                  value={editingEvent.note || ''}
+                  onChange={(e) =>
+                    setEditingEvent((prev) =>
+                      prev ? { ...prev, note: e.target.value } : null
+                    )
+                  }
+                  placeholder="vd: Mỗi bộ phận tự tổng hợp danh sách đăng ký và tổ chức vòng sơ loại."
+                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                />
+              </div>
+
+              {/* 9. Hành động khi bấm vào thẻ (Action Type) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                    Hành động khi học viên bấm vào thẻ
+                  </label>
+                  <select
+                    value={editingEvent.actionType || 'expand'}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, actionType: e.target.value as any } : null
+                      )
+                    }
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                  >
+                    <option value="expand">📜 Mở rộng đọc thể lệ chi tiết (Modal Popup)</option>
+                    <option value="daily">📅 Chuyển ngay sang làm bài thi Daily Challenge</option>
+                    <option value="link">🔗 Mở đường dẫn liên kết ngoài (URL)</option>
+                  </select>
+                </div>
+
+                {editingEvent.actionType === 'link' && (
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                      Đường dẫn URL liên kết ngoài
+                    </label>
+                    <input
+                      type="url"
+                      value={editingEvent.actionUrl || ''}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev ? { ...prev, actionUrl: e.target.value } : null
+                        )
+                      }
+                      placeholder="https://forms.google.com/... hoặc link Zalo/Teams"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 10. Thể lệ chi tiết (More rules) */}
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textSecondary}`}>
+                  Thể lệ chi tiết (Mỗi dòng là một gạch đầu dòng thể lệ)
+                </label>
+                <textarea
+                  rows={4}
+                  value={(editingEvent.more || []).join('\n')}
+                  onChange={(e) => {
+                    const lines = e.target.value
+                      .split('\n')
+                      .map((l) => l.trim())
+                      .filter((l) => l.length > 0);
+                    setEditingEvent((prev) => (prev ? { ...prev, more: lines } : null));
+                  }}
+                  placeholder="Vòng sơ loại do từng bộ phận tự tổ chức để chọn đại diện.&#10;Vòng Chung kết offline: trả lời trắc nghiệm, sai là bị loại.&#10;Người cuối cùng trụ lại sẽ rung Chuông Vàng 🔔."
+                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
+                />
+              </div>
+
+              {/* Footer Buttons */}
+              <div
+                className={`pt-3 border-t flex items-center justify-end gap-2.5 ${
+                  darkMode ? 'border-slate-800' : 'border-slate-100'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowEventModal(false)}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs ${subCardBg}`}
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isCreatingEvent ? 'Tạo Sự Kiện Mới' : 'Lưu Thay Đổi'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL XÁC NHẬN XÓA SỰ KIỆN ================= */}
+      {deletingEventId && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className={`w-full max-w-md rounded-3xl p-6 border shadow-2xl space-y-4 ${cardBg}`}>
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-black">Xác nhận xóa sự kiện?</h3>
+            </div>
+
+            <p className={`text-xs sm:text-sm leading-relaxed ${textSecondary}`}>
+              Bạn có chắc chắn muốn xóa sự kiện này? Sự kiện sẽ bị xóa khỏi Pop-up và Trang chủ. Bạn luôn có thể bấm "Khôi phục 3 sự kiện gốc" nếu muốn lấy lại.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingEventId(null)}
+                className={`px-4 py-2 rounded-xl font-bold text-xs ${subCardBg}`}
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteEvent(deletingEventId)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs shadow-md transition"
+              >
+                Xóa Vĩnh Viễn
+              </button>
             </div>
           </div>
         </div>
