@@ -250,7 +250,7 @@ export const App: React.FC = () => {
     () => sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
   );
   const [authView, setAuthView] = useState<{
-    mode: 'login' | 'register' | 'forgot' | 'reset';
+    mode: 'login' | 'register' | 'forgot' | 'enter_otp' | 'reset';
     notice?: string | null;
     initialEmail?: string;
     initialToken?: string;
@@ -1236,7 +1236,7 @@ export const App: React.FC = () => {
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
 
-  if (authView && (authView.mode === 'reset' || !token || !user)) {
+  if (authView && (authView.mode === 'reset' || authView.mode === 'enter_otp' || !token || !user)) {
     return (
       <AuthScreen
         onAuthSuccess={handleAuthSuccess}

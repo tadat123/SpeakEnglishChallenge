@@ -19,6 +19,8 @@ import {
   Sun,
   Moon,
   Loader2,
+  Clock,
+  RotateCw,
 } from 'lucide-react';
 import {
   checkPasswordStrength,
@@ -173,7 +175,7 @@ interface AuthScreenProps {
   /** Cho phép vào làm bài hôm nay / xem bảng xếp hạng mà không cần đăng nhập */
   onGuestMode?: (target: 'home' | 'leaderboard') => void;
   /** Chế độ mở mặc định (Đăng nhập hoặc Tạo tài khoản hoặc Đặt lại mật khẩu) */
-  initialMode?: 'login' | 'register' | 'forgot' | 'reset';
+  initialMode?: 'login' | 'register' | 'forgot' | 'enter_otp' | 'reset';
   initialEmail?: string;
   initialToken?: string;
   /** Thông báo hiển thị phía trên form (VD: bài làm của khách đang chờ được lưu) */
@@ -195,7 +197,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 }) => {
   const t = TRANSLATIONS[lang];
   const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(initialMode);
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'enter_otp' | 'reset'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -211,6 +213,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [isMagicLinkVerified, setIsMagicLinkVerified] = useState<boolean>(
     () => Boolean(initialToken && initialToken.length > 6)
   );
+  const [otpCountdown, setOtpCountdown] = useState<number>(0);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [demoEmailBox, setDemoEmailBox] = useState<{
@@ -218,6 +221,26 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     resetToken: string;
     resetLink: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (otpCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpCountdown]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     const { resetToken, email: emailFromUrl } = extractResetPasswordParams();
@@ -228,15 +251,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       setEmail(emailToUse);
       setOtpOrToken(tokenToUse);
       setIsMagicLinkVerified(tokenToUse.length > 6);
-      setMode('reset');
+      setMode('reset'); // Bấm "Xác thực từ link" -> Cửa sổ thay đổi mật khẩu luôn!
+      setOtpCountdown(15 * 60); // 15 phút
       setSuccessMsg(
         L(
-          'Đã xác thực liên kết từ Email! Hãy nhập mật khẩu mới và xác nhận mật khẩu.',
-          'Email link verified! Please enter and confirm your new password.',
-          '이메일 인증 완료! 새 비밀번호와 확인 비밀번호를 입력해주세요.'
+          'Đã xác thực thành công từ Liên kết Email! Hãy nhập mật khẩu mới và xác nhận mật khẩu.',
+          'Email link verified successfully! Please enter and confirm your new password.',
+          '이메일 링크로 성공적으로 인증되었습니다! 새 비밀번호와 확인 비밀번호를 입력해주세요.'
         )
       );
-      // Dọn dẹp params khỏi thanh địa chỉ để an toàn bảo mật
+      // Dọn dẹp params khỏi thanh địa chỉ để an toàn bảo mật và chống reload / back
       const cleanPath =
         window.location.pathname +
         (window.location.hash.startsWith('#') ? window.location.hash.split('?')[0] : '');
@@ -313,8 +337,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleForgotPassword = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
     setDemoEmailBox(null);
@@ -330,6 +354,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         body: JSON.stringify({
           email,
           employeeId: employeeId.length === 8 ? employeeId : undefined,
+          theme: darkMode ? 'dark' : 'light',
         }),
       });
       const data = await res.json();
@@ -343,7 +368,73 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           resetLink: data.demoEmailPreview.resetLink,
         });
       }
-      setMode('reset');
+      setOtpOrToken('');
+      setIsMagicLinkVerified(false);
+      setOtpCountdown(15 * 60); // 15 phút
+      setMode('enter_otp'); // Khi có mail -> Chuyển sang ô nhập mã trước
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const cleanOtp = otpOrToken.trim();
+    if (!cleanOtp) {
+      return setErrorMsg(
+        L(
+          'Vui lòng nhập mã xác thực OTP 6 số từ Email của bạn!',
+          'Please enter the 6-digit OTP code from your email!',
+          '이메일로 전송된 6자리 OTP 인증 코드를 입력해주세요!'
+        )
+      );
+    }
+    if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+      return setErrorMsg(
+        L(
+          'Mã OTP không hợp lệ. Vui lòng nhập đúng 6 chữ số!',
+          'Invalid OTP code. Please enter exactly 6 digits!',
+          '유효하지 않은 OTP입니다. 정확히 6자리 숫자를 입력해주세요!'
+        )
+      );
+    }
+
+    if (otpCountdown <= 0) {
+      return setErrorMsg(
+        L(
+          'Mã xác thực OTP đã hết hạn (quá 15 phút). Vui lòng bấm "Gửi lại mã OTP" để lấy mã mới!',
+          'OTP code has expired (over 15 minutes). Please click "Resend OTP" to get a new code!',
+          'OTP 인증 코드가 만료되었습니다 (15분 초과). 새 코드를 받으려면 "OTP 재전송"을 클릭하세요!'
+        )
+      );
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otpOrToken: cleanOtp }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || L('Mã xác thực OTP không chính xác', 'Invalid OTP code', 'OTP 코드가 일치하지 않습니다'));
+      }
+
+      setSuccessMsg(
+        data.message ||
+          L(
+            'Mã xác thực OTP chính xác! Hãy nhập mật khẩu mới bên dưới.',
+            'OTP verified! Please set your new password below.',
+            'OTP 인증 완료! 아래에 새 비밀번호를 설정해주세요.'
+          )
+      );
+      setMode('reset'); // Xác thực thành công -> Mở Cửa sổ thay đổi mật khẩu luôn
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -359,9 +450,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     if (!otpOrToken.trim()) {
       return setErrorMsg(
         L(
-          'Vui lòng nhập Mã OTP 6 số hoặc bấm nút từ trong Email',
-          'Please enter 6-digit OTP or click the link in email',
-          '6자리 OTP 코드를 입력하거나 이메일 링크를 클릭하세요'
+          'Vui lòng xác thực mã OTP trước khi thay đổi mật khẩu!',
+          'Please verify OTP code before resetting password!',
+          '비밀번호를 재설정하기 전에 OTP를 인증해주세요!'
         )
       );
     }
@@ -398,17 +489,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otpOrToken, newPassword, confirmPassword }),
+        body: JSON.stringify({ email, otpOrToken: otpOrToken.trim(), newPassword, confirmPassword }),
       });
       const data = await res.json();
       if (!res.ok) {
+        // Lưu ý: Các trường hợp mật khẩu không trùng, trùng mật khẩu cũ... server KHÔNG hủy OTP
         throw new Error(data.message || L('Đặt lại mật khẩu thất bại', 'Password reset failed', '비밀번호 재설정 실패'));
       }
 
-      setSuccessMsg(data.message);
+      // THÀNH CÔNG: Token đã hết hạn trên server! Thực hiện cơ chế chống quay lại:
+      setSuccessMsg(
+        data.message ||
+          L(
+            'Đổi mật khẩu thành công! Token xác thực đã hết hạn. Vui lòng đăng nhập.',
+            'Password reset successful! Token expired. Please log in.',
+            '비밀번호 변경 완료! 로그인해주세요.'
+          )
+      );
+      setOtpOrToken('');
+      setIsMagicLinkVerified(false);
       setPassword(newPassword);
+      setNewPassword('');
       setConfirmPassword('');
       setDemoEmailBox(null);
+      setOtpCountdown(0);
+
+      // Chống quay lại bằng browser history
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, document.title, window.location.pathname + '#login');
+      }
+
       setMode('login');
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -840,126 +950,232 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </form>
             )}
 
-            {/* ================= 4. ĐẶT LẠI MẬT KHẨU (EMAIL LUÔN BẰNG TIẾNG VIỆT) ================= */}
-            {mode === 'reset' && (
-              <form onSubmit={handleResetPassword} className="space-y-3.5">
+            {/* ================= 3b. NHẬP MÃ XÁC THỰC OTP (BƯỚC 2 TRƯỚC KHI ĐỔI MẬT KHẨU) ================= */}
+            {mode === 'enter_otp' && (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <button
                   type="button"
-                  onClick={() => setMode('forgot')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600"
+                  onClick={() => {
+                    setMode('forgot');
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600 transition"
                 >
                   <ArrowLeft className="w-4 h-4" /> {t.backBtn}
                 </button>
 
-                {demoEmailBox && (
-                  <div
-                    className={`border rounded-2xl p-3 space-y-2 ${
-                      darkMode ? 'bg-slate-800 border-slate-700' : 'bg-blue-50 border-blue-200'
+                <div>
+                  <h2 className={`text-base font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                    {L('Nhập mã xác thực OTP', 'Enter OTP Code', 'OTP 인증 코드 입력')}
+                  </h2>
+                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {L('Mã 6 chữ số đã gửi đến email:', '6-digit code has been sent to:', '6자리 코드가 이메일로 전송되었습니다:')}{' '}
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{email}</span>
+                  </p>
+                </div>
+
+                {/* Bộ đếm ngược thời gian hết hạn OTP (15 phút) */}
+                <div
+                  className={`p-3 rounded-2xl border flex items-center justify-between text-xs font-bold ${
+                    otpCountdown === 0
+                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400'
+                      : darkMode
+                      ? 'bg-slate-800/80 border-slate-700 text-slate-300'
+                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>
+                      {otpCountdown > 0
+                        ? L('Mã OTP có hiệu lực trong:', 'OTP valid for:', 'OTP 유효 시간:')
+                        : L('Mã OTP đã hết hạn (quá 15p):', 'OTP expired (15m):', 'OTP 만료됨 (15분):')}
+                    </span>
+                  </span>
+                  <span
+                    className={`font-mono text-sm font-black px-2 py-0.5 rounded-lg ${
+                      otpCountdown === 0
+                        ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300'
+                        : otpCountdown < 120
+                        ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 animate-pulse'
+                        : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
                     }`}
                   >
-                    <div className={`text-xs font-extrabold ${darkMode ? 'text-blue-300' : 'text-blue-900'}`}>
-                      📩 Email tiếng Việt vừa gửi tới {email}:
+                    {formatCountdown(otpCountdown)}
+                  </span>
+                </div>
+
+                {/* Hộp xem trước demo email (khi test hoặc chưa bật SMTP thực) */}
+                {demoEmailBox && (
+                  <div
+                    className={`border rounded-2xl p-3 space-y-2.5 ${
+                      darkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-blue-50/90 border-blue-200'
+                    }`}
+                  >
+                    <div className={`text-xs font-extrabold flex items-center justify-between ${darkMode ? 'text-blue-300' : 'text-blue-900'}`}>
+                      <span>📩 {L('Xem trước mã gửi qua email:', 'Email preview:', '이메일 미리보기:')}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-200/50 text-blue-800 dark:text-blue-200">Demo</span>
                     </div>
                     <div
-                      className={`rounded-xl p-2.5 border flex items-center justify-between gap-2 ${
+                      className={`rounded-xl p-3 border flex flex-col sm:flex-row items-center justify-between gap-2 ${
                         darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-blue-100'
                       }`}
                     >
-                      <div>
-                        <div className="text-[10px] text-slate-400">Mã xác thực OTP:</div>
-                        <div className="text-lg font-black tracking-widest text-blue-600">
+                      <div className="text-center sm:text-left">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{L('Mã OTP 6 số', '6-digit OTP', '6자리 OTP')}</div>
+                        <div className="text-2xl font-black tracking-widest text-blue-600 dark:text-blue-400 font-mono">
                           {demoEmailBox.otpCode}
                         </div>
                       </div>
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap gap-1.5 w-full sm:w-auto justify-end">
                         <button
                           type="button"
                           onClick={() => {
                             setOtpOrToken(demoEmailBox.otpCode);
-                            setIsMagicLinkVerified(false);
                           }}
-                          className={`text-xs font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 ${
-                            darkMode ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'
+                          className={`text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs transition ${
+                            darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                           }`}
                         >
-                          <Copy className="w-3.5 h-3.5" /> Điền OTP (Cách 1)
+                          <Copy className="w-3.5 h-3.5" /> {L('Điền mã OTP', 'Fill OTP', 'OTP 입력')}
                         </button>
                         <button
                           type="button"
                           onClick={() => {
                             setOtpOrToken(demoEmailBox.resetToken);
                             setIsMagicLinkVerified(true);
+                            setMode('reset');
+                            setSuccessMsg(
+                              L(
+                                'Đã xác thực từ Liên kết Email! Hãy nhập mật khẩu mới.',
+                                'Email link verified! Please enter your new password.',
+                                '이메일 링크로 인증 완료! 새 비밀번호를 입력해주세요.'
+                              )
+                            );
                           }}
-                          className="text-xs font-bold bg-blue-600 text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1"
+                          className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm transition"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" /> Nút trong Mail (Cách 2)
+                          <ExternalLink className="w-3.5 h-3.5" /> {L('Xác thực từ Link', 'Verify via Link', '링크로 인증')}
                         </button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Phần xác thực: Ẩn token dài ngoằng khi đã xác thực qua link Cách 2; Hoặc hiển thị ô nhập 6 số OTP chuẩn Cách 1 */}
-                {isMagicLinkVerified ? (
-                  <div className="p-3.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 shadow-xs flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-black text-emerald-900 dark:text-emerald-200 truncate">
-                          {L('Đã xác thực từ Liên kết Email (Cách 2)', 'Verified via Email Link (Method 2)', '이메일 링크로 인증 완료 (방법 2)')}
-                        </div>
-                        <div className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 font-medium truncate">
-                          {email} — {L('Không cần nhập mã OTP 6 số', 'No need to enter 6-digit OTP', '6자리 OTP 입력 불필요')}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMagicLinkVerified(false);
-                        setOtpOrToken('');
-                      }}
-                      className="px-2.5 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 shrink-0 transition"
-                    >
-                      {L('Đổi sang nhập OTP', 'Enter OTP', 'OTP 입력')}
-                    </button>
+                {/* Ô nhập mã OTP 6 số */}
+                <div>
+                  <label className={labelClass}>
+                    {L('Nhập 6 số OTP từ Email *', 'Enter 6-digit OTP from Email *', '이메일의 6자리 OTP 입력 *')}
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      autoFocus
+                      value={otpOrToken}
+                      onChange={(e) => setOtpOrToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="••••••"
+                      className={`w-full pl-12 pr-4 py-3 rounded-2xl border outline-none text-xl font-mono font-black tracking-[0.4em] text-center transition ${
+                        darkMode
+                          ? 'border-slate-700 bg-slate-800 text-white focus:border-blue-500'
+                          : 'border-slate-200 bg-white text-slate-900 focus:border-blue-600'
+                      }`}
+                    />
                   </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className={labelClass}>
-                        {L('Mã xác thực OTP (6 chữ số - Cách 1) *', 'OTP Code (6 digits - Method 1) *', '6자리 OTP 인증 코드 (방법 1) *')}
-                      </label>
-                      {otpOrToken.length > 6 && (
-                        <button
-                          type="button"
-                          onClick={() => setIsMagicLinkVerified(true)}
-                          className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                          {L('Dùng xác thực từ Link', 'Use Email Link', '링크 인증 사용')}
-                        </button>
-                      )}
+                  <p className="text-[11px] text-slate-400 font-medium mt-1 text-center">
+                    {L('Kiểm tra Hộp thư đến (hoặc Thư rác/Spam) của bạn', 'Check your Inbox or Spam folder', '받은편지함 또는 스팸함을 확인하세요')}
+                  </p>
+                </div>
+
+                {/* Nút Xác nhận OTP */}
+                <button
+                  type="submit"
+                  disabled={loading || otpOrToken.trim().length !== 6 || otpCountdown === 0}
+                  className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-blue-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{L('Đang kiểm tra mã OTP...', 'Verifying OTP...', 'OTP 확인 중...')}</span>
+                    </>
+                  ) : (
+                    <span>{L('Xác nhận mã OTP & Đổi mật khẩu', 'Verify OTP & Change Password', 'OTP 확인 및 비밀번호 변경')}</span>
+                  )}
+                </button>
+
+                {/* Gửi lại mã OTP */}
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleForgotPassword()}
+                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1.5 transition"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                    <span>{L('Chưa nhận được mã? Gửi lại mã OTP', "Didn't receive code? Resend OTP", '코드를 받지 못하셨나요? OTP 재전송')}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ================= 4. CỬA SỔ THAY ĐỔI MẬT KHẨU (BƯỚC 3) ================= */}
+            {mode === 'reset' && (
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isMagicLinkVerified) {
+                      setMode('forgot');
+                    } else {
+                      setMode('enter_otp');
+                    }
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600 transition"
+                >
+                  <ArrowLeft className="w-4 h-4" /> {t.backBtn}
+                </button>
+
+                <div>
+                  <h2 className={`text-base font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                    {L('Cửa sổ thay đổi mật khẩu', 'Change Password Window', '비밀번호 변경 창')}
+                  </h2>
+                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {L('Thiết lập mật khẩu mới cho tài khoản:', 'Set new password for account:', '계정 새 비밀번호 설정:')}{' '}
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{email}</span>
+                  </p>
+                </div>
+
+                {/* Huy hiệu xác thực an toàn: Đã xác thực qua Link Magic Link hoặc đã xác thực OTP */}
+                <div className="p-3 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 shadow-xs flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
                     </div>
-                    <div className="relative">
-                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={otpOrToken}
-                        onChange={(e) => setOtpOrToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="Ví dụ: 277608"
-                        className={`${inputClass} pl-10 pr-3.5 font-black tracking-widest text-base sm:text-lg`}
-                        required
-                      />
+                    <div className="min-w-0">
+                      <div className="text-xs font-black text-emerald-900 dark:text-emerald-200 truncate">
+                        {isMagicLinkVerified
+                          ? L('Đã xác thực từ Liên kết Email (Magic Link)', 'Verified via Email Link (Magic Link)', '이메일 링크로 인증 완료 (Magic Link)')
+                          : L('Đã xác thực mã OTP 6 số thành công', 'OTP code verified successfully', 'OTP 인증 성공')}
+                      </div>
+                      <div className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 font-medium truncate">
+                        {isMagicLinkVerified
+                          ? L('Xác thực bảo mật qua Email', 'Authenticated via email', '이메일을 통한 보안 인증')
+                          : `${L('Mã OTP', 'OTP Code', 'OTP 코드')}: ${otpOrToken}`}
+                      </div>
                     </div>
-                    <p className="text-[11px] text-slate-500 font-medium mt-1">
-                      {L('Nhập đúng 6 chữ số OTP được gửi trong email của bạn', 'Enter 6 digits sent to your email', '이메일로 전송된 6자리 OTP 숫자를 입력하세요')}
-                    </p>
                   </div>
-                )}
+                  {otpCountdown > 0 && (
+                    <span className="text-[11px] font-mono font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-lg shrink-0">
+                      ⏱️ {formatCountdown(otpCountdown)}
+                    </span>
+                  )}
+                </div>
 
                 {/* Mật khẩu mới */}
                 <div>
@@ -1038,8 +1254,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg transition flex items-center justify-center gap-2"
+                  disabled={loading || !newPassword || !confirmPassword}
+                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -1047,7 +1263,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       <span>{t.saveNewPassBtn}...</span>
                     </>
                   ) : (
-                    t.saveNewPassBtn
+                    <span>{t.saveNewPassBtn} & {t.loginTab}</span>
                   )}
                 </button>
               </form>

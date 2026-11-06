@@ -325,7 +325,7 @@ app.post(
     return reply.status(400).send({ message: parsed.error.issues[0]?.message });
   }
 
-  const { email, employeeId } = parsed.data;
+  const { email, employeeId, theme } = parsed.data;
   let user = store.findUserByIdentifier(email);
   if (!user) {
     await store.syncFromPostgres();
@@ -376,6 +376,7 @@ app.post(
     employeeId: user.employeeId,
     otpCode,
     resetLink,
+    theme,
   });
 
   return {
@@ -383,6 +384,7 @@ app.post(
       ? `Đã gửi mã xác thực OTP và link khôi phục mật khẩu tới ${user.email}`
       : `Đã tạo mã xác thực OTP & Link khôi phục cho ${user.email} (Chế độ xem trước Email trực tiếp)`,
     sentViaSmtp: mailResult.sentViaSmtp,
+    expiresAt,
     demoEmailPreview: !mailResult.sentViaSmtp
       ? {
           otpCode,
@@ -393,6 +395,52 @@ app.post(
       : undefined,
   };
 });
+
+// Xác thực riêng mã OTP (Cách 1) trước khi mở cửa sổ thay đổi mật khẩu
+app.post(
+  '/api/auth/verify-otp',
+  {
+    config: {
+      rateLimit: {
+        max: 15,
+        timeWindow: '15 minutes',
+      },
+    },
+  },
+  async (request, reply) => {
+    const { email, otpOrToken } = (request.body || {}) as { email?: string; otpOrToken?: string };
+    if (!email?.trim() || !otpOrToken?.trim()) {
+      return reply.status(400).send({ message: 'Vui lòng nhập đầy đủ Gmail và mã xác thực OTP 6 số!' });
+    }
+
+    let user = store.findUserByIdentifier(email.trim());
+    if (!user) {
+      await store.syncFromPostgres();
+      user = store.findUserByIdentifier(email.trim());
+    }
+
+    if (!user || !user.resetExpiresAt || (!user.resetOtpCode && !user.resetToken)) {
+      return reply.status(400).send({ message: 'Yêu cầu đặt lại mật khẩu không tồn tại hoặc đã hết hạn.' });
+    }
+
+    if (new Date(user.resetExpiresAt).getTime() < Date.now()) {
+      return reply.status(400).send({ message: 'Mã xác thực OTP đã hết hạn (quá 15 phút). Vui lòng yêu cầu mã mới!' });
+    }
+
+    const isMatched =
+      user.resetOtpCode === otpOrToken.trim() || user.resetToken === otpOrToken.trim();
+
+    if (!isMatched) {
+      return reply.status(400).send({ message: 'Mã xác thực OTP không chính xác. Vui lòng kiểm tra lại email!' });
+    }
+
+    // LƯU Ý: Không hủy OTP ở bước này! Chỉ xác thực và giữ nguyên cho đến khi lưu mật khẩu mới thành công
+    return {
+      success: true,
+      message: 'Mã xác thực OTP chính xác! Hãy nhập mật khẩu mới.',
+    };
+  }
+);
 
 app.post(
   '/api/auth/reset-password',
