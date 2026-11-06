@@ -446,11 +446,6 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
                             (e.currentTarget as HTMLImageElement).src = `${baseUrl}events/golden-bell.jpg`;
                           }}
                         />
-                        <span
-                          className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-white text-[10px] sm:text-xs font-black shadow ${a.theme.badge}`}
-                        >
-                          {a.num}
-                        </span>
                       </div>
 
                       {/* Content */}

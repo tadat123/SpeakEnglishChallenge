@@ -148,11 +148,31 @@ app.get('/api/uploads/:filename', async (request: any, reply) => {
   return reply.send(fs.createReadStream(filePath));
 });
 
+const SERVER_BOOT_TIME = new Date().toISOString();
+const API_VERSION = '1.0.1';
+
 app.get('/api/health', async () => {
   return {
     status: 'ok',
+    version: API_VERSION,
     service: 'Speak Right Daily Challenge 2026 API',
     instance: process.env.INSTANCE_ID || 'local-node-1',
+    serverBootTime: SERVER_BOOT_TIME,
+    dbMtime: store.getLastMtime(),
+    timestamp: new Date().toISOString(),
+  };
+});
+
+// Endpoint phục vụ PWA Frontend đồng bộ phiên bản Backend tự động
+app.get('/api/public/version', async (_request, reply: any) => {
+  reply.header('Cache-Control', 'no-store, no-cache, must-revalidate');
+  const latestDay = store.getLatestUnlockedChallenge();
+  return {
+    version: API_VERSION,
+    instance: process.env.INSTANCE_ID || 'local-node-1',
+    serverBootTime: SERVER_BOOT_TIME,
+    dbMtime: store.getLastMtime(),
+    latestUnlockedDay: latestDay ? latestDay.dayNumber : 1,
     timestamp: new Date().toISOString(),
   };
 });
@@ -1590,6 +1610,8 @@ app.get('/api/push/poll', async (request: any, reply: any) => {
     return {
       notifications: [],
       serverTime: Date.now(),
+      serverBootTime: SERVER_BOOT_TIME,
+      dbMtime: store.getLastMtime(),
     };
   }
 
@@ -1606,6 +1628,8 @@ app.get('/api/push/poll', async (request: any, reply: any) => {
   return {
     notifications,
     serverTime: Date.now(),
+    serverBootTime: SERVER_BOOT_TIME,
+    dbMtime: store.getLastMtime(),
   };
 });
 

@@ -555,6 +555,10 @@ class DataStore {
     return prisma;
   }
 
+  public getLastMtime(): number {
+    return this.lastLoadedMtime;
+  }
+
   public async syncFromPostgres() {
     this.reloadIfChanged();
     if (!prisma) return;

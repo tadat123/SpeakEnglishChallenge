@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Home,
@@ -59,6 +59,9 @@ import {
   triggerLocalServiceWorkerNotification,
   sendTestNativeNotification,
   getNotificationPermissionState,
+  onPwaUpdate,
+  checkForAppUpdate,
+  applyAppUpdate,
 } from './utils/pwaPush';
 
 type TabType = 'home' | 'challenges' | 'leaderboard' | 'profile' | 'admin';
@@ -238,6 +241,9 @@ export const App: React.FC = () => {
   const [showEventsPopup, setShowEventsPopup] = useState(false);
   const [popupEvents, setPopupEvents] = useState<EventPopupItem[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState<boolean>(false);
+  const [pwaUpdateReady, setPwaUpdateReady] = useState<boolean>(false);
+  const lastServerBootTimeRef = useRef<string | null>(null);
+  const lastDbMtimeRef = useRef<number | null>(null);
   // ===== CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP): chỉ làm bài hôm nay + xem bảng xếp hạng, KHÔNG lưu điểm =====
   const [guestMode, setGuestMode] = useState<boolean>(
     () => sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
@@ -546,9 +552,19 @@ export const App: React.FC = () => {
     }
   }, [isGuest, activeTab]);
 
-  // Đăng ký Service Worker PWA & Nhận thông báo đẩy theo nhịp chia đều (Staggered Push Queue)
+  // Đăng ký Service Worker PWA, đồng bộ cập nhật phiên bản & Nhận thông báo đẩy
   useEffect(() => {
     registerPwaServiceWorker();
+
+    // 1. Lắng nghe tín hiệu phiên bản PWA mới
+    const unsubscribePwaUpdate = onPwaUpdate((hasUpdate) => {
+      if (hasUpdate) {
+        setPwaUpdateReady(true);
+      }
+    });
+
+    // 2. Chủ động kiểm tra cập nhật ngay khi mở app
+    checkForAppUpdate();
 
     const onSwMessage = (event: MessageEvent) => {
       const data = event.data;
@@ -580,8 +596,7 @@ export const App: React.FC = () => {
       }
     });
 
-    // Đọc danh sách ID thông báo đã hiển thị từ localStorage để không bị lặp lại,
-    // nhưng vẫn đảm bảo người mở app sau vẫn nhận được thông báo gửi trong vòng 24 giờ qua!
+    // Đọc danh sách ID thông báo đã hiển thị từ localStorage để không bị lặp lại
     const SEEN_NOTIF_KEY = `sr_seen_notif_${user?.id || 'guest'}`;
     const storedSeenIds = (() => {
       try {
@@ -619,6 +634,23 @@ export const App: React.FC = () => {
         });
         if (!res.ok) return;
         const data = await res.json();
+
+        // Tự động đồng bộ lại khi Backend khởi động lại hoặc DB cập nhật
+        if (data.serverBootTime) {
+          if (lastServerBootTimeRef.current && lastServerBootTimeRef.current !== data.serverBootTime) {
+            console.log('[PWA Sync] Backend vừa khởi động lại / cập nhật mới. Đang đồng bộ lại dữ liệu...');
+            fetchAllData();
+          }
+          lastServerBootTimeRef.current = data.serverBootTime;
+        }
+        if (data.dbMtime) {
+          if (lastDbMtimeRef.current && lastDbMtimeRef.current !== data.dbMtime) {
+            console.log('[PWA Sync] Dữ liệu Backend vừa được cập nhật. Đang đồng bộ lại dữ liệu...');
+            fetchAllData();
+          }
+          lastDbMtimeRef.current = data.dbMtime;
+        }
+
         const notifs = Array.isArray(data.notifications) ? data.notifications : [];
         if (data.serverTime) {
           lastPollTime = data.serverTime;
@@ -659,8 +691,6 @@ export const App: React.FC = () => {
     const scheduleNextPoll = () => {
       if (pollTimer) clearTimeout(pollTimer);
 
-      // Nếu tab đang bị ẩn (người dùng chuyển tab / màn hình tắt / idle), giãn nhịp lên 25s
-      // Nếu tab đang active, nhịp bình thường là 5s, nếu liên tiếp không có tin mới giãn nhẹ lên 10s
       let delay = 5000;
       if (typeof document !== 'undefined' && document.hidden) {
         delay = 25000;
@@ -674,22 +704,30 @@ export const App: React.FC = () => {
       }, delay);
     };
 
-    // Khi người dùng quay lại tab (visibilitychange), poll ngay lập tức và reset nhịp nhanh
+    // Khi người dùng quay lại tab (visibilitychange), poll ngay lập tức và kiểm tra cập nhật PWA
     const onVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
         consecutiveEmpties = 0;
         executePoll();
         scheduleNextPoll();
+        checkForAppUpdate();
       }
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
     scheduleNextPoll();
 
+    // Định kỳ 3 phút tự động kiểm tra phiên bản PWA mới
+    const pwaCheckInterval = setInterval(() => {
+      checkForAppUpdate();
+    }, 3 * 60 * 1000);
+
     return () => {
+      unsubscribePwaUpdate();
       navigator.serviceWorker?.removeEventListener('message', onSwMessage);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       if (pollTimer) clearTimeout(pollTimer);
+      clearInterval(pwaCheckInterval);
     };
   }, [token, user?.id]);
 
@@ -1479,6 +1517,42 @@ export const App: React.FC = () => {
                 className="px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100 text-slate-950 text-xs font-black shadow-sm transition"
               >
                 {L('Tạo tài khoản', 'Sign up', '가입')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Banner Thông Báo Có Phiên Bản PWA Mới Sẵn Sàng Cập Nhật */}
+        {pwaUpdateReady && (
+          <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-800 text-white shadow-2xl border border-blue-400/40 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-md">
+                <Sparkles className="w-4 h-4 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm font-black flex items-center gap-1.5 truncate">
+                  <span>{L('Đã có bản cập nhật mới!', 'New version available!', '새로운 버전이 있습니다!')}</span>
+                </div>
+                <p className="text-[11px] text-blue-100 truncate mt-0.5">
+                  {L('Bấm để tải lại và dùng tính năng mới nhất.', 'Tap to refresh and get the latest updates.', '새로운 기능을 사용하려면 탭하세요.')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => applyAppUpdate()}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition active:scale-95"
+              >
+                {L('Cập nhật ngay', 'Update now', '지금 업데이트')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPwaUpdateReady(false)}
+                className="p-1.5 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -2622,7 +2696,6 @@ export const App: React.FC = () => {
                         <div className="space-y-3 sm:space-y-3.5">
                           {visibleActivities.map((act, actIdx) => {
                             const theme = HOME_EVENT_THEMES[act.themeColor] || HOME_EVENT_THEMES.amber;
-                            const numDisplay = act.num || String(actIdx + 1).padStart(2, '0');
                             const imgSrc = act.img
                               ? (act.img.startsWith('http://') || act.img.startsWith('https://') || act.img.startsWith('/')
                                   ? act.img
@@ -2651,11 +2724,6 @@ export const App: React.FC = () => {
                                       alt={act.titleC}
                                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                     />
-                                    <span
-                                      className={`absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black shadow-md ${theme.badgeBg}`}
-                                    >
-                                      {numDisplay}
-                                    </span>
                                   </div>
 
                                   {/* Content */}

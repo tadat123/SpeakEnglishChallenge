@@ -44,18 +44,136 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+type UpdateCallback = (hasUpdate: boolean, details?: { current?: string; latest?: string }) => void;
+const updateListeners = new Set<UpdateCallback>();
+
+export function onPwaUpdate(callback: UpdateCallback): () => void {
+  updateListeners.add(callback);
+  return () => updateListeners.delete(callback);
+}
+
+function notifyUpdateListeners(hasUpdate: boolean, details?: { current?: string; latest?: string }) {
+  for (const listener of updateListeners) {
+    try {
+      listener(hasUpdate, details);
+    } catch {}
+  }
+}
+
+let globalRegistration: ServiceWorkerRegistration | null = null;
+
 export async function registerPwaServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
   }
+  if (globalRegistration) {
+    return globalRegistration;
+  }
   try {
     const swUrl = `${import.meta.env.BASE_URL || './'}sw.js`;
-    const registration = await navigator.serviceWorker.register(swUrl);
+    // Thêm { updateViaCache: 'none' } để trình duyệt bỏ qua HTTP cache khi kiểm tra sw.js
+    const registration = await navigator.serviceWorker.register(swUrl, {
+      updateViaCache: 'none',
+    });
+    globalRegistration = registration;
+
+    // 1. Nếu có Service Worker mới đang chờ kích hoạt (waiting)
+    if (registration.waiting) {
+      notifyUpdateListeners(true);
+    }
+
+    // 2. Lắng nghe phát hiện Service Worker mới (updatefound)
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // Phiên bản mới đã được tải và sẵn sàng kích hoạt
+          notifyUpdateListeners(true);
+        }
+      });
+    });
+
+    // 3. Lắng nghe khi worker mới đã chiếm quyền điều khiển (controllerchange)
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      if (sessionStorage.getItem('sr_auto_reload_pending') === 'true') {
+        sessionStorage.removeItem('sr_auto_reload_pending');
+        refreshing = true;
+        window.location.reload();
+      } else {
+        notifyUpdateListeners(true);
+      }
+    });
+
+    // 4. Chủ động kiểm tra cập nhật ngay khi đăng ký
+    registration.update().catch(() => {});
+
     return registration;
   } catch (err) {
     console.warn('Không thể đăng ký Service Worker:', err);
     return null;
   }
+}
+
+export async function checkForAppUpdate(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    // 1. Kiểm tra Service Worker
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.update().catch(() => {});
+        if (reg.waiting) {
+          notifyUpdateListeners(true);
+          return true;
+        }
+      }
+    }
+
+    // 2. Kiểm tra version.json từ static assets
+    const currentBuildTime = typeof __APP_BUILD_TIME__ !== 'undefined' ? __APP_BUILD_TIME__ : '';
+    const res = await fetch(`./version.json?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.buildTime && currentBuildTime && data.buildTime !== currentBuildTime) {
+        notifyUpdateListeners(true, { current: currentBuildTime, latest: data.buildTime });
+        return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+export async function applyAppUpdate(): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  sessionStorage.setItem('sr_auto_reload_pending', 'true');
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    }
+  } catch {}
+
+  // Đợi nhẹ để worker hoàn tất kích hoạt rồi tải lại trang
+  setTimeout(() => {
+    window.location.reload();
+  }, 250);
 }
 
 export function getNotificationPermissionState(): NotificationPermission | 'unsupported' {
