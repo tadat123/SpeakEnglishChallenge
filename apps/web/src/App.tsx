@@ -42,6 +42,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
+import { extractResetPasswordParams } from './utils/validation';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ResponsiveBackground, PerfmonsterFooter } from './components/LayoutDecor';
 import {
@@ -249,9 +250,21 @@ export const App: React.FC = () => {
     () => sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
   );
   const [authView, setAuthView] = useState<{
-    mode: 'login' | 'register';
+    mode: 'login' | 'register' | 'forgot' | 'reset';
     notice?: string | null;
-  } | null>(null);
+    initialEmail?: string;
+    initialToken?: string;
+  } | null>(() => {
+    const { resetToken, email } = extractResetPasswordParams();
+    if (resetToken && email) {
+      return {
+        mode: 'reset',
+        initialEmail: email,
+        initialToken: resetToken,
+      };
+    }
+    return null;
+  });
   const [loginPromptMsg, setLoginPromptMsg] = useState<string | null>(null);
   const [isGlobalLoading, setIsGlobalLoading] = useState<boolean>(true);
   const [startingDay, setStartingDay] = useState<number | null>(null);
@@ -416,6 +429,17 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const onHashChange = () => {
+      // 1. Kiểm tra nếu URL chứa resetToken (Magic link đổi mật khẩu qua email)
+      const { resetToken, email } = extractResetPasswordParams();
+      if (resetToken && email) {
+        setAuthView({
+          mode: 'reset',
+          initialEmail: email,
+          initialToken: resetToken,
+        });
+        return;
+      }
+
       const h = window.location.hash.replace('#', '');
       if (h.startsWith('quiz') || h.startsWith('result') || h.startsWith('review')) {
         return;
@@ -426,7 +450,11 @@ export const App: React.FC = () => {
       setActiveTab(getTabFromHash());
     };
     window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    window.addEventListener('popstate', onHashChange);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+      window.removeEventListener('popstate', onHashChange);
+    };
   }, []);
 
   const fetchAllData = async () => {
@@ -1208,7 +1236,7 @@ export const App: React.FC = () => {
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
 
-  if (authView && (!token || !user)) {
+  if (authView && (authView.mode === 'reset' || !token || !user)) {
     return (
       <AuthScreen
         onAuthSuccess={handleAuthSuccess}
@@ -1217,8 +1245,18 @@ export const App: React.FC = () => {
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         initialMode={authView.mode}
+        initialEmail={authView.initialEmail}
+        initialToken={authView.initialToken}
         guestNotice={authView.notice}
-        onClose={() => setAuthView(null)}
+        onClose={() => {
+          setAuthView(null);
+          if (
+            typeof window !== 'undefined' &&
+            (window.location.hash.includes('resetToken') || window.location.search.includes('resetToken'))
+          ) {
+            window.history.replaceState({}, document.title, window.location.pathname + '#home');
+          }
+        }}
         onGuestMode={(target) => {
           setAuthView(null);
           navigateToTab(target);

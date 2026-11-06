@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
+  Check,
   XCircle,
   KeyRound,
   ArrowLeft,
@@ -24,6 +25,7 @@ import {
   isSamsungDomain,
   validateGenId,
   validatePersonalGmail,
+  extractResetPasswordParams,
 } from '../utils/validation';
 import { Lang, TRANSLATIONS } from '../utils/i18n';
 import { ResponsiveBackground } from './LayoutDecor';
@@ -38,8 +40,10 @@ interface AuthScreenProps {
   onClose?: () => void;
   /** Cho phép vào làm bài hôm nay / xem bảng xếp hạng mà không cần đăng nhập */
   onGuestMode?: (target: 'home' | 'leaderboard') => void;
-  /** Chế độ mở mặc định (Đăng nhập hoặc Tạo tài khoản) */
-  initialMode?: 'login' | 'register';
+  /** Chế độ mở mặc định (Đăng nhập hoặc Tạo tài khoản hoặc Đặt lại mật khẩu) */
+  initialMode?: 'login' | 'register' | 'forgot' | 'reset';
+  initialEmail?: string;
+  initialToken?: string;
   /** Thông báo hiển thị phía trên form (VD: bài làm của khách đang chờ được lưu) */
   guestNotice?: string | null;
 }
@@ -53,23 +57,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   onClose,
   onGuestMode,
   initialMode = 'login',
+  initialEmail = '',
+  initialToken = '',
   guestNotice,
 }) => {
   const t = TRANSLATIONS[lang];
   const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   const [employeeId, setEmployeeId] = useState('');
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
 
-  const [otpOrToken, setOtpOrToken] = useState('');
+  const [otpOrToken, setOtpOrToken] = useState(initialToken);
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [demoEmailBox, setDemoEmailBox] = useState<{
     otpCode: string;
     resetToken: string;
@@ -77,17 +85,26 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   } | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenFromUrl = params.get('resetToken');
-    const emailFromUrl = params.get('email');
-    if (tokenFromUrl && emailFromUrl) {
-      setEmail(emailFromUrl);
-      setOtpOrToken(tokenFromUrl);
+    const { resetToken, email: emailFromUrl } = extractResetPasswordParams();
+    const tokenToUse = resetToken || initialToken;
+    const emailToUse = emailFromUrl || initialEmail;
+
+    if (tokenToUse && emailToUse) {
+      setEmail(emailToUse);
+      setOtpOrToken(tokenToUse);
       setMode('reset');
-      setSuccessMsg(L('Đã xác thực liên kết từ Email! Hãy nhập mật khẩu mới.', 'Email link verified! Please enter your new password.', '이메일 인증 완료! 새 비밀번호를 입력해주세요.'));
-      window.history.replaceState({}, document.title, window.location.pathname);
+      setSuccessMsg(
+        L(
+          'Đã xác thực liên kết từ Email! Hãy nhập mật khẩu mới và xác nhận mật khẩu.',
+          'Email link verified! Please enter and confirm your new password.',
+          '이메일 인증 완료! 새 비밀번호와 확인 비밀번호를 입력해주세요.'
+        )
+      );
+      // Dọn dẹp params khỏi thanh địa chỉ để an toàn bảo mật
+      const cleanPath = window.location.pathname + (window.location.hash.startsWith('#') ? window.location.hash.split('?')[0] : '');
+      window.history.replaceState({}, document.title, cleanPath);
     }
-  }, []);
+  }, [initialToken, initialEmail]);
 
   const handleGenInput = (value: string) => {
     setEmployeeId(value.replace(/\D/g, '').slice(0, 8));
@@ -202,10 +219,40 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setSuccessMsg('');
 
     if (!otpOrToken.trim()) {
-      return setErrorMsg(L('Vui lòng nhập Mã OTP 6 số hoặc bấm nút từ trong Email', 'Please enter 6-digit OTP or click the link in email', '6자리 OTP 코드를 입력하거나 이메일 링크를 클릭하세요'));
+      return setErrorMsg(
+        L(
+          'Vui lòng nhập Mã OTP 6 số hoặc bấm nút từ trong Email',
+          'Please enter 6-digit OTP or click the link in email',
+          '6자리 OTP 코드를 입력하거나 이메일 링크를 클릭하세요'
+        )
+      );
     }
     if (!pwdCriteria.isValid) {
-      return setErrorMsg(L('Mật khẩu mới cần đủ chữ HOA, thường, số và ký tự đặc biệt', 'New password must contain uppercase, lowercase, number and special char', '새 비밀번호는 대소문자, 숫자, 특수문자를 포함해야 합니다'));
+      return setErrorMsg(
+        L(
+          'Mật khẩu mới cần tối thiểu 8 ký tự, gồm chữ HOA, chữ thường, chữ số và ký tự đặc biệt',
+          'New password must be at least 8 chars with uppercase, lowercase, number and special char',
+          '새 비밀번호는 최소 8자 이상, 대소문자, 숫자, 특수문자를 포함해야 합니다'
+        )
+      );
+    }
+    if (!confirmPassword) {
+      return setErrorMsg(
+        L(
+          'Vui lòng xác nhận lại mật khẩu mới',
+          'Please confirm your new password',
+          '새 비밀번호 확인을 입력해주세요'
+        )
+      );
+    }
+    if (newPassword !== confirmPassword) {
+      return setErrorMsg(
+        L(
+          'Mật khẩu xác nhận không trùng khớp với mật khẩu mới. Vui lòng kiểm tra lại!',
+          'Confirmation password does not match new password. Please check again!',
+          '확인 비밀번호가 새 비밀번호와 일치하지 않습니다. 다시 확인해주세요!'
+        )
+      );
     }
 
     setLoading(true);
@@ -213,13 +260,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otpOrToken, newPassword }),
+        body: JSON.stringify({ email, otpOrToken, newPassword, confirmPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || L('Đặt lại mật khẩu thất bại', 'Password reset failed', '비밀번호 재설정 실패'));
+      if (!res.ok) {
+        throw new Error(data.message || L('Đặt lại mật khẩu thất bại', 'Password reset failed', '비밀번호 재설정 실패'));
+      }
 
       setSuccessMsg(data.message);
       setPassword(newPassword);
+      setConfirmPassword('');
       setDemoEmailBox(null);
       setMode('login');
     } catch (err: any) {
@@ -742,15 +792,102 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   </div>
                 </div>
 
+                {/* Mật khẩu mới */}
                 <div>
-                  <label className={labelClass}>{t.passwordLabel} *</label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Speak@2026"
-                    className={`${inputClass} px-3.5`}
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={labelClass}>
+                      {L('Mật khẩu mới *', 'New password *', '새 비밀번호 *')}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <span>{showPassword ? L('Ẩn', 'Hide', '숨기기') : L('Hiện', 'Show', '보기')}</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Speak@2026"
+                      className={`${inputClass} pl-10 pr-3.5 font-medium`}
+                      required
+                    />
+                  </div>
+
+                  <div
+                    className={`grid grid-cols-2 gap-1 mt-2 p-2.5 rounded-2xl text-[11px] ${
+                      darkMode ? 'bg-slate-800/80' : 'bg-slate-50'
+                    }`}
+                  >
+                    <span className={pwdCriteria.minLength ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                      ✓ 8+ chars
+                    </span>
+                    <span
+                      className={
+                        pwdCriteria.hasUpper && pwdCriteria.hasLower
+                          ? 'text-emerald-600 font-bold'
+                          : 'text-slate-400'
+                      }
+                    >
+                      ✓ A-Z & a-z
+                    </span>
+                    <span className={pwdCriteria.hasNumber ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                      ✓ 0-9
+                    </span>
+                    <span className={pwdCriteria.hasSpecial ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                      ✓ !@#$...
+                    </span>
+                  </div>
+                </div>
+
+                {/* Xác nhận mật khẩu mới */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={labelClass}>
+                      {L('Xác nhận mật khẩu mới *', 'Confirm new password *', '새 비밀번호 확인 *')}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <span>{showConfirmPassword ? L('Ẩn', 'Hide', '숨기기') : L('Hiện', 'Show', '보기')}</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới..."
+                      className={`${inputClass} pl-10 pr-3.5 font-medium ${
+                        confirmPassword && confirmPassword !== newPassword
+                          ? 'border-rose-500 focus:border-rose-500'
+                          : confirmPassword && confirmPassword === newPassword
+                          ? 'border-emerald-500 focus:border-emerald-500'
+                          : ''
+                      }`}
+                      required
+                    />
+                  </div>
+                  {confirmPassword && confirmPassword !== newPassword && (
+                    <p className="text-[11px] text-rose-500 font-bold mt-1">
+                      {L('Mật khẩu xác nhận chưa khớp với mật khẩu mới', 'Passwords do not match', '비밀번호가 일치하지 않습니다')}
+                    </p>
+                  )}
+                  {confirmPassword && confirmPassword === newPassword && (
+                    <p className="text-[11px] text-emerald-500 font-bold mt-1 flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      {L('Mật khẩu xác nhận trùng khớp', 'Passwords match', '비밀번호가 일치합니다')}
+                    </p>
+                  )}
                 </div>
 
                 <button

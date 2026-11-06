@@ -51,4 +51,5 @@ export const resetPasswordSchema = z.object({
   email: personalEmailSchema,
   otpOrToken: z.string().trim().min(6, 'Mã xác thực không hợp lệ'),
   newPassword: strongPasswordSchema,
+  confirmPassword: z.string().optional(),
 });

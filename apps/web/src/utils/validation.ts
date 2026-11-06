@@ -63,3 +63,35 @@ export function validatePersonalGmail(email: string): { valid: boolean; message:
   }
   return { valid: true, message: 'Email hợp lệ' };
 }
+
+/**
+ * Trích xuất resetToken và email từ thanh địa chỉ (hỗ trợ cả query ?resetToken=... và hash #home/?resetToken=...)
+ */
+export function extractResetPasswordParams(): { resetToken: string | null; email: string | null } {
+  if (typeof window === 'undefined') return { resetToken: null, email: null };
+
+  // 1. Kiểm tra query param chuẩn ở window.location.search
+  const searchParams = new URLSearchParams(window.location.search);
+  let resetToken = searchParams.get('resetToken');
+  let email = searchParams.get('email');
+
+  // 2. Kiểm tra nếu param nằm sau hash (#home/?resetToken=... hoặc #reset-password?resetToken=...)
+  if (!resetToken && window.location.hash) {
+    const hash = window.location.hash;
+    const queryIdx = hash.indexOf('?');
+    if (queryIdx !== -1) {
+      const hashParams = new URLSearchParams(hash.substring(queryIdx + 1));
+      resetToken = hashParams.get('resetToken');
+      if (!email) email = hashParams.get('email');
+    }
+  }
+
+  // 3. Giải mã an toàn email nếu bị URL-encode
+  if (email) {
+    try {
+      email = decodeURIComponent(email);
+    } catch {}
+  }
+
+  return { resetToken, email };
+}

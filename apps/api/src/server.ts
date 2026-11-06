@@ -366,8 +366,9 @@ app.post(
     } catch {}
   }
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const resetLink = `${frontendUrl}/?resetToken=${resetToken}&email=${encodeURIComponent(user.email)}`;
+  const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const cleanFrontendUrl = rawFrontendUrl.replace(/\/+$/, '').replace(/#.*$/, '').replace(/\/+$/, '');
+  const resetLink = `${cleanFrontendUrl}/?resetToken=${resetToken}&email=${encodeURIComponent(user.email)}`;
 
   const mailResult = await sendPasswordResetEmail({
     to: user.email,
@@ -409,7 +410,15 @@ app.post(
     return reply.status(400).send({ message: parsed.error.issues[0]?.message });
   }
 
-  const { email, otpOrToken, newPassword } = parsed.data;
+  const { email, otpOrToken, newPassword, confirmPassword } = parsed.data as any;
+
+  // 1. Kiểm tra xác nhận mật khẩu (nếu client gửi lên)
+  if (confirmPassword && confirmPassword !== newPassword) {
+    return reply.status(400).send({
+      message: 'Mật khẩu xác nhận không trùng khớp với mật khẩu mới. Vui lòng kiểm tra lại!',
+    });
+  }
+
   let user = store.findUserByIdentifier(email);
   if (!user) {
     await store.syncFromPostgres();
@@ -429,6 +438,16 @@ app.post(
 
   if (!isMatched) {
     return reply.status(400).send({ message: 'Mã xác thực OTP hoặc đường dẫn khôi phục không chính xác!' });
+  }
+
+  // 2. Chặn đặt mật khẩu mới trùng với mật khẩu hiện tại
+  if (user.passwordHash) {
+    const isSameAsOld = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSameAsOld) {
+      return reply.status(400).send({
+        message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại. Vui lòng chọn mật khẩu mới khác!',
+      });
+    }
   }
 
   const newHash = await bcrypt.hash(newPassword, 10);
