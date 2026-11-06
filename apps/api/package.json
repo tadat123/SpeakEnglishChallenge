@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "db:push": "node -e \"if(process.env.DIRECT_URL) process.env.DATABASE_URL=process.env.DIRECT_URL; const r = require('child_process').spawnSync('npx', ['prisma', 'db', 'push', '--accept-data-loss'], {stdio: 'inherit', env: process.env, shell: true}); process.exit(r.status || 0);\"",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset-fresh": "tsx scripts/reset-fresh.ts"
+    "db:reset-fresh": "node scripts/reset-fresh.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

@@ -1,4 +1,4 @@
-import { store } from '../src/services/store.js';
+import { store } from '../dist/services/store.js';
 
 async function main() {
   console.log('🧹 Đang tiến hành thiết lập hệ thống mới toanh...');

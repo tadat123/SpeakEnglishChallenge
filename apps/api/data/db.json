@@ -8,7 +8,7 @@
       "phone": "0901234567",
       "department": "HR & Training",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak",
-      "passwordHash": "$2a$10$UUBCZqXA5oVVWqEgl7AfheOpI9Yb5vn0HO9SWZGjBV0u0M6.SrdSO",
+      "passwordHash": "$2a$10$uD0tjm48lnBa29g2xr2/cO2vjqEY6Vi5bvE454EYFqnH.qbOrLrqG",
       "role": "ADMIN",
       "totalScore": 0,
       "totalTimeMs": 0,
@@ -16,7 +16,7 @@
       "resetOtpCode": null,
       "resetToken": null,
       "resetExpiresAt": null,
-      "createdAt": "2026-11-06T07:57:13.123Z"
+      "createdAt": "2026-11-06T10:29:39.657Z"
     }
   ],
   "challenges": [
