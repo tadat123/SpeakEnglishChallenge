@@ -791,93 +791,8 @@ class DataStore {
         }
         // Đảm bảo luôn có tài khoản Admin GEN: 88888888 với mật khẩu Admin@2026 và role ADMIN
         if (!Array.isArray(parsed.users)) parsed.users = [];
-        const normalUsers = parsed.users.filter((u) => u.role === 'USER');
-        if (normalUsers.length === 0) {
-          parsed.users.push(...DEFAULT_EMPLOYEES);
-        }
-        if (!Array.isArray(parsed.attempts) || parsed.attempts.length === 0) {
-          const now = Date.now();
-          parsed.attempts = [
-            {
-              id: 'att-seed-1',
-              userId: 'u-1',
-              challengeId: 1,
-              dayNumber: 1,
-              score: 100,
-              correctCount: 10,
-              wrongCount: 0,
-              timeSpentMs: 45000,
-              answersDetail: {},
-              startedAt: new Date(now - 7200000).toISOString(),
-              completedAt: new Date(now - 7155000).toISOString(),
-            },
-            {
-              id: 'att-seed-2',
-              userId: 'u-2',
-              challengeId: 1,
-              dayNumber: 1,
-              score: 90,
-              correctCount: 9,
-              wrongCount: 1,
-              timeSpentMs: 52000,
-              answersDetail: {},
-              startedAt: new Date(now - 6500000).toISOString(),
-              completedAt: new Date(now - 6448000).toISOString(),
-            },
-            {
-              id: 'att-seed-3',
-              userId: 'u-3',
-              challengeId: 1,
-              dayNumber: 1,
-              score: 90,
-              correctCount: 9,
-              wrongCount: 1,
-              timeSpentMs: 58000,
-              answersDetail: {},
-              startedAt: new Date(now - 5500000).toISOString(),
-              completedAt: new Date(now - 5442000).toISOString(),
-            },
-            {
-              id: 'att-seed-4',
-              userId: 'u-4',
-              challengeId: 1,
-              dayNumber: 1,
-              score: 80,
-              correctCount: 8,
-              wrongCount: 2,
-              timeSpentMs: 65000,
-              answersDetail: {},
-              startedAt: new Date(now - 4500000).toISOString(),
-              completedAt: new Date(now - 4435000).toISOString(),
-            },
-            {
-              id: 'att-seed-5',
-              userId: 'u-5',
-              challengeId: 1,
-              dayNumber: 1,
-              score: 80,
-              correctCount: 8,
-              wrongCount: 2,
-              timeSpentMs: 70000,
-              answersDetail: {},
-              startedAt: new Date(now - 3500000).toISOString(),
-              completedAt: new Date(now - 3430000).toISOString(),
-            },
-            {
-              id: 'att-seed-thao',
-              userId: 'u-thao',
-              challengeId: 1,
-              dayNumber: 1,
-              score: 70,
-              correctCount: 7,
-              wrongCount: 3,
-              timeSpentMs: 80000,
-              answersDetail: {},
-              startedAt: new Date(now - 2500000).toISOString(),
-              completedAt: new Date(now - 2420000).toISOString(),
-            },
-          ];
-        }
+        if (!Array.isArray(parsed.attempts)) parsed.attempts = [];
+
         const adminUser = parsed.users.find((u) => u.employeeId === '88888888');
         const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
         if (!adminUser) {
@@ -936,7 +851,6 @@ class DataStore {
         completedDays: 0,
         createdAt: new Date().toISOString(),
       },
-      ...DEFAULT_EMPLOYEES,
     ];
 
     const challenges = generate21DaysChallenges();
@@ -977,6 +891,78 @@ class DataStore {
     this.forceLockedDays.clear();
     this.data = this.loadOrSeed();
     return this.data;
+  }
+
+  public async resetToFreshAdminOnly(): Promise<{ success: boolean; message: string }> {
+    this.reloadIfChanged();
+    const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
+    const adminUser: UserRecord = {
+      id: 'u-admin',
+      employeeId: '88888888',
+      fullName: 'Ban Tổ Chức (Admin)',
+      email: 'admin.speakright@gmail.com',
+      phone: '0901234567',
+      department: 'HR & Training',
+      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
+      passwordHash: adminPassHash,
+      role: 'ADMIN',
+      totalScore: 0,
+      totalTimeMs: 0,
+      completedDays: 0,
+      resetOtpCode: null,
+      resetToken: null,
+      resetExpiresAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.data.users = [adminUser];
+    this.data.attempts = [];
+    this.data.inAppNotifications = [];
+    this.data.pushCampaigns = [];
+    this.data.pwaSubscriptions = [];
+    this.activeSessions.clear();
+    this.forceLockedDays.clear();
+
+    this.save();
+
+    if (prisma) {
+      try {
+        await prisma.challengeAttempt.deleteMany();
+        await prisma.pwaPushSubscription.deleteMany();
+        await prisma.user.deleteMany({
+          where: { employeeId: { not: '88888888' } },
+        });
+        await prisma.user.upsert({
+          where: { employeeId: '88888888' },
+          update: {
+            role: 'ADMIN',
+            passwordHash: adminPassHash,
+            totalScore: 0,
+            totalTimeMs: 0,
+            completedDays: 0,
+          },
+          create: {
+            employeeId: '88888888',
+            fullName: 'Ban Tổ Chức (Admin)',
+            email: 'admin.speakright@gmail.com',
+            phone: '0901234567',
+            department: 'HR & Training',
+            passwordHash: adminPassHash,
+            role: 'ADMIN',
+            totalScore: 0,
+            totalTimeMs: 0,
+            completedDays: 0,
+          },
+        });
+      } catch (err: any) {
+        console.error('[DB Reset] Lỗi khi dọn dẹp PostgreSQL:', err?.message || err);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Hệ thống đã được thiết lập mới toanh! Chỉ còn duy nhất tài khoản Admin (GEN: 88888888 / Mật khẩu: Admin@2026).',
+    };
   }
 
   private pruneExpiredSessions() {

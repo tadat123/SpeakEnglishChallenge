@@ -1603,6 +1603,14 @@ app.post(
   }
 );
 
+app.post(
+  '/api/admin/reset-system-fresh',
+  { preHandler: [(app as any).requireAdmin] },
+  async () => {
+    return await store.resetToFreshAdminOnly();
+  }
+);
+
 // ==================== 5. PWA WEB PUSH NOTIFICATIONS & STAGGERED DISPATCHER (CHIA ĐỀU REQUEST) ====================
 
 // Lấy VAPID Public Key để trình duyệt / PWA đăng ký Web Push

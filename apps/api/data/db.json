@@ -8,177 +8,15 @@
       "phone": "0901234567",
       "department": "HR & Training",
       "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak",
-      "passwordHash": "$2a$10$ZbqC7qOmXrOUwq7VECMkzOwQ7gCO6iVg7oyHCgQINADcjVYTJJi4a",
+      "passwordHash": "$2a$10$UUBCZqXA5oVVWqEgl7AfheOpI9Yb5vn0HO9SWZGjBV0u0M6.SrdSO",
       "role": "ADMIN",
       "totalScore": 0,
       "totalTimeMs": 0,
       "completedDays": 0,
-      "createdAt": "2026-11-02T01:25:41.247Z"
-    },
-    {
-      "id": "u-1",
-      "employeeId": "20260001",
-      "fullName": "Nguyễn Minh Anh",
-      "email": "minhanh.dev@gmail.com",
-      "phone": "0912345001",
-      "department": "R&D Center",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=MinhAnh",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 100,
-      "totalTimeMs": 45000,
-      "completedDays": 1,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-2",
-      "employeeId": "20260002",
-      "fullName": "Trần Quốc Huy",
-      "email": "quochuy.eng@gmail.com",
-      "phone": "0912345002",
-      "department": "Production",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=QuocHuy",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 90,
-      "totalTimeMs": 52000,
-      "completedDays": 1,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-3",
-      "employeeId": "20260003",
-      "fullName": "Lê Thu Hương",
-      "email": "thuhuong.qa@gmail.com",
-      "phone": "0912345003",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=ThuHuong",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 90,
-      "totalTimeMs": 58000,
-      "completedDays": 1,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-4",
-      "employeeId": "20260004",
-      "fullName": "Phạm Hoàng Nam",
-      "email": "hoangnam.it@gmail.com",
-      "phone": "0912345004",
-      "department": "IT & System",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=HoangNam",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 80,
-      "totalTimeMs": 65000,
-      "completedDays": 1,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-5",
-      "employeeId": "20260005",
-      "fullName": "Đỗ Mai Linh",
-      "email": "mailinh.hr@gmail.com",
-      "phone": "0912345005",
-      "department": "HR & Training",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=MaiLinh",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 80,
-      "totalTimeMs": 70000,
-      "completedDays": 1,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-thao",
-      "employeeId": "20261234",
-      "fullName": "Nguyễn Thị Thảo",
-      "email": "thaonguyen.work@gmail.com",
-      "phone": "0987654321",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=ThaoNguyen",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 70,
-      "totalTimeMs": 80000,
-      "completedDays": 1,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-6",
-      "employeeId": "20260006",
-      "fullName": "Vũ Đức Thắng",
-      "email": "ducthang.eng@gmail.com",
-      "phone": "0912345006",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=DucThang",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 0,
-      "totalTimeMs": 0,
-      "completedDays": 0,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-7",
-      "employeeId": "20260007",
-      "fullName": "Hoàng Bích Ngọc",
-      "email": "bichngoc.fin@gmail.com",
-      "phone": "0912345007",
-      "department": "Logistics & Supply",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=BichNgoc",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 0,
-      "totalTimeMs": 0,
-      "completedDays": 0,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-8",
-      "employeeId": "20260008",
-      "fullName": "Bùi Tiến Dũng",
-      "email": "tiendung.pe@gmail.com",
-      "phone": "0912345008",
-      "department": "Production",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=TienDung",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 0,
-      "totalTimeMs": 0,
-      "completedDays": 0,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-9",
-      "employeeId": "20260009",
-      "fullName": "Đặng Khánh Vy",
-      "email": "khanhvy.mkt@gmail.com",
-      "phone": "0912345009",
-      "department": "R&D Center",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=KhanhVy",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 0,
-      "totalTimeMs": 0,
-      "completedDays": 0,
-      "createdAt": "2026-10-29T14:40:54.932Z"
-    },
-    {
-      "id": "u-10",
-      "employeeId": "20260010",
-      "fullName": "Ngô Quang Hải",
-      "email": "quanghai.qa@gmail.com",
-      "phone": "0912345010",
-      "department": "Quality Assurance (QA)",
-      "avatarUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=QuangHai",
-      "passwordHash": "$2a$10$sEsn98yRK4e/ltKnioqW1eaRMH.ZlXmWAw2qx9wTQv/SglYYpahci",
-      "role": "USER",
-      "totalScore": 0,
-      "totalTimeMs": 0,
-      "completedDays": 0,
-      "createdAt": "2026-10-29T14:40:54.932Z"
+      "resetOtpCode": null,
+      "resetToken": null,
+      "resetExpiresAt": null,
+      "createdAt": "2026-11-06T07:57:13.123Z"
     }
   ],
   "challenges": [
@@ -8038,275 +7876,8 @@
       ]
     }
   ],
-  "attempts": [
-    {
-      "id": "att-seed-1",
-      "userId": "u-1",
-      "challengeId": 1,
-      "dayNumber": 1,
-      "score": 100,
-      "correctCount": 10,
-      "wrongCount": 0,
-      "timeSpentMs": 45000,
-      "answersDetail": {},
-      "startedAt": "2026-11-02T13:54:41.908Z",
-      "completedAt": "2026-11-02T13:55:26.908Z"
-    },
-    {
-      "id": "att-seed-2",
-      "userId": "u-2",
-      "challengeId": 1,
-      "dayNumber": 1,
-      "score": 90,
-      "correctCount": 9,
-      "wrongCount": 1,
-      "timeSpentMs": 52000,
-      "answersDetail": {},
-      "startedAt": "2026-11-02T14:06:21.908Z",
-      "completedAt": "2026-11-02T14:07:13.908Z"
-    },
-    {
-      "id": "att-seed-3",
-      "userId": "u-3",
-      "challengeId": 1,
-      "dayNumber": 1,
-      "score": 90,
-      "correctCount": 9,
-      "wrongCount": 1,
-      "timeSpentMs": 58000,
-      "answersDetail": {},
-      "startedAt": "2026-11-02T14:23:01.908Z",
-      "completedAt": "2026-11-02T14:23:59.908Z"
-    },
-    {
-      "id": "att-seed-4",
-      "userId": "u-4",
-      "challengeId": 1,
-      "dayNumber": 1,
-      "score": 80,
-      "correctCount": 8,
-      "wrongCount": 2,
-      "timeSpentMs": 65000,
-      "answersDetail": {},
-      "startedAt": "2026-11-02T14:39:41.908Z",
-      "completedAt": "2026-11-02T14:40:46.908Z"
-    },
-    {
-      "id": "att-seed-5",
-      "userId": "u-5",
-      "challengeId": 1,
-      "dayNumber": 1,
-      "score": 80,
-      "correctCount": 8,
-      "wrongCount": 2,
-      "timeSpentMs": 70000,
-      "answersDetail": {},
-      "startedAt": "2026-11-02T14:56:21.908Z",
-      "completedAt": "2026-11-02T14:57:31.908Z"
-    },
-    {
-      "id": "att-seed-thao",
-      "userId": "u-thao",
-      "challengeId": 1,
-      "dayNumber": 1,
-      "score": 70,
-      "correctCount": 7,
-      "wrongCount": 3,
-      "timeSpentMs": 80000,
-      "answersDetail": {},
-      "startedAt": "2026-11-02T15:13:01.908Z",
-      "completedAt": "2026-11-02T15:14:21.908Z"
-    }
-  ],
-  "pwaSubscriptions": [
-    {
-      "id": "pwa-seed-u-1",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260001",
-      "keys": {
-        "p256dh": "seed_p256dh_20260001",
-        "auth": "seed_auth_20260001"
-      },
-      "userId": "u-1",
-      "employeeId": "20260001",
-      "fullName": "Nguyễn Minh Anh",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-2",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260002",
-      "keys": {
-        "p256dh": "seed_p256dh_20260002",
-        "auth": "seed_auth_20260002"
-      },
-      "userId": "u-2",
-      "employeeId": "20260002",
-      "fullName": "Trần Quốc Huy",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-3",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260003",
-      "keys": {
-        "p256dh": "seed_p256dh_20260003",
-        "auth": "seed_auth_20260003"
-      },
-      "userId": "u-3",
-      "employeeId": "20260003",
-      "fullName": "Lê Thu Hương",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-4",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260004",
-      "keys": {
-        "p256dh": "seed_p256dh_20260004",
-        "auth": "seed_auth_20260004"
-      },
-      "userId": "u-4",
-      "employeeId": "20260004",
-      "fullName": "Phạm Hoàng Nam",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-5",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260005",
-      "keys": {
-        "p256dh": "seed_p256dh_20260005",
-        "auth": "seed_auth_20260005"
-      },
-      "userId": "u-5",
-      "employeeId": "20260005",
-      "fullName": "Đỗ Mai Linh",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-thao",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20261234",
-      "keys": {
-        "p256dh": "seed_p256dh_20261234",
-        "auth": "seed_auth_20261234"
-      },
-      "userId": "u-thao",
-      "employeeId": "20261234",
-      "fullName": "Nguyễn Thị Thảo",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-6",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260006",
-      "keys": {
-        "p256dh": "seed_p256dh_20260006",
-        "auth": "seed_auth_20260006"
-      },
-      "userId": "u-6",
-      "employeeId": "20260006",
-      "fullName": "Vũ Đức Thắng",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-7",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260007",
-      "keys": {
-        "p256dh": "seed_p256dh_20260007",
-        "auth": "seed_auth_20260007"
-      },
-      "userId": "u-7",
-      "employeeId": "20260007",
-      "fullName": "Hoàng Bích Ngọc",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-8",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260008",
-      "keys": {
-        "p256dh": "seed_p256dh_20260008",
-        "auth": "seed_auth_20260008"
-      },
-      "userId": "u-8",
-      "employeeId": "20260008",
-      "fullName": "Bùi Tiến Dũng",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-9",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260009",
-      "keys": {
-        "p256dh": "seed_p256dh_20260009",
-        "auth": "seed_auth_20260009"
-      },
-      "userId": "u-9",
-      "employeeId": "20260009",
-      "fullName": "Đặng Khánh Vy",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "Android 14 Chrome Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    },
-    {
-      "id": "pwa-seed-u-10",
-      "endpoint": "https://pwa-device.speakright.local/endpoint/20260010",
-      "keys": {
-        "p256dh": "seed_p256dh_20260010",
-        "auth": "seed_auth_20260010"
-      },
-      "userId": "u-10",
-      "employeeId": "20260010",
-      "fullName": "Ngô Quang Hải",
-      "isPwaInstalled": true,
-      "isSimulated": true,
-      "userAgent": "iPhone iOS 17.5 Standalone PWA",
-      "createdAt": "2026-10-31T15:54:42.024Z",
-      "updatedAt": "2026-11-02T15:54:42.024Z",
-      "lastNotifiedAt": null
-    }
-  ],
+  "attempts": [],
+  "pwaSubscriptions": [],
   "pushCampaigns": [],
   "inAppNotifications": [],
   "pushConfig": {
@@ -8328,5 +7899,89 @@
     "morningMinute": 0,
     "eveningTop1Minute": 0,
     "nightUnstudiedMinute": 0
-  }
+  },
+  "events": [
+    {
+      "id": "bell",
+      "orderIndex": 1,
+      "num": "01",
+      "titleA": "RING",
+      "titleB": "the",
+      "titleC": "GOLDEN BELL",
+      "desc": "Kiểm tra kiến thức tiếng Anh và trở thành người trụ lại cuối cùng!",
+      "img": "events/golden-bell.jpg",
+      "iconName": "Bell",
+      "chips": [
+        "~100 thí sinh",
+        "Trắc nghiệm",
+        "1 Chung kết"
+      ],
+      "note": "Mỗi bộ phận tự tổng hợp danh sách đăng ký và tổ chức vòng sơ loại.",
+      "more": [
+        "Vòng sơ loại do từng bộ phận tự tổ chức để chọn đại diện.",
+        "Vòng Chung kết offline: trả lời trắc nghiệm, sai là bị loại.",
+        "Người cuối cùng trụ lại sẽ rung Chuông Vàng 🔔."
+      ],
+      "themeColor": "amber",
+      "actionType": "expand",
+      "isVisible": true,
+      "createdAt": "2026-11-06T07:53:45.083Z",
+      "updatedAt": "2026-11-06T07:53:45.083Z"
+    },
+    {
+      "id": "dub",
+      "orderIndex": 2,
+      "num": "02",
+      "titleA": "DUB",
+      "titleB": "IT",
+      "titleC": "RIGHT",
+      "desc": "Lập đội, lồng tiếng cho nhân vật và thổi hồn vào video!",
+      "img": "events/dub-it-right.jpg",
+      "iconName": "Clapperboard",
+      "chips": [
+        "~3 bạn / đội",
+        "Lồng tiếng video",
+        "1 Chung kết"
+      ],
+      "note": "Mỗi bộ phận tự tổng hợp danh sách đăng ký và tổ chức vòng sơ loại.",
+      "more": [
+        "Mỗi đội khoảng 3 người, nhận 1 đoạn video được chỉ định.",
+        "Lồng tiếng tiếng Anh: chú trọng phát âm, ngữ điệu và cảm xúc.",
+        "Các đội xuất sắc nhất vào thẳng vòng Chung kết."
+      ],
+      "themeColor": "blue",
+      "actionType": "expand",
+      "isVisible": true,
+      "createdAt": "2026-11-06T07:53:45.084Z",
+      "updatedAt": "2026-11-06T07:53:45.084Z"
+    },
+    {
+      "id": "daily",
+      "orderIndex": 3,
+      "num": "03",
+      "titleA": "DAILY",
+      "titleB": "",
+      "titleC": "CHALLENGE",
+      "desc": "Mỗi ngày một bước nhỏ, tiến bộ lớn phía trước!",
+      "img": "events/daily-challenge.jpg",
+      "iconName": "CalendarDays",
+      "chips": [
+        "Không giới hạn",
+        "21 ngày thi",
+        "Tích điểm & thưởng"
+      ],
+      "note": "",
+      "more": [
+        "Tham gia trả lời 10 câu trắc nghiệm & điền từ mỗi ngày.",
+        "Tự luyện phát âm 5 từ vựng công sở ở câu 11 với AI Coach.",
+        "Tích lũy điểm số và thời gian làm bài để tranh top trên Bảng xếp hạng."
+      ],
+      "themeColor": "purple",
+      "actionType": "daily",
+      "isVisible": true,
+      "createdAt": "2026-11-06T07:53:45.084Z",
+      "updatedAt": "2026-11-06T07:53:45.084Z"
+    }
+  ],
+  "pushLogs": []
 }

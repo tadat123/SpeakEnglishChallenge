@@ -13,6 +13,7 @@
     "build:api": "npm --prefix apps/api run build",
     "build:web": "npm --prefix apps/web run build",
     "db:push": "npm --prefix apps/api run db:push",
-    "db:seed": "npm --prefix apps/api run db:seed"
+    "db:seed": "npm --prefix apps/api run db:seed",
+    "db:reset-fresh": "npm --prefix apps/api run db:reset-fresh"
   }
 }
