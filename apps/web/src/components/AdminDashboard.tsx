@@ -1150,33 +1150,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleResetFresh = async () => {
-    if (
-      !window.confirm(
-        '⚠️ XÁC NHẬN ĐẶT LẠI HỆ THỐNG MỚI TOANH:\n\nThao tác này sẽ xóa toàn bộ danh sách người dùng và lịch sử làm bài (chỉ giữ lại duy nhất 1 tài khoản Admin 88888888).\n\nBạn có chắc chắn muốn thực hiện?'
-      )
-    ) {
-      return;
-    }
-    try {
-      const res = await fetch('/api/admin/reset-system-fresh', {
-        method: 'POST',
-        headers,
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showMessage(data.message || 'Đã đưa hệ thống về trạng thái mới toanh thành công!');
-        fetchDayDetail(selectedDay);
-        fetchAdminUsers();
-        onRefreshGlobal();
-      } else {
-        showMessage(data.message || 'Lỗi khi reset hệ thống', true);
-      }
-    } catch (e: any) {
-      showMessage(e.message || 'Lỗi kết nối', true);
-    }
-  };
-
   // Tải file mẫu CSV / Excel để nhập câu hỏi hàng loạt
   const handleDownloadTemplate = () => {
     const csvHeader =
@@ -1899,15 +1872,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             >
               <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
               <span>Reset Seed Mặc Định</span>
-            </button>
-            <button
-              onClick={handleResetFresh}
-              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
-                darkMode ? 'hover:bg-rose-950/40 text-rose-300' : 'hover:bg-rose-50 text-rose-700'
-              }`}
-            >
-              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-              <span>Reset Mới Toanh (Chỉ giữ Admin)</span>
             </button>
             <button
               onClick={onExportCsv}
