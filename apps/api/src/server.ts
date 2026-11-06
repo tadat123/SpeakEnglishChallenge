@@ -880,7 +880,7 @@ app.post(
       resultsRevealed,
       detailedReview: resultsRevealed ? detailedReview : null,
       notice: isExpired
-        ? 'Bài thi quá hạn. Bạn đã hoàn thành bài để luyện tập và xem đáp án, nhưng không được tính điểm vào Bảng Xếp Hạng.'
+        ? 'Chế độ luyện tập. Bạn đã hoàn thành bài để luyện tập và xem đáp án, nhưng không được tính điểm vào Bảng Xếp Hạng.'
         : undefined,
     };
   }
@@ -1879,13 +1879,15 @@ app.post(
 
 // ==================== QUẢN LÝ POP-UP SỰ KIỆN (ADMIN CRUD & TOGGLE ẨN / HIỆN) ====================
 
-app.get('/api/public/events', async () => {
+app.get('/api/public/events', async (_request, reply) => {
+  reply.header('Cache-Control', 'no-store, no-cache, must-revalidate');
   return {
     events: store.getEvents(true),
   };
 });
 
-app.get('/api/events', async (request: any) => {
+app.get('/api/events', async (request: any, reply) => {
+  reply.header('Cache-Control', 'no-store, no-cache, must-revalidate');
   let isAdmin = false;
   try {
     const authHeader = request.headers.authorization;
@@ -1905,7 +1907,8 @@ app.get('/api/events', async (request: any) => {
 app.get(
   '/api/admin/events',
   { preHandler: [(app as any).requireAdmin] },
-  async () => {
+  async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store, no-cache, must-revalidate');
     return {
       events: store.getEvents(false),
     };
@@ -1924,6 +1927,7 @@ app.post(
     return {
       message: 'Đã tạo sự kiện mới thành công!',
       event: newEvent,
+      events: store.getEvents(false),
     };
   }
 );
@@ -1941,6 +1945,7 @@ app.put(
     return {
       message: 'Đã cập nhật thông tin sự kiện thành công!',
       event: updated,
+      events: store.getEvents(false),
     };
   }
 );
@@ -1956,6 +1961,7 @@ const toggleEventHandler = async (request: any, reply: any) => {
       ? `Đã MỞ hiển thị sự kiện "${updated.titleA} ${updated.titleC}" cho học viên!`
       : `Đã ẨN sự kiện "${updated.titleA} ${updated.titleC}" khỏi giao diện học viên!`,
     event: updated,
+    events: store.getEvents(false),
   };
 };
 
@@ -1980,7 +1986,10 @@ app.delete(
     if (!success) {
       return reply.status(404).send({ message: 'Không tìm thấy sự kiện cần xóa.' });
     }
-    return { message: 'Đã xóa sự kiện thành công!' };
+    return {
+      message: 'Đã xóa sự kiện thành công!',
+      events: store.getEvents(false),
+    };
   }
 );
 

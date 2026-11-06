@@ -86,7 +86,7 @@ export const TRANSLATIONS = {
     wrongShort: '■ Sai',
 
     // Exciting Activities
-    activitiesTitle: '3 HOẠT ĐỘNG HẤP DẪN',
+    activitiesTitle: 'HOẠT ĐỘNG HẤP DẪN',
     activitiesHeading: 'Chuỗi Hoạt Động Bùng Nổ Cùng Speak Right 2026',
     activitiesSub: 'Tham gia thử thách, nâng trình tiếng Anh và để giọng nói của bạn được lắng nghe!',
     bellTitle: 'RING THE GOLDEN BELL',

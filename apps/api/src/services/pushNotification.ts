@@ -327,7 +327,16 @@ class StaggeredPushService {
           pwaDevicesCount: 0,
         };
       }
-      targets = allUsers.filter((u) => u.department === payload.targetValue);
+      const rawDept = payload.targetValue.trim().toLowerCase();
+      targets = allUsers.filter((u) => {
+        if (!u.department) return false;
+        const uDept = u.department.trim().toLowerCase();
+        return (
+          uDept === rawDept ||
+          uDept.includes(rawDept) ||
+          rawDept.includes(uDept)
+        );
+      });
       if (targets.length === 0) {
         return {
           success: false,
@@ -416,7 +425,8 @@ class StaggeredPushService {
         payload.title,
         payload.body,
         targetUrl,
-        tasks
+        tasks,
+        true // Gửi thủ công từ Admin CMS -> Dispatch tốc độ cao (150ms/request)
       );
     } else {
       campaign = {
@@ -465,10 +475,13 @@ class StaggeredPushService {
       title: string;
       body: string;
       targetUrl: string;
-    }[]
+    }[],
+    isManualAdmin = false
   ): PushCampaignRecord {
     const totalTargets = rawTasks.length;
-    const staggerIntervalMs = this.computeStaggerIntervalMs(totalTargets);
+    const staggerIntervalMs = isManualAdmin
+      ? (totalTargets <= 1 ? 0 : 150)
+      : this.computeStaggerIntervalMs(totalTargets);
     const totalSpreadMs = Math.max(0, (totalTargets - 1) * staggerIntervalMs);
 
     const campaign: PushCampaignRecord = {
@@ -587,7 +600,8 @@ class StaggeredPushService {
         );
 
         // Lưu thông báo vào In-App / Service Worker Sync đúng thời điểm request của người này được gửi
-        if (task.orderIndex === 1 || task.userId !== null) {
+        // Ghi chú: Chiến dịch PERSONALIZED đã được lưu đầy đủ qua store.addBatchInAppNotifications
+        if (task.type !== 'PERSONALIZED' && (task.orderIndex === 1 || task.userId !== null)) {
           store.addInAppNotification({
             id: `notif-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
             campaignId: task.campaignId,

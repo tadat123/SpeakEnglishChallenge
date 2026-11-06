@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Plus,
   Edit3,
@@ -62,6 +62,7 @@ interface AdminDashboardProps {
   token: string;
   challenges: any[];
   onRefreshGlobal: () => void;
+  onEventsChange?: (events: EventPopupItem[]) => void;
   onExportCsv: () => void;
   lang: Lang;
   darkMode: boolean;
@@ -367,6 +368,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   token,
   challenges,
   onRefreshGlobal,
+  onEventsChange,
   onExportCsv,
   lang,
   darkMode,
@@ -390,10 +392,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Quản lý Danh sách Người dùng & Tìm kiếm
   const [userList, setUserList] = useState<any[]>([]);
+  const [allUsersList, setAllUsersList] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState<string>('');
   const [userDeptFilter, setUserDeptFilter] = useState<string>('ALL');
   const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
   const [inspectingUser, setInspectingUser] = useState<any | null>(null);
+
+  // Danh sách phòng ban khả dụng (chuẩn hóa theo dữ liệu thực tế)
+  const availableDepartments = useMemo(() => {
+    const defaultDepts = [
+      'HR & Training',
+      'Quality Assurance (QA)',
+      'Production',
+      'R&D Center',
+      'IT & System',
+      'Logistics & Supply',
+    ];
+    const sourceUsers = allUsersList.length > 0 ? allUsersList : userList;
+    const fromUsers = sourceUsers.map((u) => u.department).filter(Boolean);
+    return Array.from(new Set([...defaultDepts, ...fromUsers])).sort();
+  }, [allUsersList, userList]);
 
   // Soạn & Gửi thông báo cá nhân hóa (Personalized Notifications)
   const [notifTargetType, setNotifTargetType] = useState<'all' | 'department' | 'user'>('all');
@@ -591,7 +609,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       if (res.ok) {
         const data = await res.json();
-        setUserList(data.users || []);
+        const users = data.users || [];
+        setUserList(users);
+        if (!userSearch.trim() && userDeptFilter === 'ALL') {
+          setAllUsersList(users);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -646,6 +668,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           `📢 Đã gửi thành công tới ${data.sentCount} nhân viên (${data.pwaDevicesCount || 0} thiết bị PWA)!`
         );
         fetchPushStatus(false);
+        if (onRefreshGlobal) {
+          onRefreshGlobal();
+        }
       } else {
         showMessage(data.message || 'Lỗi gửi thông báo', true);
       }
@@ -660,6 +685,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchDashboardStats(selectedStatDay);
     fetchAdminUsers();
     fetchAdminEvents();
+    // Tải toàn bộ danh sách nhân viên không bị lọc phục vụ dropdown thông báo
+    fetch('/api/admin/users?search=&department=ALL', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d?.users)) {
+          setAllUsersList(d.users);
+        }
+      })
+      .catch(() => null);
   }, []);
 
   useEffect(() => {
@@ -1389,11 +1425,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cache: 'no-store',
       });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.events)) {
           setEventList(data.events);
+          onEventsChange?.(data.events);
         }
       }
     } catch (err) {
@@ -1416,10 +1454,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const data = await res.json();
         if (Array.isArray(data.events)) {
           setEventList(data.events);
+          onEventsChange?.(data.events);
         } else if (data.event) {
-          setEventList((prev) =>
-            prev.map((item) => (item.id === ev.id ? data.event : item))
-          );
+          setEventList((prev) => {
+            const next = prev.map((item) => (item.id === ev.id ? data.event : item));
+            onEventsChange?.(next);
+            return next;
+          });
         }
         showMessage(
           ev.isVisible !== false
@@ -1499,6 +1540,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const data = await res.json();
         if (Array.isArray(data.events)) {
           setEventList(data.events);
+          onEventsChange?.(data.events);
         } else {
           await fetchAdminEvents();
         }
@@ -1531,6 +1573,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const data = await res.json();
         if (Array.isArray(data.events)) {
           setEventList(data.events);
+          onEventsChange?.(data.events);
         } else {
           await fetchAdminEvents();
         }
@@ -1564,6 +1607,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const data = await res.json();
         if (Array.isArray(data.events)) {
           setEventList(data.events);
+          onEventsChange?.(data.events);
         } else {
           await fetchAdminEvents();
         }
@@ -2970,13 +3014,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => setNotifTargetValue(e.target.value)}
                     className={`w-full px-3 py-2 rounded-xl border text-xs font-bold outline-none ${inputBg}`}
                   >
-                    <option value="">-- Chọn phòng ban --</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Quality Assurance">Quality Assurance</option>
-                    <option value="Production">Production</option>
-                    <option value="Human Resources">Human Resources</option>
-                    <option value="Sales & Marketing">Sales & Marketing</option>
-                    <option value="General">General</option>
+                    <option value="">-- Chọn phòng ban nhận tin --</option>
+                    {availableDepartments.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -2989,10 +3032,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => setNotifTargetValue(e.target.value)}
                     className={`w-full px-3 py-2 rounded-xl border text-xs font-bold outline-none ${inputBg}`}
                   >
-                    <option value="">-- Chọn nhân viên --</option>
-                    {userList.map((u) => (
+                    <option value="">-- Chọn nhân viên nhận tin --</option>
+                    {(allUsersList.length > 0 ? allUsersList : userList).map((u) => (
                       <option key={u.id} value={u.id}>
-                        {u.fullName} (GEN: {u.employeeId} - {u.department} - {u.totalScore}đ)
+                        {u.fullName} (GEN: {u.employeeId} — {u.department || 'N/A'} — {u.totalScore || 0}đ)
                       </option>
                     ))}
                   </select>
@@ -3115,7 +3158,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition active:scale-[0.98] disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                {sendingNotif ? 'Đang gửi...' : 'Gửi Thông Báo'}
+                {sendingNotif ? 'Đang gửi thông báo...' : 'Gửi Thông Báo Cá Nhân Hóa Ngay'}
               </button>
             </div>
 

@@ -237,6 +237,7 @@ export const App: React.FC = () => {
   const [adminPreviewResult, setAdminPreviewResult] = useState(false);
   const [showEventsPopup, setShowEventsPopup] = useState(false);
   const [popupEvents, setPopupEvents] = useState<EventPopupItem[]>([]);
+  const [eventsLoaded, setEventsLoaded] = useState<boolean>(false);
   // ===== CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP): chỉ làm bài hôm nay + xem bảng xếp hạng, KHÔNG lưu điểm =====
   const [guestMode, setGuestMode] = useState<boolean>(
     () => sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
@@ -425,10 +426,12 @@ export const App: React.FC = () => {
   const fetchAllData = async () => {
     try {
       if (!token) {
-        // Chế độ khách mặc định (vào web lần đầu chưa đăng nhập): tải bài hôm nay + bảng xếp hạng công khai
-        const [todayRes, lbRes] = await Promise.all([
+        // Chế độ khách mặc định (vào web lần đầu chưa đăng nhập): tải bài hôm nay + bảng xếp hạng công khai + sự kiện
+        const [todayRes, lbRes, notifRes, evRes] = await Promise.all([
           fetch('/api/public/today'),
           fetch('/api/public/leaderboard'),
+          fetch('/api/notifications').catch(() => null),
+          fetch('/api/events', { cache: 'no-store' }).catch(() => null),
         ]);
         if (todayRes.ok) {
           const data = await todayRes.json();
@@ -436,17 +439,16 @@ export const App: React.FC = () => {
         }
         if (lbRes.ok) setLeaderboardData(await lbRes.json());
         try {
-          const [notifRes, evRes] = await Promise.all([
-            fetch('/api/notifications').catch(() => null),
-            fetch('/api/events').catch(() => null),
-          ]);
           if (notifRes && notifRes.ok) {
             const nData = await notifRes.json();
             if (Array.isArray(nData.notifications)) setNotifications(nData.notifications);
           }
           if (evRes && evRes.ok) {
             const evData = await evRes.json();
-            if (Array.isArray(evData.events)) setPopupEvents(evData.events);
+            if (Array.isArray(evData.events)) {
+              setPopupEvents(evData.events);
+              setEventsLoaded(true);
+            }
           }
         } catch {}
         return;
@@ -459,7 +461,7 @@ export const App: React.FC = () => {
         }),
         fetch('/api/profile/me', { headers: getHeaders() }),
         fetch('/api/notifications', { headers: getHeaders(false) }).catch(() => null),
-        fetch('/api/events', { headers: getHeaders(false) }).catch(() => null),
+        fetch('/api/events', { headers: getHeaders(false), cache: 'no-store' }).catch(() => null),
       ]);
 
       if (chalRes.status === 401) {
@@ -475,7 +477,10 @@ export const App: React.FC = () => {
       }
       if (evRes && evRes.ok) {
         const evData = await evRes.json();
-        if (Array.isArray(evData.events)) setPopupEvents(evData.events);
+        if (Array.isArray(evData.events)) {
+          setPopupEvents(evData.events);
+          setEventsLoaded(true);
+        }
       }
       if (profRes.ok) {
         const prof = await profRes.json();
@@ -1207,11 +1212,18 @@ export const App: React.FC = () => {
           token={token!}
           challenges={challenges}
           onRefreshGlobal={fetchAllData}
+          onEventsChange={(updatedEvents) => {
+            setPopupEvents(updatedEvents);
+            setEventsLoaded(true);
+          }}
           onExportCsv={handleExportLeaderboardCsv}
           lang={lang}
           darkMode={darkMode}
           user={user}
-          onBackToUserMode={() => navigateToTab('home')}
+          onBackToUserMode={() => {
+            fetchAllData();
+            navigateToTab('home');
+          }}
           onToggleDarkMode={() => setDarkMode(!darkMode)}
           onChangeLang={handleChangeLang}
           onLogout={handleLogout}
@@ -1423,6 +1435,7 @@ export const App: React.FC = () => {
           onExternalClose={() => setShowEventsPopup(false)}
           onStartDailyChallenge={() => handleStartDay(todayChallenge)}
           events={popupEvents}
+          eventsLoaded={eventsLoaded}
         />
 
         {/* Thông báo tự động lưu điểm bài làm của khách sau khi đăng nhập */}
@@ -1490,7 +1503,7 @@ export const App: React.FC = () => {
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
-                    PWA Push Notification
+                    Notification
                   </span>
                 </div>
                 <h4 className="text-xs sm:text-sm font-black mt-1">{livePushAlert.title}</h4>
@@ -1549,7 +1562,7 @@ export const App: React.FC = () => {
 
             {activeQuiz.isExpired && (
               <div className="mb-3 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center gap-2">
-                <span>⚠️ {L('Bài thi quá hạn: Bạn đang làm bài thi của ngày trước. Bài làm này dùng để luyện tập và xem đáp án giải thích chi tiết, không tính điểm vào Bảng Xếp Hạng.', 'Overdue Challenge: Practice only. Score will not be counted towards official Leaderboard.', '기간 만료 챌린지: 연습 전용입니다. 공식 리더보드 점수에는 반영되지 않습니다.')}</span>
+                <span>🎯 {L('Chế độ luyện tập: Bạn đang làm bài thi của ngày trước. Bài làm này dùng để luyện tập và xem đáp án giải thích chi tiết, không tính điểm vào Bảng Xếp Hạng.', 'Practice Mode: You are taking a previous day challenge. Practice only and score will not be counted towards official Leaderboard.', '연습 모드: 이전 일차 챌린지입니다. 연습 전용이며 공식 리더보드 점수에는 반영되지 않습니다.')}</span>
               </div>
             )}
 
@@ -2148,7 +2161,7 @@ export const App: React.FC = () => {
                   {quizResult.isExpired ? (
                     <div>
                       <div className="inline-block px-3 py-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-xs mb-2">
-                        ⚠️ Bài thi quá hạn — Không tính điểm Bảng Xếp Hạng
+                        {L('🎯 Bài thi luyện tập — Không tính điểm Bảng Xếp Hạng', '🎯 Practice Mode — Score not counted on Leaderboard', '🎯 연습 모드 — 리더보드 점수 미반영')}
                       </div>
                       <div className="text-3xl font-black text-slate-700 dark:text-slate-200">
                         {quizResult.practiceScore ?? quizResult.score}/{quizResult.totalPoints} {t.pointsSuffix}
@@ -2299,7 +2312,6 @@ export const App: React.FC = () => {
                         </button>
                       </div>
                       <h1 className="text-xl sm:text-2xl font-black">{t.todayTitle}</h1>
-                      <p className="text-xs sm:text-sm text-blue-100">{t.todayVocab}</p>
                     </div>
 
                     <div className="shrink-0">
@@ -2434,7 +2446,7 @@ export const App: React.FC = () => {
                                 </span>
                               ) : isExpired ? (
                                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-600 text-white flex items-center gap-1">
-                                  <Clock className="w-3 h-3" /> {L('Quá hạn', 'Expired', '만료')}
+                                  <Clock className="w-3 h-3" /> {L('Luyện tập', 'Practice', '연습')}
                                 </span>
                               ) : isInProgress ? (
                                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white flex items-center gap-1 animate-pulse">
@@ -2455,7 +2467,7 @@ export const App: React.FC = () => {
                               {isCompleted ? (
                                 c.isExpired ? (
                                   <span className="text-amber-600 dark:text-amber-400">
-                                    0{t.pointsSuffix} ({L('Quá hạn', 'Expired', '만료')})
+                                    0{t.pointsSuffix} ({L('Luyện tập', 'Practice', '연습')})
                                   </span>
                                 ) : c.resultsRevealed ? (
                                   <span className="text-emerald-600">
@@ -2468,7 +2480,7 @@ export const App: React.FC = () => {
                                 )
                               ) : isExpired ? (
                                 <span className="text-amber-600 dark:text-amber-400">
-                                  {L('Làm bài (0đ BXH)', 'Take quiz (0 pts)', '학습하기 (0점)')}
+                                  {L('Luyện tập (0đ BXH)', 'Practice (0 pts)', '연습하기 (0점)')}
                                 </span>
                               ) : isInProgress ? (
                                 <span className="text-blue-600 dark:text-blue-400 animate-pulse">
@@ -2575,12 +2587,10 @@ export const App: React.FC = () => {
 
                 {/* EXCITING ACTIVITIES — DYNAMIC FROM ADMIN / OFFICIAL POSTER DESIGN */}
                 {(() => {
-                  const visibleActivities =
-                    popupEvents && popupEvents.length > 0
-                      ? popupEvents.filter((e) => e.isVisible !== false)
-                      : null;
-                  const displayCount =
-                    visibleActivities !== null ? visibleActivities.length : 3;
+                  const visibleActivities = Array.isArray(popupEvents)
+                    ? popupEvents.filter((e) => e.isVisible !== false)
+                    : [];
+                  const displayCount = visibleActivities.length;
                   const displayTitle = t.activitiesTitle.replace(/^3/, String(displayCount));
                   const chipIcons = [Users, FileText, Trophy, Target, Gift, InfinityIcon];
 
@@ -2598,7 +2608,7 @@ export const App: React.FC = () => {
                         </p>
                       </div>
 
-                      {visibleActivities !== null && visibleActivities.length === 0 ? (
+                      {visibleActivities.length === 0 ? (
                         <div className="py-8 px-4 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
                           <Sparkles className="w-8 h-8 mx-auto text-amber-500 mb-2 opacity-80" />
                           <p className={`text-xs sm:text-sm font-bold ${textPrimary}`}>
@@ -2608,7 +2618,7 @@ export const App: React.FC = () => {
                             Ban tổ chức sẽ sớm mở các hoạt động hấp dẫn tiếp theo. Hãy đón chờ nhé!
                           </p>
                         </div>
-                      ) : visibleActivities !== null ? (
+                      ) : (
                         <div className="space-y-3 sm:space-y-3.5">
                           {visibleActivities.map((act, actIdx) => {
                             const theme = HOME_EVENT_THEMES[act.themeColor] || HOME_EVENT_THEMES.amber;
@@ -2710,183 +2720,6 @@ export const App: React.FC = () => {
                             );
                           })}
                         </div>
-                      ) : (
-                        /* Fallback 3 static cards during initial load */
-                        <div className="space-y-3 sm:space-y-3.5">
-                          {/* Activity 01: Ring The Golden Bell */}
-                          <div
-                            onClick={() => setShowEventsPopup(true)}
-                            className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-amber-300 dark:border-amber-800/60 bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-100/50 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
-                          >
-                            <div className="flex flex-col sm:flex-row">
-                              <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-amber-100 dark:bg-amber-950/60">
-                                <img
-                                  src={`${baseUrl}events/golden-bell.jpg`}
-                                  alt={t.bellTitle}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                />
-                                <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-amber-500 shadow-md">
-                                  01
-                                </span>
-                              </div>
-                              <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
-                                <div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-base sm:text-lg font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                                      🔔 {t.bellTitle}
-                                    </h3>
-                                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition">
-                                      {t.viewDetails}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
-                                    {t.bellDesc}
-                                  </p>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
-                                    <Users className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[0]}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
-                                    <FileText className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[1]}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 shadow-xs">
-                                    <Trophy className="w-3.5 h-3.5 text-amber-600" /> {t.bellChips[2]}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/50 dark:border-amber-800/30">
-                                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-amber-900/80 dark:text-amber-200/80 bg-amber-100/60 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg truncate">
-                                    <Users className="w-3 h-3 text-amber-600 shrink-0" />
-                                    <span className="truncate">{t.deptNote}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-400 text-white flex items-center justify-center shadow-md shadow-amber-500/30 shrink-0 group-hover:scale-110 transition active:scale-95"
-                                    title={t.viewDetails}
-                                  >
-                                    <ChevronRight className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Activity 02: Dub It Right */}
-                          <div
-                            onClick={() => setShowEventsPopup(true)}
-                            className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-sky-300 dark:border-sky-800/60 bg-gradient-to-r from-sky-50/90 via-blue-50/60 to-sky-100/50 dark:from-sky-950/40 dark:via-slate-900 dark:to-blue-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
-                          >
-                            <div className="flex flex-col sm:flex-row">
-                              <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-sky-100 dark:bg-sky-950/60">
-                                <img
-                                  src={`${baseUrl}events/dub-it-right.jpg`}
-                                  alt={t.dubTitle}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                />
-                                <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-blue-600 shadow-md">
-                                  02
-                                </span>
-                              </div>
-                              <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
-                                <div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-base sm:text-lg font-black text-blue-900 dark:text-sky-300 flex items-center gap-1.5">
-                                      🎬 {t.dubTitle}
-                                    </h3>
-                                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition">
-                                      {t.viewDetails}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
-                                    {t.dubDesc}
-                                  </p>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
-                                    <Users className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[0]}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
-                                    <Clapperboard className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[1]}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-sky-200 dark:border-sky-800/40 text-blue-900 dark:text-sky-200 shadow-xs">
-                                    <Trophy className="w-3.5 h-3.5 text-blue-600" /> {t.dubChips[2]}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-sky-200/50 dark:border-sky-800/30">
-                                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-blue-900/80 dark:text-sky-200/80 bg-sky-100/60 dark:bg-sky-950/60 px-2.5 py-1 rounded-lg truncate">
-                                    <Users className="w-3 h-3 text-blue-600 shrink-0" />
-                                    <span className="truncate">{t.deptNote}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md shadow-blue-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
-                                    title={t.viewDetails}
-                                  >
-                                    <ChevronRight className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Activity 03: Daily Challenge */}
-                          <div
-                            onClick={() => navigateToTab('challenges')}
-                            className="group cursor-pointer rounded-2xl sm:rounded-3xl border border-purple-300 dark:border-purple-800/60 bg-gradient-to-r from-purple-50/90 via-violet-50/60 to-purple-100/50 dark:from-purple-950/40 dark:via-slate-900 dark:to-violet-950/30 shadow-sm hover:shadow-md transition overflow-hidden"
-                          >
-                            <div className="flex flex-col sm:flex-row">
-                              <div className="relative w-full sm:w-44 md:w-56 h-36 sm:h-auto shrink-0 overflow-hidden bg-purple-100 dark:bg-purple-950/60">
-                                <img
-                                  src={`${baseUrl}events/daily-challenge.jpg`}
-                                  alt={t.dailyTitle}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                />
-                                <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-white text-xs font-black bg-purple-600 shadow-md">
-                                  03
-                                </span>
-                              </div>
-                              <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2.5">
-                                <div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-base sm:text-lg font-black text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
-                                      📅 {t.dailyTitle}
-                                    </h3>
-                                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-black text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition">
-                                      {t.joinDaily}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1 leading-snug">
-                                    {t.dailyDesc}
-                                  </p>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
-                                    <InfinityIcon className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[0]}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
-                                    <Target className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[1]}
-                                  </span>
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-800/80 border border-purple-200 dark:border-purple-800/40 text-purple-900 dark:text-purple-200 shadow-xs">
-                                    <Gift className="w-3.5 h-3.5 text-purple-600" /> {t.dailyChips[2]}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-purple-200/50 dark:border-purple-800/30">
-                                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-purple-900/80 dark:text-purple-200/80 bg-purple-100/60 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg truncate">
-                                    <CalendarDays className="w-3 h-3 text-purple-600 shrink-0" />
-                                    <span className="truncate">Pronunciation • Vocabulary • Accent</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center shadow-md shadow-purple-600/30 shrink-0 group-hover:scale-110 transition active:scale-95"
-                                    title={t.joinDaily}
-                                  >
-                                    <ChevronRight className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
                       )}
 
                       {/* Campaign Tagline Footer Banner */}
@@ -2937,7 +2770,7 @@ export const App: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Thanh bộ lọc 4 trạng thái: Đã làm / Quá hạn / Đang làm / Chưa làm */}
+                {/* Thanh bộ lọc 4 trạng thái: Đã làm / Luyện tập / Đang làm / Chưa làm */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-bold">
                   <button
                     onClick={() => setChallengeFilter('ALL')}
@@ -2975,7 +2808,7 @@ export const App: React.FC = () => {
                     }`}
                   >
                     <Clock className="w-3.5 h-3.5" />
-                    {L('Quá hạn', 'Expired', '만료')} ({challenges.filter((c) => c.status === 'EXPIRED').length})
+                    {L('Luyện tập', 'Practice', '연습')} ({challenges.filter((c) => c.status === 'EXPIRED').length})
                   </button>
                   <button
                     onClick={() => setChallengeFilter('IN_PROGRESS')}
@@ -3061,7 +2894,7 @@ export const App: React.FC = () => {
                               </span>
                             ) : isExpired ? (
                               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-600 text-white flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> {L('Quá hạn', 'Expired', '만료')}
+                                <Clock className="w-3 h-3" /> {L('Luyện tập', 'Practice', '연습')}
                               </span>
                             ) : isInProgress ? (
                               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white flex items-center gap-1 animate-pulse">
@@ -3082,7 +2915,7 @@ export const App: React.FC = () => {
                             {isCompleted ? (
                               c.isExpired ? (
                                 <span className="text-xs font-extrabold text-amber-600 dark:text-amber-400">
-                                  0{t.pointsSuffix} ({L('Quá hạn', 'Expired', '만료')})
+                                  0{t.pointsSuffix} ({L('Luyện tập', 'Practice', '연습')})
                                 </span>
                               ) : c.resultsRevealed ? (
                                 <div className="flex items-center gap-0.5">
@@ -3108,7 +2941,7 @@ export const App: React.FC = () => {
                               )
                             ) : isExpired ? (
                               <span className="text-xs font-extrabold text-amber-600 dark:text-amber-400">
-                                {L('Làm bài (0đ BXH)', 'Take quiz (0 pts)', '학습하기 (0점)')}
+                                {L('Luyện tập (0đ BXH)', 'Practice (0 pts)', '연습하기 (0점)')}
                               </span>
                             ) : isInProgress ? (
                               <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 animate-pulse">

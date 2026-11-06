@@ -47,6 +47,7 @@ interface SpeakRightEventsPopupProps {
   onExternalClose?: () => void;
   onStartDailyChallenge?: () => void;
   events?: EventPopupItem[];
+  eventsLoaded?: boolean;
 }
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -263,6 +264,7 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
   onExternalClose,
   onStartDailyChallenge,
   events,
+  eventsLoaded = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [hideForToday, setHideForToday] = useState(false);
@@ -293,71 +295,16 @@ export const SpeakRightEventsPopup: React.FC<SpeakRightEventsPopupProps> = ({
     onExternalClose?.();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !eventsLoaded) return null;
 
   const c = COPY[lang] || COPY.vi;
   const baseUrl = import.meta.env.BASE_URL || '/';
 
-  const rawEvents: EventPopupItem[] =
-    events && events.length > 0
-      ? events.filter((e) => e.isVisible !== false)
-      : [
-          {
-            id: 'bell',
-            orderIndex: 1,
-            num: '01',
-            titleA: 'RING',
-            titleB: 'the',
-            titleC: 'GOLDEN BELL',
-            desc: c.bellDesc,
-            img: 'events/golden-bell.jpg',
-            iconName: 'Bell',
-            chips: [...c.bellChips],
-            note: c.deptNote,
-            more: [...c.bellMore],
-            themeColor: 'amber',
-            actionType: 'expand',
-            isVisible: true,
-          },
-          {
-            id: 'dub',
-            orderIndex: 2,
-            num: '02',
-            titleA: 'DUB',
-            titleB: 'IT',
-            titleC: 'RIGHT',
-            desc: c.dubDesc,
-            img: 'events/dub-it-right.jpg',
-            iconName: 'Clapperboard',
-            chips: [...c.dubChips],
-            note: c.deptNote,
-            more: [...c.dubMore],
-            themeColor: 'blue',
-            actionType: 'expand',
-            isVisible: true,
-          },
-          {
-            id: 'daily',
-            orderIndex: 3,
-            num: '03',
-            titleA: 'DAILY',
-            titleB: '',
-            titleC: 'CHALLENGE',
-            desc: c.dailyDesc,
-            img: 'events/daily-challenge.jpg',
-            iconName: 'CalendarDays',
-            chips: [...c.dailyChips],
-            note: '',
-            more: [
-              'Tham gia trả lời 10 câu trắc nghiệm & điền từ mỗi ngày.',
-              'Tự luyện phát âm 5 từ vựng công sở ở câu 11 với AI Coach.',
-              'Tích lũy điểm số và thời gian làm bài để tranh top trên Bảng xếp hạng.',
-            ],
-            themeColor: 'purple',
-            actionType: 'daily',
-            isVisible: true,
-          },
-        ];
+  const rawEvents: EventPopupItem[] = Array.isArray(events)
+    ? events.filter((e) => e.isVisible !== false)
+    : [];
+
+  if (!externalOpen && rawEvents.length === 0) return null;
 
   const activities = rawEvents.map((item, idx) => {
     const IconComp = (item.iconName && ICON_MAP[item.iconName]) || ICON_MAP.Sparkles || Bell;

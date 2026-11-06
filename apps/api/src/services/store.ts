@@ -521,6 +521,7 @@ class DataStore {
   // Lưu thời điểm Admin thực hiện Force Lock cho từng ngày
   private forceLockedDays = new Map<number, number>();
   private lastLoadedMtime = 0;
+  private lastLoadedSize = 0;
   // Timestamp thông báo mới nhất (dùng cho Fast-Path Cache kiểm tra polling cực nhanh 0ms)
   private lastNotificationTimestamp = 0;
 
@@ -533,12 +534,13 @@ class DataStore {
     try {
       if (!fs.existsSync(DB_FILE)) return;
       const stat = fs.statSync(DB_FILE);
-      if (stat.mtimeMs > this.lastLoadedMtime) {
+      if (stat.mtimeMs !== this.lastLoadedMtime || stat.size !== this.lastLoadedSize) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw) as DatabaseShape;
         if (parsed && Array.isArray(parsed.challenges) && Array.isArray(parsed.users)) {
           this.data = this.ensurePushState(parsed);
           this.lastLoadedMtime = stat.mtimeMs;
+          this.lastLoadedSize = stat.size;
           if (Array.isArray(parsed.inAppNotifications) && parsed.inAppNotifications.length > 0) {
             this.lastNotificationTimestamp = new Date(parsed.inAppNotifications[0].deliveredAt).getTime();
           }
@@ -554,12 +556,16 @@ class DataStore {
   }
 
   public async syncFromPostgres() {
+    this.reloadIfChanged();
     if (!prisma) return;
     try {
       const [dbUsers, dbAttempts] = await Promise.all([
         prisma.user.findMany(),
         prisma.challengeAttempt.findMany().catch(() => []),
       ]);
+
+      // Tải lại từ đĩa ngay sau khi await để không ghi đè thay đổi của instance khác (như events / challenges)
+      this.reloadIfChanged();
 
       if (dbUsers && dbUsers.length > 0) {
         for (const u of dbUsers) {
@@ -619,6 +625,8 @@ class DataStore {
         }
       }
 
+      this.save();
+
       // Hai chiều: Đồng bộ ngược toàn bộ users có trong local store lên PostgreSQL
       for (const local of this.data.users) {
         try {
@@ -655,7 +663,6 @@ class DataStore {
           // Bỏ qua nếu lỗi
         }
       }
-      this.save();
     } catch (e: any) {
       console.warn('Prisma syncFromPostgres notice:', e?.message || e);
     }
@@ -896,6 +903,11 @@ class DataStore {
           this.lastNotificationTimestamp = new Date(hydrated.inAppNotifications[0].deliveredAt).getTime();
         }
         fs.writeFileSync(DB_FILE, JSON.stringify(hydrated, null, 2), 'utf-8');
+        if (fs.existsSync(DB_FILE)) {
+          const st = fs.statSync(DB_FILE);
+          this.lastLoadedMtime = st.mtimeMs;
+          this.lastLoadedSize = st.size;
+        }
         return hydrated;
       } catch (e) {
         console.warn('Khởi tạo lại dữ liệu mẫu do file db.json lỗi:', e);
@@ -933,7 +945,9 @@ class DataStore {
 
     fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
     if (fs.existsSync(DB_FILE)) {
-      this.lastLoadedMtime = fs.statSync(DB_FILE).mtimeMs;
+      const st = fs.statSync(DB_FILE);
+      this.lastLoadedMtime = st.mtimeMs;
+      this.lastLoadedSize = st.size;
     }
     return initialData;
   }
@@ -942,7 +956,9 @@ class DataStore {
     try {
       fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
       if (fs.existsSync(DB_FILE)) {
-        this.lastLoadedMtime = fs.statSync(DB_FILE).mtimeMs;
+        const st = fs.statSync(DB_FILE);
+        this.lastLoadedMtime = st.mtimeMs;
+        this.lastLoadedSize = st.size;
       }
     } catch (err) {
       console.error('[Store] Failed to write DB_FILE:', err);
@@ -969,10 +985,12 @@ class DataStore {
   }
 
   public getUsers() {
+    this.reloadIfChanged();
     return this.data.users;
   }
 
   public findUserByIdentifier(identifier: string): UserRecord | undefined {
+    this.reloadIfChanged();
     const clean = identifier.trim().toLowerCase();
     return this.data.users.find(
       (u) => u.employeeId.toLowerCase() === clean || u.email.toLowerCase() === clean
@@ -980,10 +998,12 @@ class DataStore {
   }
 
   public findUserById(id: string): UserRecord | undefined {
+    this.reloadIfChanged();
     return this.data.users.find((u) => u.id === id);
   }
 
   public async createUser(user: UserRecord): Promise<UserRecord> {
+    this.reloadIfChanged();
     this.data.users.push(user);
     this.save();
 
@@ -1929,6 +1949,7 @@ class DataStore {
   }
 
   public getPwaSubscriptions(onlyInstalledPwa = true): PwaPushSubscriptionRecord[] {
+    this.reloadIfChanged();
     const list = this.data.pwaSubscriptions || [];
     return onlyInstalledPwa ? list.filter((s) => s.isPwaInstalled) : list;
   }
@@ -1942,6 +1963,7 @@ class DataStore {
     isPwaInstalled?: boolean;
     userAgent?: string;
   }): PwaPushSubscriptionRecord {
+    this.reloadIfChanged();
     if (!this.data.pwaSubscriptions) {
       this.data.pwaSubscriptions = [];
     }
@@ -2005,6 +2027,7 @@ class DataStore {
   }
 
   public removePwaSubscription(endpoint: string): boolean {
+    this.reloadIfChanged();
     if (!this.data.pwaSubscriptions) return false;
     const before = this.data.pwaSubscriptions.length;
     this.data.pwaSubscriptions = this.data.pwaSubscriptions.filter(
@@ -2066,6 +2089,7 @@ class DataStore {
   }
 
   public getPushCampaigns(): PushCampaignRecord[] {
+    this.reloadIfChanged();
     if (!this.data.pushCampaigns) {
       this.data.pushCampaigns = [];
     }
@@ -2073,6 +2097,7 @@ class DataStore {
   }
 
   public addPushCampaign(campaign: PushCampaignRecord): PushCampaignRecord {
+    this.reloadIfChanged();
     if (!this.data.pushCampaigns) {
       this.data.pushCampaigns = [];
     }
@@ -2085,6 +2110,7 @@ class DataStore {
   }
 
   public addInAppNotification(notif: InAppNotificationRecord) {
+    this.reloadIfChanged();
     if (!this.data.inAppNotifications) {
       this.data.inAppNotifications = [];
     }
@@ -2097,6 +2123,7 @@ class DataStore {
   }
 
   public addBatchInAppNotifications(notifs: InAppNotificationRecord[]) {
+    this.reloadIfChanged();
     if (!notifs || notifs.length === 0) return;
     if (!this.data.inAppNotifications) {
       this.data.inAppNotifications = [];
@@ -2110,10 +2137,12 @@ class DataStore {
   }
 
   public getLastNotificationTimestamp(): number {
+    this.reloadIfChanged();
     return this.lastNotificationTimestamp;
   }
 
   public getRecentInAppNotifications(userId?: string | null, sinceMs = 0): InAppNotificationRecord[] {
+    this.reloadIfChanged();
     // FAST-PATH CACHE CHỐNG QUÁ TẢI (O(1)):
     // Nếu client gửi sinceMs >= mốc thông báo mới nhất của toàn hệ thống,
     // chắc chắn 100% không có tin mới -> Trả về [] ngay lập tức (0ms, 0 loop CPU/RAM)
@@ -2135,6 +2164,7 @@ class DataStore {
   // ==================== QUẢN LÝ THIẾT BỊ ĐÃ ĐĂNG NHẬP (USER DEVICES) ====================
 
   public getUserDevices(userId: string, currentUa = ''): UserDeviceRecord[] {
+    this.reloadIfChanged();
     if (!this.data.devices) {
       this.data.devices = [];
     }
@@ -2166,6 +2196,7 @@ class DataStore {
   }
 
   public recordUserDevice(userId: string, userAgent = '', ip = ''): UserDeviceRecord {
+    this.reloadIfChanged();
     if (!this.data.devices) {
       this.data.devices = [];
     }
@@ -2204,6 +2235,7 @@ class DataStore {
   }
 
   public removeUserDevice(userId: string, deviceId: string): boolean {
+    this.reloadIfChanged();
     if (!this.data.devices) return false;
     const initialLen = this.data.devices.length;
     this.data.devices = this.data.devices.filter(
@@ -2359,6 +2391,7 @@ class DataStore {
   }
 
   public async deleteUser(userId: string): Promise<boolean> {
+    this.reloadIfChanged();
     const idx = this.data.users.findIndex((u) => u.id === userId || u.employeeId === userId);
     if (idx === -1) return false;
     const removed = this.data.users.splice(idx, 1)[0];
@@ -2378,19 +2411,23 @@ class DataStore {
   }
 
   public async adminResetUserPassword(userId: string, newPassPlain: string): Promise<boolean> {
+    this.reloadIfChanged();
     const user = this.findUserById(userId);
     if (!user) return false;
     const hash = await bcrypt.hash(newPassPlain, 10);
-    user.passwordHash = hash;
+    this.reloadIfChanged();
+    const freshUser = this.findUserById(userId);
+    if (!freshUser) return false;
+    freshUser.passwordHash = hash;
     this.save();
 
     if (prisma) {
       try {
         await prisma.user.update({
-          where: { id: user.id },
+          where: { id: freshUser.id },
           data: { passwordHash: hash },
         });
-        console.log(`[DB] Đã đổi mật khẩu cho user ${user.employeeId} trong PostgreSQL!`);
+        console.log(`[DB] Đã đổi mật khẩu cho user ${freshUser.employeeId} trong PostgreSQL!`);
       } catch (err: any) {
         console.error('[DB Error] Không thể update password user trong PostgreSQL:', err?.message || err);
       }
@@ -2399,6 +2436,7 @@ class DataStore {
   }
 
   public async adminResetUserProgress(userId: string): Promise<boolean> {
+    this.reloadIfChanged();
     const user = this.findUserById(userId);
     if (!user) return false;
     user.totalScore = 0;
