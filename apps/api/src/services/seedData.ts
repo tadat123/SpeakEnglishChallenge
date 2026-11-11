@@ -37,12 +37,15 @@ export interface WorkplaceWordItem {
   word: string;
   spokenText: string;
   ipa: string;
+  syllables?: string;
   meaningVi: string;
   meaningEn: string;
   meaningKo: string;
   tipVi: string;
   tipEn: string;
   tipKo: string;
+  tip?: string;
+  imageUrl?: string;
 }
 
 export const DEFAULT_Q11_5_WORDS: WorkplaceWordItem[] = [
@@ -51,11 +54,12 @@ export const DEFAULT_Q11_5_WORDS: WorkplaceWordItem[] = [
     word: 'Approval',
     spokenText: 'Approval',
     ipa: '/əˈpruːvəl/',
+    syllables: 'ơ · PRUː · vồ',
     meaningVi: 'Sự phê duyệt',
     meaningEn: 'Official permission',
     meaningKo: '승인 / 결재',
-    tipVi: 'Nhấn trọng âm ở âm tiết thứ 2 (-proo-), âm đầu đọc nhẹ là /ə/, cong lưỡi nhẹ ở âm cuối /l/.',
-    tipEn: 'Stress the 2nd syllable (-proo-), start with a soft schwa /ə/, and finish with a clear dark /l/.',
+    tipVi: 'Cách đọc: ơ - PRUː - vồ. Nhấn trọng âm ở âm tiết thứ 2 (-proo-), âm đầu đọc nhẹ là /ə/, cong lưỡi nhẹ ở âm cuối /l/.',
+    tipEn: 'Read as: uh - PROO - vuhl. Stress the 2nd syllable (-proo-), start with a soft schwa /ə/, and finish with a clear dark /l/.',
     tipKo: '두 번째 음절(-proo-)에 강세를 두고 첫 음은 약한 /ə/로 발음하세요.',
   },
   {
@@ -63,11 +67,12 @@ export const DEFAULT_Q11_5_WORDS: WorkplaceWordItem[] = [
     word: 'Equipment',
     spokenText: 'Equipment',
     ipa: '/ɪˈkwɪpmənt/',
+    syllables: 'ì · QUÍP · mừn(t)',
     meaningVi: 'Trang thiết bị',
     meaningEn: 'Tools & machinery',
     meaningKo: '장비 / 설비',
-    tipVi: 'Trọng âm rơi vào -quip- (/ˈkwɪp/), khép môi nhẹ ở âm /p/ trước khi đọc -ment và bật nhẹ âm cuối /t/.',
-    tipEn: 'Stress the 2nd syllable (-quip-), keep /p/ crisp, and pronounce final /t/.',
+    tipVi: 'Cách đọc: ì - QUÍP - mừn(t). Trọng âm rơi vào -quip- (/ˈkwɪp/), khép môi nhẹ ở âm /p/ trước khi đọc -ment và bật nhẹ âm cuối /t/.',
+    tipEn: 'Read as: ih - KWIP - muhnt. Stress the 2nd syllable (-quip-), keep /p/ crisp, and pronounce final /t/.',
     tipKo: '두 번째 음절(-quip-)에 강세를 두고 끝소리 /t/를 가볍게 발음하세요.',
   },
   {
@@ -75,11 +80,12 @@ export const DEFAULT_Q11_5_WORDS: WorkplaceWordItem[] = [
     word: 'Measurement',
     spokenText: 'Measurement',
     ipa: '/ˈmeʒərmənt/',
+    syllables: 'ME · giơ · mừn(t)',
     meaningVi: 'Sự đo lường',
     meaningEn: 'Act of measuring',
     meaningKo: '측정 / 계측',
-    tipVi: 'Nhấn âm đầu /ˈmeʒ/, chú ý phụ âm giữa là /ʒ/ (giống chữ "s" trong "vision"), không đọc thành /s/.',
-    tipEn: 'Stress the 1st syllable /ˈmeʒ/, using the voiced /ʒ/ sound (like in "vision").',
+    tipVi: 'Cách đọc: ME - giơ - mừn(t). Nhấn âm đầu /ˈmeʒ/, chú ý phụ âm giữa là /ʒ/ (giống chữ "s" trong "vision"), không đọc thành /s/.',
+    tipEn: 'Read as: MEZH - uhr - muhnt. Stress the 1st syllable /ˈmeʒ/, using the voiced /ʒ/ sound (like in "vision").',
     tipKo: '첫 음절 /ˈmeʒ/에 강세를 두고 중간의 /ʒ/ 발음에 유의하세요.',
   },
   {
@@ -87,11 +93,12 @@ export const DEFAULT_Q11_5_WORDS: WorkplaceWordItem[] = [
     word: 'Development',
     spokenText: 'Development',
     ipa: '/dɪˈveləpmənt/',
+    syllables: 'đì · VE · lợp · mừn(t)',
     meaningVi: 'Sự phát triển (R&D)',
     meaningEn: 'Growth & advancement',
     meaningKo: '개발 / 발전',
-    tipVi: 'Nhấn trọng âm vào âm tiết thứ 2 (-vel-), không nhấn vào âm đầu de- hoặc âm thứ 3 -op-.',
-    tipEn: 'Put primary stress on the 2nd syllable (-vel-), reducing -op- to /əp/.',
+    tipVi: 'Cách đọc: đì - VE - lợp - mừn(t). Nhấn trọng âm vào âm tiết thứ 2 (-vel-), không nhấn vào âm đầu de- hoặc âm thứ 3 -op-.',
+    tipEn: 'Read as: dih - VEL - uhp - muhnt. Put primary stress on the 2nd syllable (-vel-), reducing -op- to /əp/.',
     tipKo: '두 번째 음절(-vel-)에 강세를 두어 발음하세요.',
   },
   {
@@ -99,11 +106,12 @@ export const DEFAULT_Q11_5_WORDS: WorkplaceWordItem[] = [
     word: 'Yield rate',
     spokenText: 'Yield rate',
     ipa: '/jiːld reɪt/',
+    syllables: 'DIU(đ) · RÂY(t)',
     meaningVi: 'Tỷ lệ đạt chuẩn',
     meaningEn: 'Good product ratio',
     meaningKo: '수율 / 양품률',
-    tipVi: 'Từ "Yield" bắt đầu bằng âm /j/ (như "yes") kéo dài /iː/, kết thúc có /ld/; "rate" nguyên âm đôi /eɪ/.',
-    tipEn: 'Start "Yield" with a smooth /j/ (not /dʒ/), hold /iː/, and finish "rate" with /eɪt/.',
+    tipVi: 'Cách đọc: DIU(đ) - RÂY(t). Từ "Yield" bắt đầu bằng âm /j/ (như "yes") kéo dài /iː/, kết thúc có /ld/; "rate" nguyên âm đôi /eɪ/.',
+    tipEn: 'Read as: YEELD - rayt. Start "Yield" with a smooth /j/ (not /dʒ/), hold /iː/, and finish "rate" with /eɪt/.',
     tipKo: '"Yield"는 /j/로 시작하여 /iːld/로 발음하고 "rate"는 /reɪt/로 발음하세요.',
   },
 ];

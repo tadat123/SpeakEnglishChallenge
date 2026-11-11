@@ -136,6 +136,11 @@ export interface ActiveQuizSession {
   dayNumber: number;
   startedAt: number;
   q10FinishedAt?: number;
+  elapsedSeconds?: number;
+  q10ElapsedSeconds?: number;
+  currentIndex?: number;
+  answers?: Record<string, string>;
+  lastSyncedAt?: number;
   // Snapshot bộ câu hỏi lúc nhân viên bắt đầu làm bài để nếu Admin sửa câu hỏi giữa chừng không làm lỗi bài đang thi
   questionsSnapshot: QuestionItem[];
 }
@@ -302,7 +307,7 @@ export const DEFAULT_POPUP_EVENTS: EventPopupItem[] = [
     note: '',
     more: [
       'Tham gia trả lời 10 câu trắc nghiệm & điền từ mỗi ngày.',
-      'Tự luyện phát âm 5 từ vựng công sở ở câu 11 với AI Coach.',
+      'Tự luyện phát âm 5 từ vựng công sở ở câu 11 với hướng dẫn khẩu hình & hình ảnh minh họa.',
       'Tích lũy điểm số và thời gian làm bài để tranh top trên Bảng xếp hạng.',
     ],
     themeColor: 'purple',
@@ -323,6 +328,7 @@ interface DatabaseShape {
   inAppNotifications?: InAppNotificationRecord[];
   pushConfig?: PushStaggerConfig;
   events?: EventPopupItem[];
+  activeSessions?: Record<string, ActiveQuizSession>;
 }
 
 const resolveDataDir = () => {
@@ -337,8 +343,8 @@ const DATA_DIR = resolveDataDir();
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 const T_MAX = 9999999;
-// Thời gian ân hạn tối đa cho người đang làm bài khi Admin khóa mềm (15 phút)
-const SESSION_TTL_MS = 15 * 60 * 1000;
+// Thời gian lưu phiên thi đang làm dở (24 giờ để nhân viên thoát ra vào lại vẫn tiếp tục được câu hỏi và thời gian trước đó)
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function computeCompositeLeaderboardScore(totalScore: number, totalTimeMs: number): number {
   const totalSeconds = Math.min(T_MAX, Math.floor(totalTimeMs / 1000));
@@ -539,6 +545,9 @@ class DataStore {
         const parsed = JSON.parse(raw) as DatabaseShape;
         if (parsed && Array.isArray(parsed.challenges) && Array.isArray(parsed.users)) {
           this.data = this.ensurePushState(parsed);
+          if (parsed.activeSessions && typeof parsed.activeSessions === 'object') {
+            this.activeSessions = new Map(Object.entries(parsed.activeSessions));
+          }
           this.lastLoadedMtime = stat.mtimeMs;
           this.lastLoadedSize = stat.size;
           if (Array.isArray(parsed.inAppNotifications) && parsed.inAppNotifications.length > 0) {
@@ -818,6 +827,9 @@ class DataStore {
           }
         }
         const hydrated = this.ensurePushState(parsed);
+        if (hydrated.activeSessions && typeof hydrated.activeSessions === 'object') {
+          this.activeSessions = new Map(Object.entries(hydrated.activeSessions));
+        }
         if (Array.isArray(hydrated.inAppNotifications) && hydrated.inAppNotifications.length > 0) {
           this.lastNotificationTimestamp = new Date(hydrated.inAppNotifications[0].deliveredAt).getTime();
         }
@@ -872,6 +884,7 @@ class DataStore {
 
   public save() {
     try {
+      this.data.activeSessions = Object.fromEntries(this.activeSessions.entries());
       fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
       if (fs.existsSync(DB_FILE)) {
         const st = fs.statSync(DB_FILE);
@@ -1224,10 +1237,22 @@ class DataStore {
   // ==================== QUẢN LÝ PHIÊN THI ĐANG DIỄN RA & CHỐNG XUNG ĐỘT KHI KHÓA ====================
 
   public startQuizSession(userId: string, dayNumber: number): ActiveQuizSession | null {
+    this.reloadIfChanged();
     this.pruneExpiredSessions();
     const user = this.findUserById(userId);
     const challenge = this.getChallengeByDay(dayNumber);
     if (!user || !challenge || !this.isDayUnlocked(challenge)) return null;
+
+    const sessionKey = `${userId}:${dayNumber}`;
+    const existing = this.activeSessions.get(sessionKey);
+    if (
+      existing &&
+      Array.isArray(existing.questionsSnapshot) &&
+      existing.questionsSnapshot.length > 0 &&
+      !this.isSessionForceLocked(dayNumber, existing.startedAt)
+    ) {
+      return existing;
+    }
 
     const now = Date.now();
     // Chụp lại bản sao bộ câu hỏi ngay thời điểm nhân viên bắt đầu làm bài
@@ -1256,37 +1281,93 @@ class DataStore {
       fullName: user.fullName,
       dayNumber,
       startedAt: now,
+      elapsedSeconds: 0,
+      currentIndex: 0,
+      answers: {},
+      lastSyncedAt: now,
       questionsSnapshot,
     };
 
-    this.activeSessions.set(`${userId}:${dayNumber}`, session);
+    this.activeSessions.set(sessionKey, session);
+    this.save();
+    return session;
+  }
+
+  public syncQuizSessionProgress(
+    userId: string,
+    dayNumber: number,
+    progress: {
+      currentIndex?: number;
+      answers?: Record<string, string>;
+      elapsedSeconds?: number;
+      q10ElapsedSeconds?: number;
+    }
+  ): ActiveQuizSession | null {
+    this.reloadIfChanged();
+    this.pruneExpiredSessions();
+    const sessionKey = `${userId}:${dayNumber}`;
+    const session = this.activeSessions.get(sessionKey);
+    if (!session) return null;
+
+    if (typeof progress.currentIndex === 'number' && progress.currentIndex >= 0) {
+      session.currentIndex = progress.currentIndex;
+    }
+    if (progress.answers && typeof progress.answers === 'object') {
+      session.answers = { ...(session.answers || {}), ...progress.answers };
+    }
+    if (typeof progress.elapsedSeconds === 'number' && progress.elapsedSeconds >= 0) {
+      session.elapsedSeconds = Math.max(session.elapsedSeconds || 0, Math.floor(progress.elapsedSeconds));
+    }
+    if (typeof progress.q10ElapsedSeconds === 'number' && progress.q10ElapsedSeconds >= 0) {
+      session.q10ElapsedSeconds = Math.floor(progress.q10ElapsedSeconds);
+    }
+    session.lastSyncedAt = Date.now();
+    this.activeSessions.set(sessionKey, session);
+    this.save();
     return session;
   }
 
   public getActiveSession(userId: string, dayNumber: number): ActiveQuizSession | undefined {
+    this.reloadIfChanged();
     this.pruneExpiredSessions();
     return this.activeSessions.get(`${userId}:${dayNumber}`);
   }
 
   public completeActiveSession(userId: string, dayNumber: number) {
+    this.reloadIfChanged();
     this.activeSessions.delete(`${userId}:${dayNumber}`);
+    this.save();
   }
 
   /** Chốt thời gian kết thúc Câu 10 (Câu 11 không tính giờ) */
-  public markSessionQ10Finished(userId: string, dayNumber: number): number | null {
+  public markSessionQ10Finished(userId: string, dayNumber: number, clientElapsedSeconds?: number): number | null {
+    this.reloadIfChanged();
     const session = this.getActiveSession(userId, dayNumber);
     if (!session) return null;
     if (!session.q10FinishedAt) {
       session.q10FinishedAt = Date.now();
+    }
+    if (typeof clientElapsedSeconds === 'number' && clientElapsedSeconds > 0) {
+      session.q10ElapsedSeconds = Math.max(1, Math.floor(clientElapsedSeconds));
+      session.elapsedSeconds = Math.max(session.elapsedSeconds || 0, session.q10ElapsedSeconds);
+    } else if (!session.q10ElapsedSeconds && session.elapsedSeconds) {
+      session.q10ElapsedSeconds = session.elapsedSeconds;
+    }
+    this.save();
+    if (session.q10ElapsedSeconds && session.q10ElapsedSeconds > 0) {
+      return Math.max(2000, session.q10ElapsedSeconds * 1000);
     }
     return Math.max(2000, session.q10FinishedAt - session.startedAt);
   }
 
   /** Nếu người dùng bấm quay lại câu 1-10 từ câu 11 thì mở lại bộ đếm */
   public clearSessionQ10Finished(userId: string, dayNumber: number): void {
+    this.reloadIfChanged();
     const session = this.getActiveSession(userId, dayNumber);
     if (session) {
       delete session.q10FinishedAt;
+      delete session.q10ElapsedSeconds;
+      this.save();
     }
   }
 

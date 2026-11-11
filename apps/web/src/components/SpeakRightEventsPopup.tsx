@@ -20,6 +20,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Lang } from '../utils/i18n';
+import { resolveMediaUrl } from '../utils/clientApiFallback';
 
 export interface EventPopupItem {
   id: string;
@@ -151,12 +152,8 @@ function getChipIcon(idx: number): React.ElementType {
   return icons[idx % icons.length];
 }
 
-function resolveEventImg(img: string, baseUrl: string): string {
-  if (!img) return `${baseUrl}events/golden-bell.jpg`;
-  if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) {
-    return img;
-  }
-  return `${baseUrl}${img}`;
+function resolveEventImg(img: string, _baseUrl: string): string {
+  return resolveMediaUrl(img, 'events/golden-bell.jpg');
 }
 
 const DISMISS_TODAY_KEY = 'sr2026_events_popup_dismissed_date';

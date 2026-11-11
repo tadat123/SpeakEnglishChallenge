@@ -50,8 +50,8 @@ import {
   Q11SubmissionData,
 } from './components/PronunciationChallengeQ11';
 import { SpeakRightEventsPopup, EventPopupItem } from './components/SpeakRightEventsPopup';
-import { InstallPwaModal } from './components/InstallPwaModal';
 import { playPronunciation } from './utils/audio';
+import { resolveMediaUrl } from './utils/clientApiFallback';
 import { Lang, TRANSLATIONS } from './utils/i18n';
 import {
   isRunningStandalonePwa,
@@ -301,9 +301,35 @@ export const App: React.FC = () => {
     localStorage.setItem('sr_last_read_notif', String(now));
   };
 
-  const unreadNotifCount = notifications.filter(
-    (n) => new Date(n.deliveredAt).getTime() > lastReadNotifTime
-  ).length;
+  const unreadNotifCount =
+    notifications.filter((n) => new Date(n.deliveredAt).getTime() > lastReadNotifTime).length +
+    (pwaUpdateReady ? 1 : 0);
+
+  const getQuizProgressKey = (dayNum: number) =>
+    `sr_quiz_progress_${user?.id || 'guest'}_day_${dayNum}`;
+
+  const readSavedQuizProgress = (dayNum: number): {
+    currentIndex?: number;
+    answers?: Record<string, string>;
+    elapsedSeconds?: number;
+    q10ElapsedSeconds?: number;
+    q11Data?: Q11SubmissionData | null;
+    questions?: any[];
+  } | null => {
+    try {
+      const raw = localStorage.getItem(getQuizProgressKey(dayNum));
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  };
+
+  const clearSavedQuizProgress = (dayNum: number) => {
+    try {
+      localStorage.removeItem(getQuizProgressKey(dayNum));
+    } catch {}
+  };
 
   // Toast thông báo người dùng
   const [toast, setToast] = useState<string>('');
@@ -599,13 +625,17 @@ export const App: React.FC = () => {
       if (!data) return;
 
       if (data.type === 'PWA_PUSH_RECEIVED' && data.payload) {
-        setLivePushAlert({
+        const incomingNotif = {
           id: `sw-${Date.now()}`,
           title: data.payload.title || 'SPEAK RIGHT 2026',
           body: data.payload.body || '',
           targetUrl: data.payload.url || '/#challenges',
-          type: data.payload.type,
-        });
+          type: data.payload.type || 'PERSONALIZED',
+          deliveredAt: new Date().toISOString(),
+        };
+        setNotifications((prev) =>
+          prev.some((item) => item.id === incomingNotif.id) ? prev : [incomingNotif, ...prev]
+        );
         fetchAllData();
       } else if (data.type === 'PWA_NOTIFICATION_CLICK' && data.targetUrl) {
         const cleanTab = data.targetUrl.replace(/^.*#/, '').split('/')[0] as TabType;
@@ -690,13 +720,18 @@ export const App: React.FC = () => {
             if (seenIds.has(n.id)) continue;
             saveSeenId(n.id);
 
-            setLivePushAlert({
-              id: n.id,
-              title: n.title,
-              body: n.body,
-              targetUrl: n.targetUrl || '/#challenges',
-              type: n.type,
-            });
+            // Đẩy toàn bộ thông báo vào Chuông Thông Báo (không bật banner ngoài màn hình)
+            setNotifications((prev) =>
+              prev.some((item) => item.id === n.id)
+                ? prev
+                : [
+                    {
+                      ...n,
+                      deliveredAt: n.deliveredAt || new Date().toISOString(),
+                    },
+                    ...prev,
+                  ]
+            );
 
             triggerLocalServiceWorkerNotification({
               title: n.title,
@@ -787,6 +822,7 @@ export const App: React.FC = () => {
         if (statusData.status === 'GRACE_PERIOD') {
           setGracePeriodNotice(statusData.message);
         } else if (statusData.status === 'FORCE_LOCKED') {
+          clearSavedQuizProgress(activeQuiz.dayNumber);
           setActiveQuiz(null);
           setGracePeriodNotice(null);
           setForceLockModalMsg(statusData.message);
@@ -802,6 +838,64 @@ export const App: React.FC = () => {
       clearInterval(lockCheckTimer);
     };
   }, [activeQuiz?.dayNumber]);
+
+  // Tự động lưu tiến độ làm bài (thời gian đang chạy, câu hỏi hiện tại, các đáp án đã chọn) vào LocalStorage & đồng bộ lên Server
+  useEffect(() => {
+    if (!activeQuiz) return;
+    try {
+      localStorage.setItem(
+        getQuizProgressKey(activeQuiz.dayNumber),
+        JSON.stringify({
+          dayNumber: activeQuiz.dayNumber,
+          currentIndex: activeQuiz.currentIndex,
+          answers: activeQuiz.answers,
+          elapsedSeconds: activeQuiz.elapsedSeconds,
+          q10ElapsedSeconds: activeQuiz.q10ElapsedSeconds,
+          q11Data,
+          questions: activeQuiz.questions,
+          updatedAt: Date.now(),
+        })
+      );
+    } catch {}
+
+    // Đồng bộ định kỳ lên server (mỗi 3 giây hoặc khi đổi câu hỏi / chọn đáp án)
+    if (token && (activeQuiz.elapsedSeconds % 3 === 0 || activeQuiz.currentIndex >= 0)) {
+      const syncTimeout = setTimeout(() => {
+        fetch(`/api/challenges/${activeQuiz.dayNumber}/sync-progress`, {
+          method: 'POST',
+          headers: getHeaders(true),
+          body: JSON.stringify({
+            currentIndex: activeQuiz.currentIndex,
+            answers: activeQuiz.answers,
+            elapsedSeconds: activeQuiz.elapsedSeconds,
+            q10ElapsedSeconds: activeQuiz.q10ElapsedSeconds,
+          }),
+        }).catch(() => {});
+      }, 350);
+      return () => clearTimeout(syncTimeout);
+    }
+  }, [
+    activeQuiz?.dayNumber,
+    activeQuiz?.currentIndex,
+    activeQuiz?.answers,
+    activeQuiz?.elapsedSeconds,
+    activeQuiz?.q10ElapsedSeconds,
+    q11Data,
+    token,
+  ]);
+
+  // Tự động khôi phục bài đang làm nếu người dùng F5 (tải lại trang) khi đang ở đường dẫn #quiz/:dayNumber
+  useEffect(() => {
+    if (activeQuiz || startingDay || challenges.length === 0) return;
+    const h = window.location.hash.replace('#', '');
+    if (h.startsWith('quiz/')) {
+      const dayNum = parseInt(h.split('/')[1], 10);
+      const targetChallenge = challenges.find((c: any) => c.dayNumber === dayNum);
+      if (targetChallenge && targetChallenge.status !== 'COMPLETED') {
+        handleStartDay(targetChallenge);
+      }
+    }
+  }, [challenges.length]);
 
   const handleAuthSuccess = async (newToken: string, newUser: any) => {
     localStorage.setItem('sr_token', newToken);
@@ -923,27 +1017,41 @@ export const App: React.FC = () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
 
+        const localSaved = readSavedQuizProgress(data.dayNumber);
+        const questionsToUse =
+          Array.isArray(localSaved?.questions) && localSaved.questions.length > 0
+            ? localSaved.questions
+            : data.questions;
+        const maxIdx = Array.isArray(questionsToUse) ? questionsToUse.length : 10;
+        const restoredIdx =
+          typeof localSaved?.currentIndex === 'number'
+            ? Math.min(Math.max(0, localSaved.currentIndex), maxIdx)
+            : 0;
+        const restoredAnswers = localSaved?.answers || {};
+        const restoredElapsed = Math.max(0, localSaved?.elapsedSeconds || 0);
+
         setQuizResult(null);
         setShowDetailedReview(false);
         setAdminPreviewResult(false);
-        setQ11Data(null);
+        setQ11Data(localSaved?.q11Data || null);
         setActiveQuiz({
           dayNumber: data.dayNumber,
           title: data.title,
           dateLabel: data.dateLabel,
-          questions: data.questions,
-          currentIndex: 0,
-          answers: {},
-          elapsedSeconds: 0,
+          questions: questionsToUse,
+          currentIndex: restoredIdx,
+          answers: restoredAnswers,
+          elapsedSeconds: restoredElapsed,
+          q10ElapsedSeconds: localSaved?.q10ElapsedSeconds,
           q11Words: data.q11Words,
           isExpired: Boolean(data.isExpired || dayItem.status === 'EXPIRED'),
         });
         window.location.hash = `#quiz/${data.dayNumber}`;
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        const firstQ = data.questions?.[0];
-        if (firstQ?.hasPromptAudio && firstQ?.targetWord) {
-          setTimeout(() => handleSpeak(`prompt-${firstQ.id}`, firstQ.targetWord), 350);
+        const currentQ = questionsToUse?.[restoredIdx];
+        if (currentQ?.hasPromptAudio && currentQ?.targetWord) {
+          setTimeout(() => handleSpeak(`prompt-${currentQ.id}`, currentQ.targetWord), 350);
         }
         return;
       }
@@ -956,27 +1064,49 @@ export const App: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
+      const localSaved = readSavedQuizProgress(data.dayNumber);
+      const maxIdx = Array.isArray(data.questions) ? data.questions.length : 10;
+      const mergedAnswers: Record<string, string> = {
+        ...(data.answers || {}),
+        ...(localSaved?.answers || {}),
+      };
+      const rawIdx =
+        typeof localSaved?.currentIndex === 'number'
+          ? localSaved.currentIndex
+          : typeof data.currentIndex === 'number'
+          ? data.currentIndex
+          : 0;
+      const restoredIdx = Math.min(Math.max(0, rawIdx), maxIdx);
+      const restoredElapsed = Math.max(
+        0,
+        localSaved?.elapsedSeconds || 0,
+        data.elapsedSeconds || 0
+      );
+      const restoredQ10Elapsed =
+        localSaved?.q10ElapsedSeconds ?? data.q10ElapsedSeconds;
+
       setQuizResult(null);
       setShowDetailedReview(false);
       setAdminPreviewResult(false);
-      setQ11Data(null);
+      setQ11Data(localSaved?.q11Data || null);
       setActiveQuiz({
         dayNumber: data.dayNumber,
         title: data.title,
         dateLabel: data.dateLabel,
         questions: data.questions,
-        currentIndex: 0,
-        answers: {},
-        elapsedSeconds: 0,
+        currentIndex: restoredIdx,
+        answers: mergedAnswers,
+        elapsedSeconds: restoredElapsed,
+        q10ElapsedSeconds: restoredQ10Elapsed,
         q11Words: data.q11Words,
         isExpired: Boolean(data.isExpired || dayItem.status === 'EXPIRED'),
       });
       window.location.hash = `#quiz/${data.dayNumber}`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      const firstQ = data.questions?.[0];
-      if (firstQ?.hasPromptAudio && firstQ?.targetWord) {
-        setTimeout(() => handleSpeak(`prompt-${firstQ.id}`, firstQ.targetWord), 350);
+      const currentQ = data.questions?.[restoredIdx];
+      if (currentQ?.hasPromptAudio && currentQ?.targetWord) {
+        setTimeout(() => handleSpeak(`prompt-${currentQ.id}`, currentQ.targetWord), 350);
       }
     } catch (err: any) {
       alert(err.message || 'Không thể bắt đầu thử thách');
@@ -1008,6 +1138,9 @@ export const App: React.FC = () => {
             fetch(`/api/challenges/${prev.dayNumber}/finish-q10`, {
               method: 'POST',
               headers: getHeaders(true),
+              body: JSON.stringify({
+                elapsedSeconds: prev.q10ElapsedSeconds ?? prev.elapsedSeconds,
+              }),
             }).catch(() => {});
           }
           const nextQ = prev.questions[nextIdx];
@@ -1105,6 +1238,7 @@ export const App: React.FC = () => {
           expiresAt: getNextMidnightMs(),
         };
         localStorage.setItem(GUEST_PENDING_KEY, JSON.stringify(pending));
+        clearSavedQuizProgress(activeQuiz.dayNumber);
 
         setActiveQuiz(null);
         setGracePeriodNotice(null);
@@ -1152,6 +1286,7 @@ export const App: React.FC = () => {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 423 || data.code === 'FORCE_LOCKED') {
+          clearSavedQuizProgress(activeQuiz.dayNumber);
           setActiveQuiz(null);
           setForceLockModalMsg(data.message);
           fetchAllData();
@@ -1160,6 +1295,7 @@ export const App: React.FC = () => {
         throw new Error(data.message);
       }
 
+      clearSavedQuizProgress(activeQuiz.dayNumber);
       setActiveQuiz(null);
       setGracePeriodNotice(null);
       setQuizResult({
@@ -1560,97 +1696,6 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* Banner Thông Báo Có Phiên Bản PWA Mới Sẵn Sàng Cập Nhật */}
-        {pwaUpdateReady && (
-          <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-50 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-800 text-white shadow-2xl border border-blue-400/40 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-md">
-                <Sparkles className="w-4 h-4 animate-pulse" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs sm:text-sm font-black flex items-center gap-1.5 truncate">
-                  <span>{L('Đã có bản cập nhật mới!', 'New version available!', '새로운 버전이 있습니다!')}</span>
-                </div>
-                <p className="text-[11px] text-blue-100 truncate mt-0.5">
-                  {L('Bấm để tải lại và dùng tính năng mới nhất.', 'Tap to refresh and get the latest updates.', '새로운 기능을 사용하려면 탭하세요.')}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => applyAppUpdate()}
-                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition active:scale-95"
-              >
-                {L('Cập nhật ngay', 'Update now', '지금 업데이트')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPwaUpdateReady(false)}
-                className="p-1.5 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition"
-                title="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Banner Nhắc Cài PWA & Kích hoạt Thông Báo Đẩy Ngoài Màn Hình */}
-        <InstallPwaModal
-          lang={lang}
-          darkMode={darkMode}
-          user={user}
-          token={token}
-          onToast={showMessage}
-        />
-
-        {/* Banner Thông Báo Đẩy PWA Thời Gian Thực (Nhận từ Staggered Push Queue) */}
-        {livePushAlert && (
-          <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-indigo-700 via-blue-700 to-blue-600 text-white shadow-xl border border-blue-400/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                <BellRing className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
-                    Notification
-                  </span>
-                </div>
-                <h4 className="text-xs sm:text-sm font-black mt-1">{livePushAlert.title}</h4>
-                <p className="text-xs text-blue-100 leading-relaxed mt-0.5">
-                  {livePushAlert.body}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-              <button
-                type="button"
-                onClick={() => {
-                  const target = livePushAlert.targetUrl || '#challenges';
-                  setLivePushAlert(null);
-                  if (target.includes('leaderboard')) {
-                    navigateToTab('leaderboard');
-                  } else {
-                    navigateToTab('challenges');
-                  }
-                }}
-                className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs shadow-sm"
-              >
-                Xem ngay →
-              </button>
-              <button
-                type="button"
-                onClick={() => setLivePushAlert(null)}
-                className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* ---------- A. LOADING SPINNER HOẶC MÀN HÌNH LÀM BÀI ---------- */}
         {isGlobalLoading && challenges.length === 0 ? (
           <div className={`max-w-md mx-auto my-16 p-8 rounded-3xl shadow-xl border text-center backdrop-blur-md ${cardBg}`}>
@@ -1678,10 +1723,11 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
+            {/* Thanh tiêu đề & Nút quay lại (Tự động bảo lưu thời gian và câu đang làm) */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
               <button
                 onClick={() => navigateToTab('home')}
-                className="p-1.5 -ml-1.5 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center gap-1 text-xs font-bold"
+                className="p-1.5 -ml-1.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1 text-xs font-bold"
               >
                 <ChevronLeft className="w-5 h-5" /> {t.backBtn}
               </button>
@@ -1690,26 +1736,83 @@ export const App: React.FC = () => {
                   {activeQuiz.title} ({activeQuiz.dateLabel})
                 </h2>
               </div>
-              {activeQuiz.currentIndex >= activeQuiz.questions.length ? (
-                <div
-                  className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-3 py-1 rounded-full text-xs font-black shadow-sm"
-                  title={L('Đồng hồ tính giờ thi đã dừng sau Câu 10', 'Exam timer stopped after Question 10', '10번 문제 이후 타이머 정지')}
-                >
-                  <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>⏱️ {formatTimeMmSs(activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds)} ({L('Đã chốt giờ', 'Time locked', '시간 고정')})</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-2.5 py-1 rounded-full text-xs font-extrabold">
-                  <Clock className="w-3.5 h-3.5" />
-                  {formatTimeMmSs(activeQuiz.elapsedSeconds)}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setAutoNextOnSelect(!autoNextOnSelect)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 border transition ${
+                  autoNextOnSelect
+                    ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                }`}
+              >
+                <Zap className="w-3 h-3" />
+                {t.autoNext}: {autoNextOnSelect ? t.on : t.off}
+              </button>
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1 overflow-x-auto py-1 no-scrollbar">
+            {/* BẢNG CÂU HỎI & THỜI GIAN ĐANG CHẠY (Question Board & Live Running Timer) */}
+            <div
+              className={`mt-3 p-3.5 rounded-2xl border ${
+                darkMode
+                  ? 'bg-slate-800/80 border-slate-700/80'
+                  : 'bg-slate-50/95 border-slate-200/90'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-200/70 dark:border-slate-700/70">
+                <div>
+                  <div className={`text-xs font-black flex items-center gap-1.5 ${textPrimary}`}>
+                    <span>📋 {L('Bảng Danh Sách Câu Hỏi & Thời Gian Làm Bài', 'Question Board & Live Timer', '문제 목록 및 실시간 타이머')}</span>
+                  </div>
+                  <div className={`text-[11px] font-semibold mt-0.5 ${textSecondary}`}>
+                    {L(
+                      `Đã trả lời: ${Object.keys(activeQuiz.answers).filter((k) => Boolean(activeQuiz.answers[k])).length}/${activeQuiz.questions.length} câu tính điểm • Tự động lưu tiến độ khi thoát ra`,
+                      `Answered: ${Object.keys(activeQuiz.answers).filter((k) => Boolean(activeQuiz.answers[k])).length}/${activeQuiz.questions.length} graded questions • Auto-saved`,
+                      `답변 완료: ${Object.keys(activeQuiz.answers).filter((k) => Boolean(activeQuiz.answers[k])).length}/${activeQuiz.questions.length} 문항 • 자동 저장됨`
+                    )}
+                  </div>
+                </div>
+
+                {/* Hộp hiển thị Đồng hồ thời gian chạy trực tiếp */}
+                {activeQuiz.currentIndex >= activeQuiz.questions.length ? (
+                  <div
+                    className="flex items-center gap-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/50 px-3.5 py-2 rounded-xl text-xs font-black shadow-xs shrink-0"
+                    title={L('Đồng hồ tính giờ thi đã dừng sau Câu 10', 'Exam timer stopped after Question 10', '10번 문제 이후 타이머 정지')}
+                  >
+                    <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider opacity-80">
+                        {L('Đã chốt giờ thi (Câu 1–10)', 'Time Locked (Q1–Q10)', '시간 고정 (1~10번)')}
+                      </div>
+                      <div className="text-sm sm:text-base font-mono font-black leading-none mt-0.5">
+                        {formatTimeMmSs(activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds)}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 bg-rose-500/10 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 border border-rose-300 dark:border-rose-700/80 px-3.5 py-2 rounded-xl shrink-0 shadow-xs">
+                    <div className="relative flex items-center justify-center">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping absolute" />
+                      <Clock className="w-4 h-4 relative" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-extrabold uppercase tracking-wider opacity-85">
+                        {L('Thời gian đang chạy', 'Running Time', '진행 시간')}
+                      </div>
+                      <div className="text-base sm:text-lg font-mono font-black leading-none mt-0.5">
+                        {formatTimeMmSs(activeQuiz.elapsedSeconds)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Lưới các nút số thứ tự câu hỏi 1 -> 10 + Câu 11 */}
+              <div className="mt-3 grid grid-cols-6 sm:grid-cols-11 gap-1.5">
                 {activeQuiz.questions.map((qItem, idx) => {
-                  const answered = Boolean(activeQuiz.answers[qItem.id]);
+                  const answered = Boolean(
+                    activeQuiz.answers[qItem.id] &&
+                      String(activeQuiz.answers[qItem.id]).trim().length > 0
+                  );
                   const isCurrent = activeQuiz.currentIndex === idx;
                   return (
                     <button
@@ -1725,24 +1828,33 @@ export const App: React.FC = () => {
                         }
                         setActiveQuiz((prev) => (prev ? { ...prev, currentIndex: idx } : null));
                       }}
-                      className={`w-7 h-7 rounded-lg text-xs font-extrabold shrink-0 transition ${
+                      className={`h-9 rounded-xl text-xs font-black transition flex items-center justify-center gap-0.5 relative ${
                         isCurrent
-                          ? 'bg-blue-600 text-white shadow-sm scale-105'
+                          ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400 scale-[1.03]'
                           : answered
-                          ? 'bg-emerald-100 text-emerald-700'
+                          ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
                           : darkMode
-                          ? 'bg-slate-800 text-slate-400'
-                          : 'bg-slate-100 text-slate-600'
+                          ? 'bg-slate-900 text-slate-300 border border-slate-700 hover:border-blue-400'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-400'
                       }`}
+                      title={`Câu ${idx + 1}${answered ? ' (Đã trả lời)' : ' (Chưa làm)'}`}
                     >
-                      {idx + 1}
+                      <span>{idx + 1}</span>
+                      {answered && !isCurrent && (
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black">
+                          ✓
+                        </span>
+                      )}
                     </button>
                   );
                 })}
-                {/* Nút chuyển nhanh sang Câu 11 – Pronunciation Challenge 🎙️ (Không tính giờ, không tính điểm) */}
+
+                {/* Nút chuyển nhanh sang Câu 11 – Luyện phát âm 🎙️ (Không tính giờ, không tính điểm) */}
                 <button
                   type="button"
                   onClick={() => {
+                    const currentElapsed =
+                      activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds;
                     setActiveQuiz((prev) =>
                       prev
                         ? {
@@ -1756,35 +1868,45 @@ export const App: React.FC = () => {
                       fetch(`/api/challenges/${activeQuiz.dayNumber}/finish-q10`, {
                         method: 'POST',
                         headers: getHeaders(true),
+                        body: JSON.stringify({ elapsedSeconds: currentElapsed }),
                       }).catch(() => {});
                     }
                   }}
-                  className={`px-2 h-7 rounded-lg text-xs font-extrabold shrink-0 transition flex items-center gap-1 ${
+                  className={`h-9 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 col-span-2 sm:col-span-1 ${
                     activeQuiz.currentIndex === activeQuiz.questions.length
-                      ? 'bg-indigo-600 text-white shadow-sm scale-105'
+                      ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400 scale-[1.03]'
                       : q11Data?.submitted
-                      ? 'bg-emerald-100 text-emerald-700'
+                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-400/60'
                       : darkMode
-                      ? 'bg-slate-800 text-indigo-300 border border-indigo-700/60'
-                      : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      ? 'bg-slate-900 text-indigo-300 border border-indigo-700/60 hover:border-indigo-400'
+                      : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:border-indigo-400'
                   }`}
+                  title="Câu 11: Tự luyện phát âm (Không tính giờ & Không tính điểm)"
                 >
-                  🎙️ 11
+                  <span>🎙️11</span>
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setAutoNextOnSelect(!autoNextOnSelect)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 border transition ${
-                  autoNextOnSelect
-                    ? 'bg-blue-50 border-blue-200 text-blue-700'
-                    : 'bg-slate-100 border-slate-200 text-slate-500'
-                }`}
-              >
-                <Zap className="w-3 h-3" />
-                {t.autoNext}: {autoNextOnSelect ? t.on : t.off}
-              </button>
+              {/* Chú thích màu trạng thái câu hỏi */}
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-xs bg-blue-600 inline-block" />
+                    {L('Câu đang mở', 'Current', '현재 문항')}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block" />
+                    {L('Đã chọn đáp án', 'Answered', '답변 완료')}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-xs border border-slate-400 inline-block" />
+                    {L('Chưa làm', 'Unanswered', '미답변')}
+                  </span>
+                </div>
+                <span>
+                  {L('💡 Bấm vào số bất kỳ để chuyển nhanh tới câu đó', '💡 Tap any number to jump to that question', '💡 번호를 눌러 해당 문제로 이동하세요')}
+                </span>
+              </div>
             </div>
 
             {(() => {
@@ -1900,7 +2022,7 @@ export const App: React.FC = () => {
                     {q.promptVideoUrl && (
                       <div className="mt-3 rounded-2xl overflow-hidden bg-slate-950 border border-blue-200 flex justify-center">
                         <video
-                          src={q.promptVideoUrl}
+                          src={resolveMediaUrl(q.promptVideoUrl)}
                           controls
                           playsInline
                           className="max-h-56 w-full object-contain"
@@ -1963,6 +2085,10 @@ export const App: React.FC = () => {
                                   fetch(`/api/challenges/${activeQuiz.dayNumber}/finish-q10`, {
                                     method: 'POST',
                                     headers: getHeaders(true),
+                                    body: JSON.stringify({
+                                      elapsedSeconds:
+                                        activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds,
+                                    }),
                                   }).catch(() => {});
                                 }
                               }
@@ -2112,6 +2238,10 @@ export const App: React.FC = () => {
                               fetch(`/api/challenges/${activeQuiz.dayNumber}/finish-q10`, {
                                 method: 'POST',
                                 headers: getHeaders(true),
+                                body: JSON.stringify({
+                                  elapsedSeconds:
+                                    activeQuiz.q10ElapsedSeconds ?? activeQuiz.elapsedSeconds,
+                                }),
                               }).catch(() => {});
                             }
                           }}
@@ -2181,7 +2311,7 @@ export const App: React.FC = () => {
                     className={`mb-5 p-4 rounded-2xl border text-left text-xs space-y-1.5 ${subCardBg}`}
                   >
                     <div className="font-black text-indigo-600">
-                      {L('🎙️ Nhận xét AI Câu 11 (Pronunciation Challenge – Không tính điểm):', '🎙️ AI Feedback for Q11 (Pronunciation Challenge – Practice):', '🎙️ 11번 문제 AI 피드백 (발음 챌린지 - 연습):')}
+                      {L('🎙️ Đã hoàn thành tự luyện phát âm Câu 11 (Không tính điểm):', '🎙️ Completed Q11 Pronunciation Practice (Untimed):', '🎙️ 11번 문항 발음 연습 완료 (점수 미반영):')}
                     </div>
                     <p className={textSecondary}>{quizResult.q11Pronunciation.aiSummaryFeedback}</p>
                   </div>
@@ -2734,11 +2864,7 @@ export const App: React.FC = () => {
                         <div className="space-y-3 sm:space-y-3.5">
                           {visibleActivities.map((act, actIdx) => {
                             const theme = HOME_EVENT_THEMES[act.themeColor] || HOME_EVENT_THEMES.amber;
-                            const imgSrc = act.img
-                              ? (act.img.startsWith('http://') || act.img.startsWith('https://') || act.img.startsWith('/')
-                                  ? act.img
-                                  : `${baseUrl}${act.img}`)
-                              : `${baseUrl}events/golden-bell.jpg`;
+                            const imgSrc = resolveMediaUrl(act.img, 'events/golden-bell.jpg');
 
                             return (
                               <div
@@ -3592,8 +3718,72 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            {/* Danh sách thông báo */}
+            {/* Danh sách thông báo (Gom toàn bộ thông báo cập nhật & thông báo đẩy vào trong Chuông) */}
             <div className="overflow-y-auto my-3 space-y-2.5 pr-1 divide-y divide-slate-100 dark:divide-slate-800/60">
+              {pwaUpdateReady && (
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex items-center justify-between gap-3 shadow-sm">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Sparkles className="w-5 h-5 text-amber-300 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-black">
+                        {L('Đã có bản cập nhật ứng dụng mới!', 'New app update available!', '새로운 앱 업데이트가 있습니다!')}
+                      </div>
+                      <div className="text-[11px] text-blue-100">
+                        {L('Bấm để tải lại phiên bản mới nhất.', 'Tap to reload the latest version.', '최신 버전으로 새로고침하세요.')}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => applyAppUpdate()}
+                    className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0"
+                  >
+                    {L('Cập nhật', 'Update', '업데이트')}
+                  </button>
+                </div>
+              )}
+
+              {getNotificationPermissionState() !== 'granted' &&
+                getNotificationPermissionState() !== 'unsupported' && (
+                  <div
+                    className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${subCardBg}`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <BellRing className="w-4 h-4 text-blue-500 shrink-0" />
+                      <div className="text-xs font-bold leading-snug">
+                        {L(
+                          'Nhận thông báo khi có Bài mới & Bảng xếp hạng trên thiết bị',
+                          'Get device notifications for new challenges & rankings',
+                          '새 챌린지 및 랭킹 기기 알림 받기'
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await syncAndSubscribePwaPush({
+                          user,
+                          token,
+                          askPermission: true,
+                        });
+                        if (res.ok) {
+                          await sendTestNativeNotification();
+                          showMessage(
+                            L(
+                              'Đã bật thông báo trên thiết bị!',
+                              'Device notifications enabled!',
+                              '기기 알림이 활성화되었습니다!'
+                            )
+                          );
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shrink-0"
+                    >
+                      {L('Bật chuông', 'Enable', '알림 켜기')}
+                    </button>
+                  </div>
+                )}
+
               {notifications.length === 0 ? (
                 <div className="py-12 text-center space-y-2">
                   <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">

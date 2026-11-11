@@ -127,7 +127,7 @@ app.decorate('requireAdmin', async (request: any, reply: any) => {
   }
 });
 
-// Phục vụ file Audio (.mp3, .wav) & Video (.mp4, .webm) do Admin tải lên
+// Phục vụ file Ảnh (.jpg, .png, .gif, .webp, .svg), Audio (.mp3, .wav) & Video (.mp4, .webm) do Admin tải lên
 app.get('/api/uploads/:filename', async (request: any, reply) => {
   const filename = path.basename(request.params.filename);
   const filePath = path.join(UPLOADS_DIR, filename);
@@ -136,6 +136,13 @@ app.get('/api/uploads/:filename', async (request: any, reply) => {
   }
   const ext = path.extname(filename).toLowerCase();
   const mimeMap: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.avif': 'image/avif',
     '.mp3': 'audio/mpeg',
     '.wav': 'audio/wav',
     '.ogg': 'audio/ogg',
@@ -144,6 +151,8 @@ app.get('/api/uploads/:filename', async (request: any, reply) => {
     '.webm': 'video/webm',
   };
   reply.header('Content-Type', mimeMap[ext] || 'application/octet-stream');
+  reply.header('Access-Control-Allow-Origin', '*');
+  reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
   reply.header('Cache-Control', 'public, max-age=86400');
   return reply.send(fs.createReadStream(filePath));
 });
@@ -712,15 +721,50 @@ app.post(
 
     const isToday = store.getTodayChallenge()?.dayNumber === challenge.dayNumber;
     const isExpired = !isToday && store.isDayPassedDeadline(challenge);
+    const hasProgress =
+      (session.elapsedSeconds && session.elapsedSeconds > 0) ||
+      (session.currentIndex && session.currentIndex > 0) ||
+      (session.answers && Object.keys(session.answers).length > 0);
 
     return {
       dayNumber: challenge.dayNumber,
       title: challenge.title,
       dateLabel: challenge.dateLabel,
       startedAt: session.startedAt,
+      currentIndex: session.currentIndex ?? 0,
+      answers: session.answers ?? {},
+      elapsedSeconds: session.elapsedSeconds ?? 0,
+      q10ElapsedSeconds: session.q10ElapsedSeconds,
+      resumed: Boolean(hasProgress),
       isExpired,
       questions: sanitizedQuestions,
       q11Words: challenge.q11Words || DEFAULT_Q11_5_WORDS,
+    };
+  }
+);
+
+// Đồng bộ tiến độ làm bài (câu hiện tại, đáp án đã chọn, thời gian đang chạy) để thoát ra vào lại vẫn giữ nguyên
+app.post(
+  '/api/challenges/:dayNumber/sync-progress',
+  { preHandler: [(app as any).authenticate] },
+  async (request: any, reply) => {
+    const dayNumber = Number(request.params.dayNumber);
+    const userId = request.user.sub;
+    const body = (request.body || {}) as {
+      currentIndex?: number;
+      answers?: Record<string, string>;
+      elapsedSeconds?: number;
+      q10ElapsedSeconds?: number;
+    };
+    const session = store.syncQuizSessionProgress(userId, dayNumber, body);
+    if (!session) {
+      return reply.status(404).send({ ok: false, message: 'Không tìm thấy phiên làm bài.' });
+    }
+    return {
+      ok: true,
+      currentIndex: session.currentIndex ?? 0,
+      elapsedSeconds: session.elapsedSeconds ?? 0,
+      q10ElapsedSeconds: session.q10ElapsedSeconds,
     };
   }
 );
@@ -780,7 +824,8 @@ app.post(
   async (request: any, reply) => {
     const dayNumber = Number(request.params.dayNumber);
     const userId = request.user.sub;
-    const elapsedMs = store.markSessionQ10Finished(userId, dayNumber);
+    const body = (request.body || {}) as { elapsedSeconds?: number };
+    const elapsedMs = store.markSessionQ10Finished(userId, dayNumber, body.elapsedSeconds);
     return { ok: true, elapsedMs };
   }
 );
@@ -838,20 +883,24 @@ app.post(
     const questionsToGrade = session?.questionsSnapshot || challenge.questions;
 
     // Thời gian làm bài: CHỈ TÍNH ĐẾN HẾT CÂU 10 (Câu 11 là phần luyện phát âm tự do, không tính giờ, không tính điểm)
+    // Ưu tiên thời gian thực tế người dùng mở bài làm (để khi thoát ra rồi vào lại tiếp tục không bị cộng dồn thời gian nghỉ ở ngoài)
     let serverElapsedMs: number;
-    if (session) {
+    if (typeof body.clientTimeMs === 'number' && body.clientTimeMs > 0) {
+      const syncedMinMs = (session?.q10ElapsedSeconds || session?.elapsedSeconds || 0) * 1000;
+      serverElapsedMs = Math.max(2000, Math.round(body.clientTimeMs), syncedMinMs);
+    } else if (session?.q10ElapsedSeconds && session.q10ElapsedSeconds > 0) {
+      serverElapsedMs = Math.max(2000, session.q10ElapsedSeconds * 1000);
+    } else if (session?.elapsedSeconds && session.elapsedSeconds > 0) {
+      serverElapsedMs = Math.max(2000, session.elapsedSeconds * 1000);
+    } else if (session) {
       const totalSessionMs = Math.max(2000, Date.now() - session.startedAt);
       if (session.q10FinishedAt && session.q10FinishedAt >= session.startedAt) {
         serverElapsedMs = Math.max(2000, Math.min(session.q10FinishedAt - session.startedAt, totalSessionMs));
-      } else if (typeof body.clientTimeMs === 'number' && body.clientTimeMs > 0) {
-        serverElapsedMs = Math.max(2000, Math.min(Math.round(body.clientTimeMs), totalSessionMs));
       } else {
         serverElapsedMs = totalSessionMs;
       }
     } else {
-      serverElapsedMs = typeof body.clientTimeMs === 'number' && body.clientTimeMs > 0
-        ? Math.max(2000, Math.round(body.clientTimeMs))
-        : 60000;
+      serverElapsedMs = 60000;
     }
 
     let score = 0;
@@ -1493,7 +1542,7 @@ app.post(
 // Quản lý bộ 5 từ vựng luyện đọc trong Câu 11 của ngày thi
 app.put(
   '/api/challenges/:dayNumber/q11-words',
-  { preHandler: [(app as any).requireAdmin] },
+  { preHandler: [(app as any).requireAdmin], bodyLimit: 15 * 1024 * 1024 },
   async (request: any, reply) => {
     const dayNumber = Number(request.params.dayNumber);
     const { q11Words, cloneToAllDays } = request.body || {};
@@ -2016,7 +2065,10 @@ app.get(
 
 app.post(
   '/api/admin/events',
-  { preHandler: [(app as any).requireAdmin] },
+  {
+    bodyLimit: 15 * 1024 * 1024,
+    preHandler: [(app as any).requireAdmin],
+  },
   async (request: any, reply) => {
     const body = request.body || {};
     if (!body.titleA && !body.titleC) {
@@ -2033,7 +2085,10 @@ app.post(
 
 app.put(
   '/api/admin/events/:id',
-  { preHandler: [(app as any).requireAdmin] },
+  {
+    bodyLimit: 15 * 1024 * 1024,
+    preHandler: [(app as any).requireAdmin],
+  },
   async (request: any, reply) => {
     const id = request.params.id;
     const body = request.body || {};

@@ -4,6 +4,37 @@
  * Tuyệt đối không mock hay giả lập dữ liệu ảo trong trình duyệt.
  */
 
+export function resolveMediaUrl(rawUrl?: string | null, fallbackRelative = ''): string {
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const configuredApiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+  const clean = (rawUrl || '').trim();
+
+  if (!clean) {
+    return fallbackRelative ? `${baseUrl}${fallbackRelative.replace(/^\/+/, '')}` : '';
+  }
+
+  // Giữ nguyên nếu là Data URL (base64), Blob URL hoặc HTTP(S) tuyệt đối
+  if (
+    clean.startsWith('data:') ||
+    clean.startsWith('blob:') ||
+    clean.startsWith('http://') ||
+    clean.startsWith('https://')
+  ) {
+    return clean;
+  }
+
+  // Nếu là đường dẫn media trên Backend (/api/uploads/...) -> gắn VITE_API_URL khi chạy trên Vercel
+  if (clean.startsWith('/api/')) {
+    return configuredApiBase ? `${configuredApiBase}${clean}` : clean;
+  }
+
+  if (clean.startsWith('/')) {
+    return clean;
+  }
+
+  return `${baseUrl}${clean.replace(/^\/+/, '')}`;
+}
+
 export function installClientApiFallback() {
   // 1. Dọn dẹp sạch sẽ toàn bộ database ảo cũ trong LocalStorage của trình duyệt
   try {

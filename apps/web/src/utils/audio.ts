@@ -1,6 +1,9 @@
+import { resolveMediaUrl } from './clientApiFallback';
+
 export function playPronunciation(textToSpeak: string, audioUrl?: string, rate = 0.92): void {
   if (audioUrl) {
-    const audio = new Audio(audioUrl);
+    const resolved = resolveMediaUrl(audioUrl);
+    const audio = new Audio(resolved || audioUrl);
     audio.play().catch(() => {
       speakWithSynthesis(textToSpeak, rate);
     });

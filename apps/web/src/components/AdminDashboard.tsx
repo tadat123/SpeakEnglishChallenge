@@ -54,6 +54,7 @@ import {
   Gift,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
+import { resolveMediaUrl } from '../utils/clientApiFallback';
 import { Lang } from '../utils/i18n';
 import { WORKPLACE_5_WORDS, WorkplaceWordItem } from './PronunciationChallengeQ11';
 import { EventPopupItem } from './SpeakRightEventsPopup';
@@ -1621,20 +1622,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const compressImageIfNeeded = (file: File, maxWidth = 1200, quality = 0.85): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Không thể đọc file ảnh'));
+      reader.onload = () => {
+        const rawDataUrl = reader.result as string;
+        // Giữ nguyên ảnh GIF động hoặc SVG để không mất hiệu ứng động
+        if (file.type === 'image/gif' || file.type === 'image/svg+xml') {
+          resolve(rawDataUrl);
+          return;
+        }
+        const img = new Image();
+        img.onerror = () => resolve(rawDataUrl);
+        img.onload = () => {
+          try {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(rawDataUrl);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            const outMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            const compressed = canvas.toDataURL(outMime, quality);
+            resolve(compressed.length < rawDataUrl.length ? compressed : rawDataUrl);
+          } catch {
+            resolve(rawDataUrl);
+          }
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleUploadEventImg = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file || !editingEvent) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      showMessage('File ảnh không được vượt quá 20MB!', true);
+    if (file.size > 25 * 1024 * 1024) {
+      showMessage('File ảnh không được vượt quá 25MB!', true);
       return;
     }
 
     setUploadingEventImg(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Data = reader.result as string;
+      const base64Data = await compressImageIfNeeded(file, 1200, 0.85);
+      // Cập nhật hiển thị ngay lập tức bằng base64 đã tối ưu để Admin thấy ảnh đổi tức thì
+      setEditingEvent((prev) => (prev ? { ...prev, img: base64Data } : null));
+
+      try {
         const res = await fetch('/api/admin/upload-media', {
           method: 'POST',
           headers: {
@@ -1648,17 +1695,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
         if (res.ok) {
           const data = await res.json();
-          setEditingEvent((prev) => (prev ? { ...prev, img: data.url } : null));
-          showMessage('Đã tải ảnh sự kiện lên thành công!');
-        } else {
-          showMessage('Không thể tải ảnh lên máy chủ!', true);
+          if (data?.url) {
+            setEditingEvent((prev) => (prev ? { ...prev, img: data.url } : null));
+          }
         }
-        setUploadingEventImg(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      showMessage('Lỗi khi tải ảnh lên!', true);
+      } catch {
+        // Nếu upload file rời bị nghẽn mạng, vẫn giữ base64Data đã nén trong editingEvent.img để lưu thẳng vào DB
+      }
+      showMessage('Đã tải ảnh sự kiện lên thành công! Hãy bấm "Lưu thay đổi" để áp dụng.');
+    } catch {
+      showMessage('Lỗi khi xử lý ảnh tải lên!', true);
+    } finally {
       setUploadingEventImg(false);
+    }
+  };
+
+  const handleUploadQ11WordImage = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      showMessage('Ảnh / GIF minh họa không được vượt quá 20MB!', true);
+      return;
+    }
+
+    try {
+      const base64Data = await compressImageIfNeeded(file, 800, 0.85);
+      setEditingQ11Words((prev) => {
+        const next = [...prev];
+        if (next[idx]) {
+          next[idx] = { ...next[idx], imageUrl: base64Data };
+        }
+        return next;
+      });
+
+      try {
+        const res = await fetch('/api/admin/upload-media', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            base64Data,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.url) {
+            setEditingQ11Words((prev) => {
+              const next = [...prev];
+              if (next[idx]) {
+                next[idx] = { ...next[idx], imageUrl: data.url };
+              }
+              return next;
+            });
+          }
+        }
+      } catch {
+        // Giữ nguyên base64Data nếu không gọi được API upload-media
+      }
+      showMessage(`Đã tải ảnh/GIF minh họa cho từ #${idx + 1}!`);
+    } catch {
+      showMessage('Không thể đọc file ảnh/GIF!', true);
     }
   };
 
@@ -2703,7 +2804,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="text-[11px] font-mono text-purple-600 dark:text-purple-400 font-bold">
                       {item.ipa}
                     </div>
+                    {item.syllables && (
+                      <div className="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-300 mt-0.5">
+                        🗣️ {item.syllables}
+                      </div>
+                    )}
                     <div className={`text-xs font-semibold mt-1 ${textSecondary}`}>{item.meaningVi}</div>
+                    {item.imageUrl && (
+                      <div className="mt-2 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 h-20 bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+                        <img
+                          src={resolveMediaUrl(item.imageUrl)}
+                          alt={item.word}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    )}
                   </div>
                   {item.tip && (
                     <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 italic">
@@ -2832,11 +2947,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {eventList.map((ev, idx) => {
                 const isVis = ev.isVisible !== false;
                 const isToggling = togglingEventId === ev.id;
-                const imgSrc = ev.img
-                  ? (ev.img.startsWith('http://') || ev.img.startsWith('https://') || ev.img.startsWith('/')
-                      ? ev.img
-                      : `${baseUrl}${ev.img}`)
-                  : `${baseUrl}events/golden-bell.jpg`;
+                const imgSrc = resolveMediaUrl(ev.img, 'events/golden-bell.jpg');
 
                 return (
                   <div
@@ -4683,7 +4794,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                       <div>
                         <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Mẹo phát âm
+                          Mẹo khẩu hình & nhấn âm
                         </label>
                         <input
                           type="text"
@@ -4693,9 +4804,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             next[idx] = { ...next[idx], tip: e.target.value };
                             setEditingQ11Words(next);
                           }}
-                          placeholder="Nhấn âm 2..."
+                          placeholder="Nhấn âm 2, tròn môi..."
                           className={`w-full px-3 py-2 rounded-xl border text-xs ${inputBg}`}
                         />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                          Cách đọc tách âm (VD: ơ · PRUː · vồ)
+                        </label>
+                        <input
+                          type="text"
+                          value={item.syllables || ''}
+                          onChange={(e) => {
+                            const next = [...editingQ11Words];
+                            next[idx] = { ...next[idx], syllables: e.target.value };
+                            setEditingQ11Words(next);
+                          }}
+                          placeholder="ơ · PRUː · vồ"
+                          className={`w-full px-3 py-2 rounded-xl border text-xs font-bold ${inputBg}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                          Ảnh hoặc Ảnh GIF minh họa cách đọc
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={item.imageUrl || ''}
+                            onChange={(e) => {
+                              const next = [...editingQ11Words];
+                              next[idx] = { ...next[idx], imageUrl: e.target.value };
+                              setEditingQ11Words(next);
+                            }}
+                            placeholder="Link ảnh / GIF hoặc bấm Tải lên..."
+                            className={`flex-1 min-w-0 px-3 py-2 rounded-xl border text-xs ${inputBg}`}
+                          />
+                          <label className="cursor-pointer px-2.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 shrink-0 transition">
+                            <FileUp className="w-3.5 h-3.5" />
+                            <span>Ảnh/GIF</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleUploadQ11WordImage(idx, e)}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        {item.imageUrl && (
+                          <div className="mt-1.5 flex items-center gap-2 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <img
+                              src={resolveMediaUrl(item.imageUrl)}
+                              alt={item.word}
+                              className="w-12 h-10 object-contain rounded bg-slate-100 dark:bg-slate-800 shrink-0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...editingQ11Words];
+                                next[idx] = { ...next[idx], imageUrl: '' };
+                                setEditingQ11Words(next);
+                              }}
+                              className="text-[11px] text-rose-500 font-bold hover:underline"
+                            >
+                              Xóa ảnh
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -5357,15 +5535,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5">
                   <input
                     type="text"
-                    value={editingEvent.img || ''}
+                    value={
+                      editingEvent.img?.startsWith('data:')
+                        ? ''
+                        : editingEvent.img || ''
+                    }
                     onChange={(e) =>
                       setEditingEvent((prev) =>
                         prev ? { ...prev, img: e.target.value } : null
                       )
                     }
-                    placeholder="events/golden-bell.jpg hoặc link URL ảnh..."
+                    placeholder={
+                      editingEvent.img?.startsWith('data:')
+                        ? 'Đã tải ảnh từ thiết bị (hoặc dán link ảnh khác vào đây)...'
+                        : 'events/golden-bell.jpg hoặc link URL ảnh...'
+                    }
                     className={`flex-1 w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${subCardBg}`}
-                    required
+                    required={!editingEvent.img}
                   />
 
                   <label className="cursor-pointer px-3.5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 shrink-0 transition">
@@ -5385,16 +5571,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {editingEvent.img && (
                   <div className="mt-2 flex items-center gap-2.5 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
                     <img
-                      src={
-                        editingEvent.img.startsWith('http') || editingEvent.img.startsWith('/')
-                          ? editingEvent.img
-                          : `${baseUrl}${editingEvent.img}`
-                      }
+                      src={resolveMediaUrl(editingEvent.img, 'events/golden-bell.jpg')}
                       alt="Preview"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = resolveMediaUrl(
+                          'events/golden-bell.jpg'
+                        );
+                      }}
                       className="w-16 h-12 object-cover rounded-lg border shrink-0"
                     />
                     <div className="text-[11px] text-slate-500 font-mono truncate min-w-0">
-                      {editingEvent.img}
+                      {editingEvent.img.startsWith('data:')
+                        ? '[Ảnh đã tải lên từ thiết bị]'
+                        : editingEvent.img}
                     </div>
                   </div>
                 )}

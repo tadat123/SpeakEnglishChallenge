@@ -72,6 +72,11 @@ export function checkSqlInjectionPattern(val: string): { detected: boolean; patt
     return { detected: false };
   }
 
+  // Bỏ qua chuỗi Data URI (data:image/..., data:audio/..., data:video/...) hoặc chuỗi base64 dài
+  if (val.startsWith('data:') || (val.length > 4096 && /^[A-Za-z0-9+/=\r\n]+$/.test(val.slice(0, 512)))) {
+    return { detected: false };
+  }
+
   // Giải mã URI nếu chuỗi bị URL-encode (VD: %27%20OR%201%3D1)
   let decoded = val;
   try {
@@ -113,6 +118,7 @@ export function deepScanForSqlInjection(obj: any, currentDepth = 0): { detected:
     }
   } else if (typeof obj === 'object') {
     for (const key of Object.keys(obj)) {
+      if (key === 'base64Data') continue;
       // Quét cả tên key (chống Key-name SQL Injection)
       const keyCheck = checkSqlInjectionPattern(key);
       if (keyCheck.detected) {
