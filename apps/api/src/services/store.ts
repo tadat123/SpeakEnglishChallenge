@@ -827,20 +827,19 @@ class DataStore {
           }
         }
         const hydrated = this.ensurePushState(parsed);
-        // Tự động sửa lịch 21 ngày nếu db.json đang dính bản seed cũ cố định ngày 02/11/2026 (khiến Day 1, 9, 10 mở lệch)
+        // Nếu db.json đang dính bản seed cũ cố định ngày 02/11/2026 -> Khóa toàn bộ 21 ngày để chờ Admin bấm Start Challenge
         if (
           Array.isArray(hydrated.challenges) &&
           hydrated.challenges.length >= 10 &&
-          hydrated.challenges[0]?.dateLabel === '02/11/2026' &&
-          hydrated.challenges[1]?.isPublished === false &&
-          hydrated.challenges[8]?.isPublished === true
+          hydrated.challenges[0]?.dateLabel === '02/11/2026'
         ) {
           const freshSchedule = generate21DaysChallenges();
+          const farFuture = new Date(Date.now() + 86400000 * 365).toISOString();
           hydrated.challenges = hydrated.challenges.map((c, idx) => ({
             ...c,
             dateLabel: freshSchedule[idx]?.dateLabel || c.dateLabel,
-            unlockDate: freshSchedule[idx]?.unlockDate || c.unlockDate,
-            isPublished: true,
+            unlockDate: farFuture,
+            isPublished: false,
             forceLockedAt: null,
             forceRevealed: false,
           }));
@@ -954,8 +953,8 @@ class DataStore {
     this.activeSessions.clear();
     this.forceLockedDays.clear();
 
-    // Đặt lại lịch trình 21 ngày tính từ hôm nay (Day 1 mở hôm nay, các ngày 2..21 khóa chờ tới ngày)
-    this.startChallengeSchedule({ startFromDayNumber: 1 });
+    // Mặc định khi reset mới toanh: KHÓA toàn bộ 21 ngày chờ đến khi Admin bấm Start Challenge
+    this.startChallengeSchedule({ lockAllUntilStart: true });
 
     this.save();
 

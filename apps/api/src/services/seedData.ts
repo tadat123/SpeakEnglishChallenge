@@ -375,8 +375,9 @@ export function generate21DaysChallenges(baseDateMs?: number): DailyChallengeIte
       dayNumber: day,
       title: `Day ${day}`,
       dateLabel: `${dd}/${mm}/${yyyy}`,
-      unlockDate,
-      isPublished: true,
+      unlockDate: new Date(Date.now() + 86400000 * 365).toISOString(),
+      // Mặc định khi khởi tạo mới: KHÓA toàn bộ 21 ngày, chỉ mở khi Admin bấm "Start Challenge" hoặc mở khóa ngày
+      isPublished: false,
       forceLockedAt: null,
       forceRevealed: false,
       questions,
