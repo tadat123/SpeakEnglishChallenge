@@ -343,19 +343,25 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
   },
 ];
 
-export function generate21DaysChallenges(): DailyChallengeItem[] {
+export function generate21DaysChallenges(baseDateMs?: number): DailyChallengeItem[] {
   const days: DailyChallengeItem[] = [];
-  const now = new Date();
-  // Căn mốc 00:00:00 (Nửa đêm) của ngày hôm nay để mỗi ngày mới tự động mở đúng 00:00
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const refMs = typeof baseDateMs === 'number' ? baseDateMs : Date.now();
+  // Tính ngày hiện tại theo múi giờ Việt Nam (UTC+7) để không bị lệch giờ trên Docker container (mặc định UTC)
+  const vnNow = new Date(refMs + 7 * 3600 * 1000);
+  const vnYear = vnNow.getUTCFullYear();
+  const vnMonth = vnNow.getUTCMonth();
+  const vnDate = vnNow.getUTCDate();
+  // Mốc 00:00:00 giờ Việt Nam (tương ứng 17:00:00 UTC của ngày hôm trước)
+  const todayVnMidnightUtcMs = Date.UTC(vnYear, vnMonth, vnDate, 0, 0, 0, 0) - 7 * 3600 * 1000;
 
   for (let day = 1; day <= 21; day++) {
-    const unlockDateObj = new Date(todayMidnight.getTime() + (day - 1) * 86400 * 1000);
-    const dd = String(unlockDateObj.getDate()).padStart(2, '0');
-    const mm = String(unlockDateObj.getMonth() + 1).padStart(2, '0');
-    const yyyy = unlockDateObj.getFullYear();
+    const unlockUtcMs = todayVnMidnightUtcMs + (day - 1) * 86400 * 1000;
+    const vnDayObj = new Date(unlockUtcMs + 7 * 3600 * 1000);
+    const dd = String(vnDayObj.getUTCDate()).padStart(2, '0');
+    const mm = String(vnDayObj.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = vnDayObj.getUTCFullYear();
 
-    const unlockDate = unlockDateObj.toISOString();
+    const unlockDate = new Date(unlockUtcMs).toISOString();
 
     const questions: QuestionItem[] = OFFICIAL_10_QUESTIONS.map((q, idx) => ({
       ...q,
@@ -371,6 +377,8 @@ export function generate21DaysChallenges(): DailyChallengeItem[] {
       dateLabel: `${dd}/${mm}/${yyyy}`,
       unlockDate,
       isPublished: true,
+      forceLockedAt: null,
+      forceRevealed: false,
       questions,
       q11Words: JSON.parse(JSON.stringify(DEFAULT_Q11_5_WORDS)),
     });

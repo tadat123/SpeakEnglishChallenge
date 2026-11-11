@@ -52,6 +52,7 @@ import {
   Flame,
   Target,
   Gift,
+  Play,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
 import { resolveMediaUrl } from '../utils/clientApiFallback';
@@ -865,6 +866,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch (e: any) {
       showMessage(e?.message || 'Lỗi mạng', true);
+    }
+  };
+
+  const handleStartChallengeSchedule = async (options: {
+    startFromDayNumber?: number;
+    lockPreviousDays?: boolean;
+    lockAllUntilStart?: boolean;
+  }) => {
+    const targetDay = options.startFromDayNumber || 1;
+    const confirmText = options.lockAllUntilStart
+      ? 'Bạn có chắc muốn KHÓA TOÀN BỘ 21 ngày thử thách (chờ đến khi bấm Start Challenge) không?'
+      : targetDay === 1
+      ? '🚀 Bắt đầu hành trình 21 ngày tính từ HÔM NAY (Day 1 mở ngay hôm nay, các ngày Day 2 → Day 21 sẽ khóa lại và tự động mở lần lượt lúc 00:00 mỗi ngày tiếp theo)?'
+      : `🚀 Bắt đầu mở thử thách tính từ Day ${targetDay} = HÔM NAY (Day ${targetDay} mở ngay, các ngày sau Day ${targetDay} sẽ khóa lại và tự động mở lần lượt lúc 00:00 mỗi ngày tiếp theo)?`;
+
+    if (!window.confirm(confirmText)) return;
+
+    try {
+      const res = await fetch('/api/admin/challenges/start-schedule', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(options),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showMessage(data.message || 'Đã cập nhật lịch trình 21 ngày thành công!');
+        fetchDayDetail(selectedDay);
+        fetchDashboardStats(selectedStatDay);
+        onRefreshGlobal();
+      } else {
+        showMessage(data.message || 'Không thể cập nhật lịch trình 21 ngày!', true);
+      }
+    } catch (e: any) {
+      showMessage(e?.message || 'Lỗi kết nối máy chủ!', true);
     }
   };
 
@@ -2455,6 +2490,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* ================= 3. TAB 21 NGÀY & ĐỀ THI (CHALLENGES) ================= */}
       {adminSubTab === 'challenges' && (
         <div className="space-y-4">
+      {/* Thanh Điều Khiển Bắt Đầu Giải Đấu (Start Challenge) */}
+      <div
+        className={`rounded-3xl p-4 sm:p-5 border shadow-sm backdrop-blur-md flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 ${cardBg}`}
+      >
+        <div className="space-y-1">
+          <h3 className={`text-sm sm:text-base font-black flex items-center gap-2 ${textPrimary}`}>
+            <Flame className="w-5 h-5 text-amber-500" />
+            <span>Điều Khiển Lịch Trình 21 Ngày (Start Challenge)</span>
+          </h3>
+          <p className={`text-xs leading-relaxed ${textSecondary}`}>
+            Bấm <strong>Start Challenge</strong> để đặt ngày bắt đầu tính từ hôm nay: ngày được chọn sẽ <strong>mở ngay</strong>, và toàn bộ các ngày phía sau sẽ <strong>tự động khóa lại & hẹn giờ mở lần lượt vào 00:00 mỗi ngày tiếp theo</strong>.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() =>
+              handleStartChallengeSchedule({
+                startFromDayNumber: 1,
+                lockPreviousDays: false,
+              })
+            }
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white font-black text-xs shadow-md flex items-center gap-1.5 transition"
+          >
+            <Play className="w-3.5 h-3.5 fill-white" />
+            <span>🚀 Start Challenge (Mở từ Day 1 = Hôm nay)</span>
+          </button>
+
+          {selectedDay > 1 && (
+            <button
+              type="button"
+              onClick={() =>
+                handleStartChallengeSchedule({
+                  startFromDayNumber: selectedDay,
+                  lockPreviousDays: true,
+                })
+              }
+              className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition"
+              title={`Mở bắt đầu từ Day ${selectedDay} hôm nay, khóa các ngày trước và hẹn lịch tự động cho các ngày sau`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>▶️ Mở bắt đầu từ Day {selectedDay}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() =>
+              handleStartChallengeSchedule({
+                lockAllUntilStart: true,
+              })
+            }
+            className="px-3 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 transition"
+            title="Khóa toàn bộ 21 ngày chờ tới khi bấm Start Challenge"
+          >
+            <Lock className="w-3.5 h-3.5 text-rose-500" />
+            <span>Khóa cả 21 ngày</span>
+          </button>
+        </div>
+      </div>
+
       {/* Bộ chọn 21 Ngày (Grid nhỏ gọn) */}
       <div className={`rounded-3xl p-4 border shadow-sm backdrop-blur-md ${cardBg}`}>
         <div className={`text-xs font-extrabold mb-2.5 uppercase tracking-wider ${textSecondary}`}>
@@ -2576,6 +2673,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Unlock className="w-4 h-4" /> {at.unlockDayBtn} {dayDetail.title} {at.nowSuffix}
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleStartChallengeSchedule({
+                    startFromDayNumber: selectedDay,
+                    lockPreviousDays: selectedDay > 1,
+                  })
+                }
+                className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition"
+                title={`Đặt ${dayDetail.title} làm ngày hôm nay và mở bắt đầu từ ${dayDetail.title} (các ngày sau tự động khóa chờ tới 00:00 mỗi ngày)`}
+              >
+                <Play className="w-3.5 h-3.5 fill-white" />
+                <span>🚀 Start từ {dayDetail.title}</span>
+              </button>
 
               <button
                 type="button"

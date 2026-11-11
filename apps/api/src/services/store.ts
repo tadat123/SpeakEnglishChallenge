@@ -827,6 +827,24 @@ class DataStore {
           }
         }
         const hydrated = this.ensurePushState(parsed);
+        // Tự động sửa lịch 21 ngày nếu db.json đang dính bản seed cũ cố định ngày 02/11/2026 (khiến Day 1, 9, 10 mở lệch)
+        if (
+          Array.isArray(hydrated.challenges) &&
+          hydrated.challenges.length >= 10 &&
+          hydrated.challenges[0]?.dateLabel === '02/11/2026' &&
+          hydrated.challenges[1]?.isPublished === false &&
+          hydrated.challenges[8]?.isPublished === true
+        ) {
+          const freshSchedule = generate21DaysChallenges();
+          hydrated.challenges = hydrated.challenges.map((c, idx) => ({
+            ...c,
+            dateLabel: freshSchedule[idx]?.dateLabel || c.dateLabel,
+            unlockDate: freshSchedule[idx]?.unlockDate || c.unlockDate,
+            isPublished: true,
+            forceLockedAt: null,
+            forceRevealed: false,
+          }));
+        }
         if (hydrated.activeSessions && typeof hydrated.activeSessions === 'object') {
           this.activeSessions = new Map(Object.entries(hydrated.activeSessions));
         }
@@ -935,6 +953,9 @@ class DataStore {
     this.data.pwaSubscriptions = [];
     this.activeSessions.clear();
     this.forceLockedDays.clear();
+
+    // Đặt lại lịch trình 21 ngày tính từ hôm nay (Day 1 mở hôm nay, các ngày 2..21 khóa chờ tới ngày)
+    this.startChallengeSchedule({ startFromDayNumber: 1 });
 
     this.save();
 
@@ -1462,6 +1483,119 @@ class DataStore {
       lockModeUsed: payload.lockMode || 'GRACEFUL',
       isUnlocked: this.isDayUnlocked(challenge),
       resultsRevealed: this.isDayEnded(challenge),
+    };
+  }
+
+  /**
+   * Thiết lập / Bắt đầu hành trình 21 ngày thử thách (Start Challenge):
+   * - Cho phép Admin bấm "Bắt đầu Challenge" từ một ngày chỉ định (mặc định Day 1 = hôm nay theo giờ VN).
+   * - Ngày được chọn làm mốc (startFromDayNumber) sẽ gắn với startDate (mặc định hôm nay) và MỞ NGAY nếu startDate <= hôm nay.
+   * - Toàn bộ các ngày phía sau (startFromDayNumber + 1 .. 21) tự động cập nhật dateLabel nối tiếp nhau, đặt trạng thái KHÓA và tự động mở lần lượt vào 00:00 mỗi ngày tiếp theo.
+   * - Nếu lockAllUntilStart = true: Khóa toàn bộ 21 ngày cho tới khi Admin bấm Start.
+   */
+  public startChallengeSchedule(options?: {
+    startFromDayNumber?: number;
+    startDateStr?: string; // 'YYYY-MM-DD' hoặc 'DD/MM/YYYY'
+    lockPreviousDays?: boolean;
+    lockAllUntilStart?: boolean;
+  }): {
+    startFromDayNumber: number;
+    startDateLabel: string;
+    unlockedDays: number[];
+    lockedDays: number[];
+    challenges: DailyChallengeItem[];
+  } {
+    this.reloadIfChanged();
+    this.forceLockedDays.clear();
+
+    if (options?.lockAllUntilStart) {
+      const farFuture = new Date(Date.now() + 86400000 * 365).toISOString();
+      for (const c of this.data.challenges) {
+        c.isPublished = false;
+        c.unlockDate = farFuture;
+        c.forceLockedAt = null;
+        c.forceRevealed = false;
+      }
+      this.activeSessions.clear();
+      this.save();
+      return {
+        startFromDayNumber: 1,
+        startDateLabel: '',
+        unlockedDays: [],
+        lockedDays: this.data.challenges.map((c) => c.dayNumber),
+        challenges: this.data.challenges,
+      };
+    }
+
+    const startDay = Math.min(21, Math.max(1, Number(options?.startFromDayNumber) || 1));
+    const lockPrev = Boolean(options?.lockPreviousDays);
+
+    // Xác định mốc 00:00:00 giờ Việt Nam (UTC+7) của ngày bắt đầu
+    let vnYear: number;
+    let vnMonth: number; // 0-indexed
+    let vnDate: number;
+
+    const rawDate = (options?.startDateStr || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+      const [y, m, d] = rawDate.split('-').map(Number);
+      vnYear = y;
+      vnMonth = m - 1;
+      vnDate = d;
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(rawDate)) {
+      const [d, m, y] = rawDate.split('/').map(Number);
+      vnYear = y;
+      vnMonth = m - 1;
+      vnDate = d;
+    } else {
+      const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
+      vnYear = vnNow.getUTCFullYear();
+      vnMonth = vnNow.getUTCMonth();
+      vnDate = vnNow.getUTCDate();
+    }
+
+    const baseVnMidnightUtcMs = Date.UTC(vnYear, vnMonth, vnDate, 0, 0, 0, 0) - 7 * 3600 * 1000;
+    const startDateLabel = `${String(vnDate).padStart(2, '0')}/${String(vnMonth + 1).padStart(2, '0')}/${vnYear}`;
+
+    const unlockedDays: number[] = [];
+    const lockedDays: number[] = [];
+
+    for (const c of this.data.challenges) {
+      const dayOffset = c.dayNumber - startDay;
+      const targetUnlockUtcMs = baseVnMidnightUtcMs + dayOffset * 86400 * 1000;
+      const vnDayObj = new Date(targetUnlockUtcMs + 7 * 3600 * 1000);
+      const dd = String(vnDayObj.getUTCDate()).padStart(2, '0');
+      const mm = String(vnDayObj.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = vnDayObj.getUTCFullYear();
+
+      c.dateLabel = `${dd}/${mm}/${yyyy}`;
+      c.unlockDate = new Date(targetUnlockUtcMs).toISOString();
+      c.forceLockedAt = null;
+      c.forceRevealed = false;
+
+      if (c.dayNumber < startDay && lockPrev) {
+        c.isPublished = false;
+      } else {
+        c.isPublished = true;
+      }
+
+      if (this.isDayUnlocked(c)) {
+        unlockedDays.push(c.dayNumber);
+      } else {
+        lockedDays.push(c.dayNumber);
+      }
+    }
+
+    if (this.data.pushConfig) {
+      this.data.pushConfig.notifiedUnlockedDays = [...unlockedDays];
+    }
+
+    this.save();
+    return {
+      startFromDayNumber: startDay,
+      startDateLabel,
+      unlockedDays,
+      lockedDays,
+      challenges: this.data.challenges,
     };
   }
 

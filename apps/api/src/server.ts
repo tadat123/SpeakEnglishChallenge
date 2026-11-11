@@ -1432,6 +1432,33 @@ app.put(
   }
 );
 
+// Admin bấm "Start Challenge" (Bắt đầu hành trình 21 ngày tính từ Day được chọn = Hôm nay hoặc ngày chỉ định)
+app.post(
+  '/api/admin/challenges/start-schedule',
+  { preHandler: [(app as any).requireAdmin] },
+  async (request: any) => {
+    const body = (request.body || {}) as {
+      startFromDayNumber?: number;
+      startDateStr?: string;
+      lockPreviousDays?: boolean;
+      lockAllUntilStart?: boolean;
+    };
+    const res = store.startChallengeSchedule(body);
+    if (body.lockAllUntilStart) {
+      return {
+        ok: true,
+        message: '🔒 Đã khóa toàn bộ 21 ngày thử thách! Khi nào sẵn sàng, hãy bấm "🚀 Start Challenge" để mở bắt đầu từ ngày đó.',
+        ...res,
+      };
+    }
+    return {
+      ok: true,
+      message: `🚀 Đã bắt đầu hành trình 21 ngày tính từ Day ${res.startFromDayNumber} (${res.startDateLabel})! Các ngày sau Day ${res.startFromDayNumber} đã được khóa và sẽ tự động mở lần lượt vào 00:00 mỗi ngày tiếp theo.`,
+      ...res,
+    };
+  }
+);
+
 // Thêm câu hỏi mới vào Day X (Hỗ trợ Chữ, Audio, Video, 2 hoặc 4 đáp án)
 app.post(
   '/api/admin/challenges/:dayNumber/questions',
