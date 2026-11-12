@@ -60,46 +60,68 @@ export function installClientApiFallback() {
       return originalFetch(input, init);
     }
 
-    // 2. Kiểm tra cấu hình VITE_API_URL khi chạy trên Vercel / Cloud
-    if (!configuredApiBase && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      console.error('[API Error] Chưa cấu hình VITE_API_URL trên Vercel!');
-      return new Response(
-        JSON.stringify({
-          message: 'Lỗi cấu hình: Frontend chưa được gán biến môi trường VITE_API_URL trên Vercel! Vui lòng vào Vercel Settings -> Environment Variables -> thêm VITE_API_URL trỏ về link Cloudflare Tunnel và bấm Redeploy.',
-          error: 'MISSING_API_URL',
-        }),
-        {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // 3. Định tuyến chính xác tới máy chủ Backend thật
-    const targetUrl = configuredApiBase && urlStr.startsWith('/api/')
-      ? `${configuredApiBase}${urlStr}`
-      : input;
+    // 2. Định tuyến tới máy chủ Backend thật (ưu tiên VITE_API_URL nếu có, nếu không thử gọi trực tiếp same-origin /api/ cho Nginx/Docker)
+    const targetUrl =
+      configuredApiBase && urlStr.startsWith('/api/')
+        ? `${configuredApiBase}${urlStr}`
+        : input;
 
     try {
       const response = await originalFetch(targetUrl, init);
       const contentType = response.headers.get('content-type') || '';
 
-      // Nếu Backend trả về trang HTML thay vì JSON (502 Bad Gateway từ Nginx, 503, 404 rewrite của Vercel)
-      if (!contentType.includes('application/json')) {
+      // Nếu trả về JSON hợp lệ (từ VITE_API_URL hoặc từ Nginx reverse proxy cùng domain) -> dùng luôn
+      if (contentType.includes('application/json')) {
+        return response;
+      }
+
+      // Nếu chưa có VITE_API_URL và same-origin trả về HTML (404 từ Vercel / GitHub Pages hoặc kẹt bản JS cũ trong cache PWA iPad/Tablet)
+      if (
+        !configuredApiBase &&
+        window.location.hostname !== 'localhost' &&
+        window.location.hostname !== '127.0.0.1'
+      ) {
+        // Tự động xóa cache Service Worker cũ 1 lần nếu thiết bị (như iPad/Tablet) đang kẹt bản build cũ trước khi gắn VITE_API_URL
+        try {
+          if (!sessionStorage.getItem('sr_api_cache_healed')) {
+            sessionStorage.setItem('sr_api_cache_healed', '1');
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map((r) => r.unregister()));
+            }
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map((k) => caches.delete(k)));
+            }
+            window.location.reload();
+          }
+        } catch {}
+
         return new Response(
           JSON.stringify({
-            message: `Lỗi kết nối Backend (HTTP ${response.status} ${response.statusText}): Máy chủ API không phản hồi dữ liệu JSON hợp lệ. Vui lòng kiểm tra Docker containers trên VPS hoặc link Cloudflare Tunnel!`,
-            error: 'INVALID_SERVER_RESPONSE',
-            status: response.status,
+            message:
+              'Lỗi cấu hình: Thiết bị đang lưu bản nhớ đệm cũ hoặc đường dẫn này chưa gắn VITE_API_URL. Vui lòng xóa ứng dụng ngoài màn hình chính (hoặc xóa lịch sử web Safari) rồi mở lại đúng đường link chính thức!',
+            error: 'MISSING_API_URL',
           }),
           {
-            status: response.status >= 400 ? response.status : 502,
+            status: 503,
             headers: { 'Content-Type': 'application/json' },
           }
         );
       }
 
-      return response;
+      // Nếu đã có VITE_API_URL nhưng Backend trả về trang HTML thay vì JSON (502 Bad Gateway từ Nginx, 503, Cloudflare Tunnel tắt)
+      return new Response(
+        JSON.stringify({
+          message: `Lỗi kết nối Backend (HTTP ${response.status} ${response.statusText}): Máy chủ API không phản hồi dữ liệu JSON hợp lệ. Vui lòng kiểm tra Docker containers trên VPS hoặc link Cloudflare Tunnel!`,
+          error: 'INVALID_SERVER_RESPONSE',
+          status: response.status,
+        }),
+        {
+          status: response.status >= 400 ? response.status : 502,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     } catch (err: any) {
       // Khi Backend bị tắt hoặc mất mạng -> Báo lỗi thực tế
       return new Response(
