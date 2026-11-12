@@ -446,11 +446,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [spreadWindowSeconds, setSpreadWindowSeconds] = useState<number>(18);
   const [minIntervalMs, setMinIntervalMs] = useState<number>(1200);
   const [autoRemindUnstudied, setAutoRemindUnstudied] = useState<boolean>(true);
-  const [morningHour, setMorningHour] = useState<number>(8);
+  const [morningHour, setMorningHour] = useState<number>(7);
   const [morningMinute, setMorningMinute] = useState<number>(0);
   const [eveningTop1Hour, setEveningTop1Hour] = useState<number>(19);
   const [eveningTop1Minute, setEveningTop1Minute] = useState<number>(0);
-  const [nightUnstudiedHour, setNightUnstudiedHour] = useState<number>(23);
+  const [nightUnstudiedHour, setNightUnstudiedHour] = useState<number>(21);
   const [nightUnstudiedMinute, setNightUnstudiedMinute] = useState<number>(0);
 
   // Quản lý Bộ từ vựng Luyện Đọc Câu 11 (5 từ)
@@ -540,11 +540,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setSpreadWindowSeconds(data.queueStatus.config.spreadWindowSeconds ?? 18);
           setMinIntervalMs(data.queueStatus.config.minIntervalMs ?? 1200);
           setAutoRemindUnstudied(Boolean(data.queueStatus.config.autoRemindUnstudied));
-          setMorningHour(data.queueStatus.config.morningHour ?? 8);
+          setMorningHour(data.queueStatus.config.morningHour ?? 7);
           setMorningMinute(data.queueStatus.config.morningMinute ?? 0);
           setEveningTop1Hour(data.queueStatus.config.eveningTop1Hour ?? 19);
           setEveningTop1Minute(data.queueStatus.config.eveningTop1Minute ?? 0);
-          setNightUnstudiedHour(data.queueStatus.config.nightUnstudiedHour ?? 23);
+          setNightUnstudiedHour(data.queueStatus.config.nightUnstudiedHour ?? 21);
           setNightUnstudiedMinute(data.queueStatus.config.nightUnstudiedMinute ?? 0);
         }
       }
@@ -3275,38 +3275,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setNotifTitle('🔔 Thử thách Speak Right hôm nay đã mở!');
+                      setNotifTitle('🔥 TOP 1 đã lộ diện – Bài thi mới đã mở!');
                       setNotifBody(
-                        'Chào {name}! Đừng bỏ lỡ bài học hôm nay, hãy dành 5 phút để tích thêm điểm nhé! 🚀'
+                        '🏆 Chúc mừng {name} đã xuất sắc dẫn đầu bảng xếp hạng hiện tại! Bài thi mới đã mở, nhanh tay vào chiến thôi, chậm một giây là đối thủ vượt mặt mất rồi! 😆⚡'
                       );
                     }}
                     className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-900 dark:text-amber-300 hover:scale-[1.02] transition"
                   >
-                    🔔 Nhắc học
+                    🔥 07:00 Mở bài & TOP 1
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setNotifTitle('🏆 Chúc mừng bạn đã hoàn thành xuất sắc!');
+                      setNotifTitle('🌟 Khen ngợi {name} đã hoàn thành xuất sắc!');
                       setNotifBody(
-                        'Chúc mừng {name} (GEN {gen})! Bạn đang có {score} điểm trên bảng xếp hạng. Hãy tiếp tục giữ vững phong độ! ⭐'
+                        '👏 Chúc mừng {name} (GEN {gen})! Bạn đang có {score} điểm trên bảng xếp hạng. Hãy tiếp tục giữ vững phong độ tuyệt vời này nhé! 🏆🔥'
                       );
                     }}
                     className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-900 dark:text-emerald-300 hover:scale-[1.02] transition"
                   >
-                    🏆 Khen ngợi
+                    🌟 19:00 Khen ngợi
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setNotifTitle('⏰ Bài thi sắp đóng lúc 00:00!');
+                      setNotifTitle('⚠️ Cảnh báo 21:00: {name} ơi, bạn chưa làm bài thi hôm nay!');
                       setNotifBody(
-                        'Chào {name}, chỉ còn ít giờ nữa là kết thúc ngày thi. Vào làm bài ngay để không bị ngắt chuỗi 21 ngày nhé! 🔥'
+                        '⏰ Đã 21:00 rồi! Chào {name} (GEN {gen}), bài thi hôm nay sẽ đóng lúc 00:00 đêm nay, nhanh tay vào chiến ngay kẻo đối thủ bỏ xa nhé! 🔥⚡'
                       );
                     }}
                     className="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold bg-purple-50 dark:bg-purple-950/40 border-purple-200 text-purple-900 dark:text-purple-300 hover:scale-[1.02] transition"
                   >
-                    ⏰ Cảnh báo
+                    ⚠️ 21:00 Cảnh báo chưa làm
                   </button>
                 </div>
               </div>
@@ -3476,7 +3476,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* 3 Khung giờ Push trong ngày */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {/* Khung 1: Buổi sáng */}
+            {/* Khung 1: 07:00 Sáng */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
@@ -3495,7 +3495,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  Bài học mới
+                  🔥 TOP 1 lộ diện & Bài thi mới mở
                 </h4>
               </div>
               <button
@@ -3505,12 +3505,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Send className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.morningNewDay
-                  ? `Gửi lại (Ngày ${selectedDay})`
-                  : `Gửi thông báo (Ngày ${selectedDay})`}
+                  ? `Gửi lại tin 07:00`
+                  : `Gửi ngay tin 07:00`}
               </button>
             </div>
 
-            {/* Khung 2: Thông báo Top 1 */}
+            {/* Khung 2: 19:00 Khen ngợi */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
@@ -3529,7 +3529,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  Vinh danh Top 1
+                  🌟 Khen ngợi tinh thần học tập
                 </h4>
               </div>
               <button
@@ -3539,17 +3539,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Trophy className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.evening19hTop1
-                  ? 'Gửi lại Top 1'
-                  : 'Gửi thông báo Top 1'}
+                  ? 'Gửi lại Khen ngợi 19:00'
+                  : 'Gửi Khen ngợi 19:00'}
               </button>
             </div>
 
-            {/* Khung 3: Đêm — Nhắc người chưa làm bài */}
+            {/* Khung 3: 21:00 Cảnh báo người chưa làm bài */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
-                    Đêm ({String(nightUnstudiedHour).padStart(2, '0')}:
+                    Tối ({String(nightUnstudiedHour).padStart(2, '0')}:
                     {String(nightUnstudiedMinute).padStart(2, '0')})
                   </span>
                   <span
@@ -3563,7 +3563,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 </div>
                 <h4 className={`text-sm font-black ${textPrimary}`}>
-                  Nhắc chưa làm bài ({pushStatus.stats?.unstudiedAccountsCount || 0})
+                  ⚠️ Cảnh báo chưa làm bài ({pushStatus.stats?.unstudiedAccountsCount || 0})
                 </h4>
               </div>
               <button
@@ -3573,8 +3573,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <BellRing className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.night23hUnstudied
-                  ? 'Gửi lại nhắc nhở'
-                  : 'Gửi nhắc nhở'}
+                  ? 'Gửi lại Cảnh báo 21:00'
+                  : 'Gửi Cảnh báo 21:00'}
               </button>
             </div>
           </div>
@@ -3609,7 +3609,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ sáng (Bài mới)
+                  07:00 Sáng (TOP 1 & Bài mới)
                 </label>
                 <input
                   type="time"
@@ -3646,7 +3646,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ tối (Top 1)
+                  19:00 Tối (Khen ngợi)
                 </label>
                 <input
                   type="time"
@@ -3683,7 +3683,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  Giờ đêm (Nhắc nhở)
+                  21:00 Tối (Cảnh báo chưa làm)
                 </label>
                 <input
                   type="time"

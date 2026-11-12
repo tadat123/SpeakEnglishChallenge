@@ -1806,7 +1806,7 @@ app.get('/api/notifications', async (request: any, reply: any) => {
         type: 'PERSONALIZED' as const,
         userId: null,
         title: '🎉 Chào mừng bạn tham gia Speak Right 2026!',
-        body: 'Thử thách phát âm tiếng Anh chuẩn 30 ngày. Tham gia đều đặn mỗi ngày để tích lũy điểm và vươn lên Top 1 Bảng Xếp Hạng nhé!',
+        body: 'Thử thách phát âm tiếng Anh chuẩn 21 ngày. Tham gia đều đặn mỗi ngày để tích lũy điểm và vươn lên Top 1 Bảng Xếp Hạng nhé!',
         targetUrl: '#challenges',
         deliveredAt: new Date().toISOString(),
       },
@@ -1815,9 +1815,9 @@ app.get('/api/notifications', async (request: any, reply: any) => {
         campaignId: 'init-02',
         type: 'NEW_DAY_UNLOCKED' as const,
         userId: null,
-        title: '👑 Bản tin Bảng Xếp Hạng & Mở bài thi mới',
-        body: 'Hệ thống chốt điểm lúc 00:00 đêm. Đúng 07:00 sáng hệ thống vinh danh Top 1 hôm qua, và 08:00 sáng mở bài thi của ngày mới!',
-        targetUrl: '#leaderboard',
+        title: '🔥 TOP 1 đã lộ diện – Bài thi mới đã mở!',
+        body: '🏆 Bài thi mới mỗi ngày mở lúc 07:00 sáng, bản tin Khen ngợi lúc 19:00 và nhắc nhở lúc 21:00! Nhanh tay vào chiến thôi, chậm một giây là đối thủ vượt mặt mất rồi! 😆⚡',
+        targetUrl: '#challenges',
         deliveredAt: new Date(Date.now() - 3600000).toISOString(),
       },
     ];
@@ -1940,7 +1940,7 @@ app.put(
     const nTime = `${String(updated.nightUnstudiedHour).padStart(2, '0')}:${String(updated.nightUnstudiedMinute || 0).padStart(2, '0')}`;
 
     return {
-      message: `Đã lưu cấu hình lịch thông báo ngày (${mTime} sáng bài mới • ${eTime} tối Top 1 • ${nTime} tối nhắc USER chưa làm) & chia đều ${updated.spreadWindowSeconds}s!`,
+      message: `Đã lưu cấu hình lịch thông báo tự động (${mTime} TOP 1 & Bài mới • ${eTime} Khen ngợi • ${nTime} Cảnh báo chưa làm bài) & chia đều ${updated.spreadWindowSeconds}s!`,
       config: updated,
     };
   }
@@ -1964,7 +1964,7 @@ app.post(
         return reply.status(429).send({
           alreadySentToday: true,
           message:
-            '🛡️ Chống spam: Hôm nay đã gửi thông báo "Có bài mới buổi sáng" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+            '🛡️ Chống spam: Hôm nay đã gửi thông báo "07:00 TOP 1 lộ diện & Bài thi mới mở" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
         });
       }
       const targetDay =
@@ -1972,7 +1972,7 @@ app.post(
         store.getLatestUnlockedChallenge();
       const campaign = pushService.enqueueNewDayUnlocked(targetDay);
       return {
-        message: `🌅 Đang chia đều ${campaign.totalTargets} request thông báo buổi sáng: Có bài mới (${targetDay.title}) — Cách nhau ${campaign.staggerIntervalMs}ms/request!`,
+        message: `🔥 Đã phát thông báo 07:00 sáng: "TOP 1 đã lộ diện – Bài thi mới đã mở!" (${targetDay.title}) tới quả chuông 🔔 & ${campaign.totalTargets} thiết bị PWA!`,
         campaign,
       };
     }
@@ -1982,18 +1982,15 @@ app.post(
         return reply.status(429).send({
           alreadySentToday: true,
           message:
-            '🛡️ Chống spam: Hôm nay đã gửi thông báo "Top 1 hiện tại lúc 19h tối" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+            '🛡️ Chống spam: Hôm nay đã gửi thông báo "19:00 Khen ngợi" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
         });
       }
       const lb = store.getLeaderboard();
-      const top1 = lb[0];
+      const top1 = lb.find((u) => u.totalScore > 0) || lb[0] || null;
       const top2 = lb[1] || null;
-      if (!top1) {
-        return reply.status(400).send({ message: 'Chưa có dữ liệu Bảng xếp hạng.' });
-      }
       const campaign = pushService.enqueueNewTop1(top1, top2);
       return {
-        message: `👑 Đang chia đều ${campaign.totalTargets} request bản tin 19h tối: Top 1 hiện tại (${top1.fullName}) tới toàn bộ PWA (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`,
+        message: `🌟 Đã phát bản tin Khen ngợi 19:00 tới quả chuông 🔔 & ${campaign.totalTargets} thiết bị PWA!`,
         campaign,
       };
     }
@@ -2003,15 +2000,16 @@ app.post(
         return reply.status(429).send({
           alreadySentToday: true,
           message:
-            '🛡️ Chống spam: Hôm nay đã gửi thông báo "23h tối nhắc USER chưa làm bài" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
+            '🛡️ Chống spam: Hôm nay đã gửi thông báo "21:00 Cảnh báo chưa làm bài" (1 lần/ngày) rồi! Bấm "Gửi lại (Force)" nếu bạn vẫn muốn phát thêm.',
         });
       }
+      const unstudiedCount = store.getUnstudiedAccountsWithPwa().length;
       const campaign = pushService.enqueueUnstudiedAccountsReminder();
       return {
         message:
-          campaign.totalTargets > 0
-            ? `⏰ Đang chia đều ${campaign.totalTargets} request lúc 23h tối nhắc các tài khoản USER cài PWA mà chưa làm bài (Cách nhau ${campaign.staggerIntervalMs}ms/request)!`
-            : '🎉 Tuyệt vời! Tất cả tài khoản USER cài PWA đều đã hoàn thành bài học hôm nay.',
+          unstudiedCount > 0
+            ? `⚠️ Đã gửi cảnh báo 21:00 tới ${unstudiedCount} tài khoản USER chưa làm bài (quả chuông 🔔 & ${campaign.totalTargets} thiết bị PWA)!`
+            : '🎉 Tuyệt vời! Tất cả tài khoản USER đều đã hoàn thành bài thi hôm nay.',
         campaign,
       };
     }
@@ -2196,7 +2194,7 @@ const isCronLeader =
 
 if (isCronLeader) {
   console.log(
-    `[Push Scheduler] 👑 Instance [${process.env.INSTANCE_ID || 'standalone'}] là CRON LEADER -> Khởi động bộ lập lịch thông báo tự động (8h, 19h, 23h).`
+    `[Push Scheduler] 👑 Instance [${process.env.INSTANCE_ID || 'standalone'}] là CRON LEADER -> Khởi động bộ lập lịch thông báo tự động (07:00 TOP 1 & Bài mới, 19:00 Khen ngợi, 21:00 Cảnh báo chưa làm bài).`
   );
   pushService.startAutoScheduler();
 } else {

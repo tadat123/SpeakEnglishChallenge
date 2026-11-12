@@ -728,11 +728,11 @@ class DataStore {
         minIntervalMs: 1200,
         maxIntervalMs: 5000,
         autoRemindUnstudied: true,
-        morningHour: 8,
+        morningHour: 7,
         morningMinute: 0,
         eveningTop1Hour: 19,
         eveningTop1Minute: 0,
-        nightUnstudiedHour: 23,
+        nightUnstudiedHour: 21,
         nightUnstudiedMinute: 0,
         lastMorningNotifiedDate: null,
         lastEveningTop1NotifiedDate: null,
@@ -742,11 +742,16 @@ class DataStore {
         notifiedUnstudiedKeys: [],
       };
     } else {
-      parsed.pushConfig.morningHour = parsed.pushConfig.morningHour ?? 8;
+      // Tự động nâng cấp từ cấu hình mặc định cũ (08:00 / 19:00 / 23:00) sang (07:00 / 19:00 / 21:00)
+      if (parsed.pushConfig.morningHour === 8 && parsed.pushConfig.nightUnstudiedHour === 23) {
+        parsed.pushConfig.morningHour = 7;
+        parsed.pushConfig.nightUnstudiedHour = 21;
+      }
+      parsed.pushConfig.morningHour = parsed.pushConfig.morningHour ?? 7;
       parsed.pushConfig.morningMinute = parsed.pushConfig.morningMinute ?? 0;
       parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 19;
       parsed.pushConfig.eveningTop1Minute = parsed.pushConfig.eveningTop1Minute ?? 0;
-      parsed.pushConfig.nightUnstudiedHour = parsed.pushConfig.nightUnstudiedHour ?? 23;
+      parsed.pushConfig.nightUnstudiedHour = parsed.pushConfig.nightUnstudiedHour ?? 21;
       parsed.pushConfig.nightUnstudiedMinute = parsed.pushConfig.nightUnstudiedMinute ?? 0;
       parsed.pushConfig.lastMorningNotifiedDate = parsed.pushConfig.lastMorningNotifiedDate ?? null;
       parsed.pushConfig.lastEveningTop1NotifiedDate = parsed.pushConfig.lastEveningTop1NotifiedDate ?? null;
@@ -2251,7 +2256,8 @@ class DataStore {
     return unlocked[0] || this.data.challenges[0];
   }
 
-  // Lấy danh sách những người có tài khoản + đã cài PWA nhưng CHƯA HỌC (chưa làm bài ngày mới nhất đang mở hoặc completedDays === 0)
+  // Lấy danh sách những người có tài khoản USER nhưng CHƯA HỌC (chưa làm bài ngày mới nhất đang mở hoặc completedDays === 0)
+  // Bao gồm cả những tài khoản chưa đăng ký Web Push PWA để luôn nhận thông báo trong quả chuông 🔔
   public getUnstudiedAccountsWithPwa(): {
     user: UserRecord;
     subscriptions: PwaPushSubscriptionRecord[];
@@ -2277,15 +2283,51 @@ class DataStore {
 
       // Chưa học ngày đang mở hiện tại HOẶC có tài khoản mà chưa học bất kỳ ngày nào
       if (!doneTargetDay || neverStudiedAnyDay) {
-        const userSubs = pwaSubs.filter((s) => s.userId === user.id);
-        if (userSubs.length > 0) {
-          results.push({
-            user,
-            subscriptions: userSubs,
-            targetDay,
-            neverStudiedAnyDay,
-          });
-        }
+        const userSubs = pwaSubs.filter(
+          (s) => s.userId === user.id || (s.employeeId && s.employeeId === user.employeeId)
+        );
+        results.push({
+          user,
+          subscriptions: userSubs,
+          targetDay,
+          neverStudiedAnyDay,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // Lấy danh sách những tài khoản USER ĐÃ HOÀN THÀNH bài thi ngày đang mở để khen ngợi lúc 19:00
+  public getCompletedAccountsForCurrentDay(): {
+    user: UserRecord;
+    subscriptions: PwaPushSubscriptionRecord[];
+    targetDay: DailyChallengeItem;
+    attemptScore: number;
+  }[] {
+    const targetDay = this.getLatestUnlockedChallenge();
+    const pwaSubs = this.getPwaSubscriptions(true);
+
+    const results: {
+      user: UserRecord;
+      subscriptions: PwaPushSubscriptionRecord[];
+      targetDay: DailyChallengeItem;
+      attemptScore: number;
+    }[] = [];
+
+    for (const user of this.data.users) {
+      if (user.role !== 'USER') continue;
+      const attempt = this.getAttempt(user.id, targetDay.dayNumber);
+      if (attempt) {
+        const userSubs = pwaSubs.filter(
+          (s) => s.userId === user.id || (s.employeeId && s.employeeId === user.employeeId)
+        );
+        results.push({
+          user,
+          subscriptions: userSubs,
+          targetDay,
+          attemptScore: attempt.score,
+        });
       }
     }
 
