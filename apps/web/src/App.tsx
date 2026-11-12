@@ -1372,32 +1372,60 @@ export const App: React.FC = () => {
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
 
+  const pwaUpdateBanner = pwaUpdateReady ? (
+    <div className="fixed top-2 inset-x-0 z-[10000] px-3 pointer-events-none flex justify-center">
+      <div className="pointer-events-auto w-full max-w-lg p-3 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 text-white shadow-2xl border border-white/30 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Sparkles className="w-5 h-5 text-amber-300 shrink-0 animate-pulse" />
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm font-black truncate">
+              {L('Đã có phiên bản mới!', 'New version available!', '새 버전이 출시되었습니다!')}
+            </div>
+            <div className="text-[11px] text-blue-100 truncate">
+              {L('Bấm Cập nhật để tải tính năng & dữ liệu mới nhất.', 'Tap Update to load the latest version.', '최신 버전을 불러오려면 업데이트를 누르세요.')}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => applyAppUpdate()}
+          className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0 shadow-md transition"
+        >
+          {L('Cập nhật ngay', 'Update now', '지금 업데이트')}
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   if (authView && (authView.mode === 'reset' || authView.mode === 'enter_otp' || !token || !user)) {
     return (
-      <AuthScreen
-        onAuthSuccess={handleAuthSuccess}
-        lang={lang}
-        onChangeLang={handleChangeLang}
-        darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
-        initialMode={authView.mode}
-        initialEmail={authView.initialEmail}
-        initialToken={authView.initialToken}
-        guestNotice={authView.notice}
-        onClose={() => {
-          setAuthView(null);
-          if (
-            typeof window !== 'undefined' &&
-            (window.location.hash.includes('resetToken') || window.location.search.includes('resetToken'))
-          ) {
-            window.history.replaceState({}, document.title, window.location.pathname + '#home');
-          }
-        }}
-        onGuestMode={(target) => {
-          setAuthView(null);
-          navigateToTab(target);
-        }}
-      />
+      <>
+        {pwaUpdateBanner}
+        <AuthScreen
+          onAuthSuccess={handleAuthSuccess}
+          lang={lang}
+          onChangeLang={handleChangeLang}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+          initialMode={authView.mode}
+          initialEmail={authView.initialEmail}
+          initialToken={authView.initialToken}
+          guestNotice={authView.notice}
+          onClose={() => {
+            setAuthView(null);
+            if (
+              typeof window !== 'undefined' &&
+              (window.location.hash.includes('resetToken') || window.location.search.includes('resetToken'))
+            ) {
+              window.history.replaceState({}, document.title, window.location.pathname + '#home');
+            }
+          }}
+          onGuestMode={(target) => {
+            setAuthView(null);
+            navigateToTab(target);
+          }}
+        />
+      </>
     );
   }
 
@@ -1420,6 +1448,7 @@ export const App: React.FC = () => {
           darkMode ? 'text-slate-100' : 'text-slate-800'
         }`}
       >
+        {pwaUpdateBanner}
         <AdminDashboard
           token={token!}
           challenges={challenges}
@@ -1450,6 +1479,7 @@ export const App: React.FC = () => {
         darkMode ? 'text-slate-100' : 'text-slate-800'
       }`}
     >
+      {pwaUpdateBanner}
       <ResponsiveBackground darkMode={darkMode} />
 
       {/* Toast thông báo chung cho người dùng */}

@@ -162,12 +162,20 @@ export async function applyAppUpdate(): Promise<void> {
   sessionStorage.setItem('sr_auto_reload_pending', 'true');
 
   try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.getRegistration();
-      if (reg && reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      if (reg) {
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        await reg.update().catch(() => {});
       }
     }
+    await fetch(window.location.pathname, { cache: 'reload' }).catch(() => {});
   } catch {}
 
   // Đợi nhẹ để worker hoàn tất kích hoạt rồi tải lại trang
