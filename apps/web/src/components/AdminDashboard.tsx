@@ -57,7 +57,12 @@ import {
 import { playPronunciation } from '../utils/audio';
 import { resolveMediaUrl } from '../utils/clientApiFallback';
 import { Lang } from '../utils/i18n';
-import { WORKPLACE_5_WORDS, WorkplaceWordItem } from './PronunciationChallengeQ11';
+import {
+  WORKPLACE_5_WORDS,
+  WorkplaceWordItem,
+  AutoPronunciationGraphic,
+  analyzeWordPronunciation,
+} from './PronunciationChallengeQ11';
 import { EventPopupItem } from './SpeakRightEventsPopup';
 
 interface AdminDashboardProps {
@@ -1100,11 +1105,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSaveQ11Words = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const enrichedWords = editingQ11Words.map((w, idx) => {
+        const analysis = analyzeWordPronunciation({
+          ...w,
+          syllables: '',
+        });
+        const tipVal = (w.tip || w.tipVi || '').trim();
+        return {
+          ...w,
+          id: idx + 1,
+          spokenText: w.word.trim(),
+          syllables: analysis.readableGuide,
+          tip: tipVal,
+          tipVi: tipVal,
+        };
+      });
+
       const res = await fetch(`/api/challenges/${selectedDay}/q11-words`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({
-          q11Words: editingQ11Words,
+          q11Words: enrichedWords,
           cloneToAllDays: cloneQ11ToAllDays,
         }),
       });
@@ -2879,66 +2900,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Bộ Từ Vựng Luyện Đọc — {dayDetail.title}
                   </h3>
                 </div>
+                <p className={`text-xs mt-1 ${textSecondary}`}>
+                  Chỉ cần nhập 4 trường (Từ tiếng Anh, IPA, Nghĩa tiếng Việt, Hướng dẫn phát âm) — Hệ thống tự động vẽ sơ đồ trọng âm & khẩu hình miệng.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={openEditQ11Modal}
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm transition self-start sm:self-auto"
               >
-                <Edit3 className="w-3.5 h-3.5" /> Sửa từ vựng
+                <Edit3 className="w-3.5 h-3.5" /> Sửa 5 từ Câu 11
               </button>
             </div>
 
-            {/* Grid 5 từ vựng Câu 11 */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
-              {currentQ11Words.map((item, idx) => (
-                <div
-                  key={idx}
-                  className={`p-3 rounded-xl border flex flex-col justify-between ${
-                    darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
-                        Từ #{idx + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => playPronunciation(item.spokenText || item.word)}
-                        className="p-1 rounded text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800"
-                        title="Nghe phát âm"
-                      >
-                        <Volume2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className={`text-sm font-black ${textPrimary}`}>{item.word}</div>
-                    <div className="text-[11px] font-mono text-purple-600 dark:text-purple-400 font-bold">
-                      {item.ipa}
-                    </div>
-                    {item.syllables && (
-                      <div className="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-300 mt-0.5">
-                        🗣️ {item.syllables}
+            {/* Grid 5 từ vựng Câu 11 kèm Hình vẽ tự động */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {currentQ11Words.map((item, idx) => {
+                const tipDisplay = item.tip || item.tipVi || '';
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-xl border flex flex-col justify-between gap-2 ${
+                      darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
+                    }`}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
+                          Từ #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => playPronunciation(item.spokenText || item.word)}
+                          className="p-1 rounded text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800"
+                          title="Nghe phát âm"
+                        >
+                          <Volume2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    )}
-                    <div className={`text-xs font-semibold mt-1 ${textSecondary}`}>{item.meaningVi}</div>
-                    {item.imageUrl && (
-                      <div className="mt-2 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 h-20 bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-                        <img
-                          src={resolveMediaUrl(item.imageUrl)}
-                          alt={item.word}
-                          className="w-full h-full object-contain"
+                      <div className={`text-sm font-black ${textPrimary}`}>{item.word}</div>
+                      <div className="text-[11px] font-mono text-purple-600 dark:text-purple-400 font-bold">
+                        {item.ipa}
+                      </div>
+                      <div className={`text-xs font-semibold ${textSecondary}`}>
+                        {item.meaningVi}
+                      </div>
+
+                      {/* Hình vẽ tự động sinh từ 4 trường */}
+                      <div className="pt-1">
+                        <AutoPronunciationGraphic
+                          item={item}
+                          darkMode={darkMode}
+                          compact
+                          onListen={() => playPronunciation(item.spokenText || item.word)}
                         />
+                      </div>
+                    </div>
+
+                    {tipDisplay && (
+                      <div className="text-[10px] text-amber-600 dark:text-amber-400 leading-snug">
+                        💡 <span className="font-semibold">{tipDisplay}</span>
                       </div>
                     )}
                   </div>
-                  {item.tip && (
-                    <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 italic">
-                      💡 {item.tip}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -4794,25 +4820,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* ================= MODAL SỬA BỘ TỪ VỰNG CÂU 11 (5 TỪ) ================= */}
+      {/* ================= MODAL SỬA BỘ TỪ VỰNG CÂU 11 (5 TỪ - 4 TRƯỜNG + HÌNH VẼ TỰ ĐỘNG) ================= */}
       {showQ11Modal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div
-            className={`w-full max-w-2xl rounded-3xl p-5 sm:p-6 shadow-2xl border space-y-4 my-auto max-h-[92vh] overflow-y-auto ${cardBg}`}
+            className={`w-full max-w-3xl rounded-3xl p-5 sm:p-6 shadow-2xl border space-y-4 my-auto max-h-[92vh] overflow-y-auto ${cardBg}`}
           >
             <div
               className={`flex items-center justify-between pb-3 border-b ${
                 darkMode ? 'border-slate-800' : 'border-slate-100'
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 flex items-center justify-center font-black">
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 flex items-center justify-center font-black">
                   🎙️
                 </span>
                 <div>
                   <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
-                    Từ Vựng Câu 11 ({dayDetail?.title || `Day ${selectedDay}`})
+                    Phần Câu hỏi số 11 — {dayDetail?.title || `Day ${selectedDay}`}
                   </h3>
+                  <p className={`text-xs ${textSecondary}`}>
+                    Chỉ cần điền 4 thông tin: <b>Từ tiếng Anh</b> • <b>IPA</b> • <b>Nghĩa tiếng Việt</b> • <b>Hướng dẫn phát âm</b> (Hình vẽ bên phải tự động sinh).
+                  </p>
                 </div>
               </div>
               <button
@@ -4824,172 +4853,200 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
+            {/* Khung dán nhanh 4 cột từ Excel / Word */}
+            <details
+              className={`rounded-2xl border p-3 text-xs ${
+                darkMode
+                  ? 'bg-slate-900/70 border-slate-700 text-slate-300'
+                  : 'bg-purple-50/60 border-purple-200/80 text-slate-700'
+              }`}
+            >
+              <summary className="font-extrabold cursor-pointer select-none text-purple-700 dark:text-purple-300">
+                📋 Dán nhanh 5 từ từ Excel / Bảng (4 cột: Từ tiếng Anh | IPA | Nghĩa tiếng Việt | Hướng dẫn phát âm)
+              </summary>
+              <div className="mt-2 space-y-2">
+                <p className="text-[11px] opacity-80">
+                  Mỗi dòng 1 từ, ngăn cách bởi phím <b>Tab</b> (copy trực tiếp từ Excel) hoặc dấu <b>|</b>:
+                </p>
+                <textarea
+                  rows={4}
+                  placeholder={`Approval\t/əˈpruːvəl/\tSự phê duyệt\tNhấn âm 2, tròn môi, cong lưỡi âm cuối /l/\nEquipment\t/ɪˈkwɪpmənt/\tTrang thiết bị\tNhấn âm 2 (-quip-), bật nhẹ âm cuối /t/`}
+                  onChange={(e) => {
+                    const rawLines = e.target.value
+                      .split(/\r?\n/)
+                      .map((l) => l.trim())
+                      .filter(Boolean);
+                    if (rawLines.length === 0) return;
+                    const next = [...editingQ11Words];
+                    rawLines.slice(0, 5).forEach((line, idx) => {
+                      const cols = (line.includes('\t') ? line.split('\t') : line.split('|')).map(
+                        (c) => c.trim()
+                      );
+                      if (cols[0]) {
+                        next[idx] = {
+                          ...next[idx],
+                          id: idx + 1,
+                          word: cols[0] || next[idx].word,
+                          spokenText: (cols[0] || next[idx].word).trim(),
+                          ipa: cols[1] || next[idx].ipa,
+                          meaningVi: cols[2] || next[idx].meaningVi,
+                          tip: cols[3] ?? next[idx].tip ?? '',
+                          tipVi: cols[3] ?? next[idx].tipVi ?? '',
+                          syllables: '',
+                          imageUrl: '',
+                        };
+                      }
+                    });
+                    setEditingQ11Words(next);
+                  }}
+                  className={`w-full px-3 py-2 rounded-xl border font-mono text-xs ${inputBg}`}
+                />
+              </div>
+            </details>
+
             <form onSubmit={handleSaveQ11Words} className="space-y-3.5">
-              <div className="space-y-3 max-h-[58vh] overflow-y-auto pr-1">
-                {editingQ11Words.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3.5 rounded-2xl border space-y-2.5 ${subCardBg}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-xs font-black">
-                        Từ #{idx + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => playPronunciation(item.spokenText || item.word)}
-                        className="px-2 py-1 rounded-lg bg-blue-100 text-blue-700 dark:bg-slate-700 dark:text-blue-300 text-xs font-bold flex items-center gap-1"
-                        title="Nghe phát âm thử"
-                      >
-                        <Volume2 className="w-3.5 h-3.5" /> Nghe thử
-                      </button>
-                    </div>
+              <div className="space-y-3 max-h-[56vh] overflow-y-auto pr-1">
+                {editingQ11Words.map((item, idx) => {
+                  const previewItem: WorkplaceWordItem = {
+                    ...item,
+                    syllables: '',
+                  };
+                  const autoAnalysis = analyzeWordPronunciation(previewItem);
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Từ vựng *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={item.word}
-                          onChange={(e) => {
-                            const next = [...editingQ11Words];
-                            next[idx] = {
-                              ...next[idx],
-                              word: e.target.value,
-                              spokenText: e.target.value.toLowerCase(),
-                            };
-                            setEditingQ11Words(next);
-                          }}
-                          placeholder="Approval"
-                          className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-black ${inputBg}`}
-                        />
-                      </div>
-                      <div>
-                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Phiên âm (IPA) *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={item.ipa}
-                          onChange={(e) => {
-                            const next = [...editingQ11Words];
-                            next[idx] = { ...next[idx], ipa: e.target.value };
-                            setEditingQ11Words(next);
-                          }}
-                          placeholder="/əˈpruː.vəl/"
-                          className={`w-full px-3 py-2 rounded-xl border font-mono text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 ${inputBg}`}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Nghĩa tiếng Việt *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={item.meaningVi}
-                          onChange={(e) => {
-                            const next = [...editingQ11Words];
-                            next[idx] = { ...next[idx], meaningVi: e.target.value };
-                            setEditingQ11Words(next);
-                          }}
-                          placeholder="Sự phê duyệt"
-                          className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-semibold ${inputBg}`}
-                        />
-                      </div>
-                      <div>
-                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Mẹo khẩu hình & nhấn âm
-                        </label>
-                        <input
-                          type="text"
-                          value={item.tip || ''}
-                          onChange={(e) => {
-                            const next = [...editingQ11Words];
-                            next[idx] = { ...next[idx], tip: e.target.value };
-                            setEditingQ11Words(next);
-                          }}
-                          placeholder="Nhấn âm 2, tròn môi..."
-                          className={`w-full px-3 py-2 rounded-xl border text-xs ${inputBg}`}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Cách đọc tách âm (VD: ơ · PRUː · vồ)
-                        </label>
-                        <input
-                          type="text"
-                          value={item.syllables || ''}
-                          onChange={(e) => {
-                            const next = [...editingQ11Words];
-                            next[idx] = { ...next[idx], syllables: e.target.value };
-                            setEditingQ11Words(next);
-                          }}
-                          placeholder="ơ · PRUː · vồ"
-                          className={`w-full px-3 py-2 rounded-xl border text-xs font-bold ${inputBg}`}
-                        />
-                      </div>
-                      <div>
-                        <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                          Ảnh hoặc Ảnh GIF minh họa cách đọc
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={item.imageUrl || ''}
-                            onChange={(e) => {
-                              const next = [...editingQ11Words];
-                              next[idx] = { ...next[idx], imageUrl: e.target.value };
-                              setEditingQ11Words(next);
-                            }}
-                            placeholder="Link ảnh / GIF hoặc bấm Tải lên..."
-                            className={`flex-1 min-w-0 px-3 py-2 rounded-xl border text-xs ${inputBg}`}
-                          />
-                          <label className="cursor-pointer px-2.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 shrink-0 transition">
-                            <FileUp className="w-3.5 h-3.5" />
-                            <span>Ảnh/GIF</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleUploadQ11WordImage(idx, e)}
-                              className="hidden"
-                            />
-                          </label>
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3.5 rounded-2xl border space-y-2.5 ${subCardBg}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-xs font-black">
+                            Từ #{idx + 1}
+                          </span>
+                          <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300">
+                            Tách âm tự động: {autoAnalysis.readableGuide}
+                          </span>
                         </div>
-                        {item.imageUrl && (
-                          <div className="mt-1.5 flex items-center gap-2 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                            <img
-                              src={resolveMediaUrl(item.imageUrl)}
-                              alt={item.word}
-                              className="w-12 h-10 object-contain rounded bg-slate-100 dark:bg-slate-800 shrink-0"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const next = [...editingQ11Words];
-                                next[idx] = { ...next[idx], imageUrl: '' };
-                                setEditingQ11Words(next);
-                              }}
-                              className="text-[11px] text-rose-500 font-bold hover:underline"
-                            >
-                              Xóa ảnh
-                            </button>
+                        <button
+                          type="button"
+                          onClick={() => playPronunciation(item.spokenText || item.word)}
+                          className="px-2.5 py-1 rounded-lg bg-blue-100 text-blue-700 dark:bg-slate-700 dark:text-blue-300 text-xs font-bold flex items-center gap-1"
+                          title="Nghe phát âm thử"
+                        >
+                          <Volume2 className="w-3.5 h-3.5" /> Nghe thử
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                        {/* Cột trái (7/12): Đúng 4 trường thông tin */}
+                        <div className="md:col-span-7 space-y-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                                1. Từ tiếng Anh *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={item.word}
+                                onChange={(e) => {
+                                  const next = [...editingQ11Words];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    word: e.target.value,
+                                    spokenText: e.target.value,
+                                    syllables: '',
+                                  };
+                                  setEditingQ11Words(next);
+                                }}
+                                placeholder="Approval"
+                                className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-black ${inputBg}`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                                2. IPA *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={item.ipa}
+                                onChange={(e) => {
+                                  const next = [...editingQ11Words];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    ipa: e.target.value,
+                                    syllables: '',
+                                  };
+                                  setEditingQ11Words(next);
+                                }}
+                                placeholder="/əˈpruːvəl/"
+                                className={`w-full px-3 py-2 rounded-xl border font-mono text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 ${inputBg}`}
+                              />
+                            </div>
                           </div>
-                        )}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                                3. Nghĩa tiếng Việt *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={item.meaningVi}
+                                onChange={(e) => {
+                                  const next = [...editingQ11Words];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    meaningVi: e.target.value,
+                                  };
+                                  setEditingQ11Words(next);
+                                }}
+                                placeholder="Sự phê duyệt"
+                                className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-semibold ${inputBg}`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
+                                4. Hướng dẫn phát âm
+                              </label>
+                              <input
+                                type="text"
+                                value={item.tip ?? item.tipVi ?? ''}
+                                onChange={(e) => {
+                                  const next = [...editingQ11Words];
+                                  next[idx] = {
+                                    ...next[idx],
+                                    tip: e.target.value,
+                                    tipVi: e.target.value,
+                                    syllables: '',
+                                  };
+                                  setEditingQ11Words(next);
+                                }}
+                                placeholder="Nhấn âm 2, tròn môi, cong lưỡi âm /l/..."
+                                className={`w-full px-3 py-2 rounded-xl border text-xs ${inputBg}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Cột phải (5/12): Hình vẽ tự động gen trực tiếp từ 4 trường trên */}
+                        <div className="md:col-span-5">
+                          <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1 flex items-center justify-between">
+                            <span>✨ Hình vẽ tự động gen:</span>
+                            <span>Bấm để nghe</span>
+                          </div>
+                          <AutoPronunciationGraphic
+                            item={previewItem}
+                            darkMode={darkMode}
+                            onListen={() => playPronunciation(item.spokenText || item.word)}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Checkbox áp dụng cho cả 21 ngày */}

@@ -255,21 +255,693 @@ const Q11_TEXT = {
   },
 };
 
-const getWordSyllableGuide = (item: WorkplaceWordItem): string => {
-  if (item.syllables && item.syllables.trim()) return item.syllables.trim();
-  const fallbackMap: Record<string, string> = {
-    approval: 'ơ · PRUː · vồ',
-    equipment: 'i · QUÝP · mần(t)',
-    measurement: 'ME · dơ · mần(t)',
-    development: 'đì · VE · lợp · mần(t)',
-    'yield rate': 'GIUː(đ) · RÂY(t)',
-    doe: 'ĐIː · âu · Iː',
-    meg: 'EM · iː · GIː',
-    tool: 'TUː(l)',
-    metal: 'ME · tồ',
-    model: 'MO · đồ',
+const KNOWN_SYLLABLE_MAP: Record<string, string> = {
+  approval: 'ơ · PRUː · vồ',
+  equipment: 'i · QUÝP · mần(t)',
+  measurement: 'ME · dơ · mần(t)',
+  development: 'đì · VE · lợp · mần(t)',
+  'yield rate': 'GIUː(đ) · RÂY(t)',
+  doe: 'ĐIː · âu · Iː',
+  meg: 'EM · iː · GIː',
+  tool: 'TUː(l)',
+  metal: 'ME · tồ',
+  model: 'MO · đồ',
+};
+
+export interface AnalyzedSyllable {
+  label: string;
+  ipaPart: string;
+  stressed: boolean;
+  secondary?: boolean;
+}
+
+export type MouthPostureType = 'rounded' | 'spread' | 'open' | 'tongue';
+
+export interface WordPronunciationAnalysis {
+  syllables: AnalyzedSyllable[];
+  readableGuide: string;
+  stressedIndex: number;
+  mouthPosture: MouthPostureType;
+  mouthLabelVi: string;
+  mouthLabelEn: string;
+  endingCueVi: string;
+}
+
+/**
+ * Tự động phân tích 4 trường (Từ tiếng Anh, IPA, Nghĩa tiếng Việt, Hướng dẫn phát âm)
+ * để sinh ra:
+ * 1. Tách âm tiết & vị trí trọng âm (Syllables + Primary/Secondary Stress)
+ * 2. Khẩu hình miệng (Tròn môi / Căng khóe miệng / Hạ hàm mở rộng / Đầu lưỡi chạm răng-lợi)
+ * 3. Điểm nhấn âm cuối hoặc phụ âm đặc trưng
+ */
+export const analyzeWordPronunciation = (
+  item: Partial<WorkplaceWordItem>
+): WordPronunciationAnalysis => {
+  const rawWord = (item.word || '').trim();
+  const rawIpa = (item.ipa || '').trim();
+  const rawTip = (item.tip || item.tipVi || '').trim();
+  const tipLower = rawTip.toLowerCase();
+
+  // 1. Kiểm tra nếu người dùng hoặc từ điển có sẵn chuỗi tách âm '·'
+  const presetSyllables =
+    item.syllables && item.syllables.trim()
+      ? item.syllables.trim()
+      : KNOWN_SYLLABLE_MAP[rawWord.toLowerCase()] || '';
+
+  // Phát hiện gợi ý trọng âm từ trường "Hướng dẫn phát âm" nếu IPA không có dấu ˈ
+  let hintedStressIdx: number | null = null;
+  if (/nhấn\s*(trọng\s*)?âm\s*(tiết\s*)?(thứ\s*)?1|nhấn\s*âm\s*đầu|trọng\s*âm\s*1/i.test(rawTip)) {
+    hintedStressIdx = 0;
+  } else if (/nhấn\s*(trọng\s*)?âm\s*(tiết\s*)?(thứ\s*)?2|trọng\s*âm\s*(rơi\s*vào\s*)?âm\s*2|âm\s*tiết\s*thứ\s*2/i.test(rawTip)) {
+    hintedStressIdx = 1;
+  } else if (/nhấn\s*(trọng\s*)?âm\s*(tiết\s*)?(thứ\s*)?3|âm\s*tiết\s*thứ\s*3/i.test(rawTip)) {
+    hintedStressIdx = 2;
+  } else if (/nhấn\s*(mạnh\s*)?(vào\s*)?(âm|chữ\s*cái)\s*cuối/i.test(rawTip)) {
+    hintedStressIdx = -1; // âm cuối
+  }
+
+  // Tách IPA thành các âm tiết
+  const cleanIpa = rawIpa
+    .replace(/^[/[\s]+|[/\]\s]+$/g, '')
+    .replace(/['’]/g, 'ˈ');
+
+  const splitIpaIntoSyllables = (ipaStr: string): string[] => {
+    if (!ipaStr) return [];
+    // Bước 1: Tách theo dấu chấm '.', '·', khoảng trắng, hoặc ngay trước dấu trọng âm ˈ / ˌ
+    const step1 = ipaStr
+      .replace(/([.·\s]+)/g, '|')
+      .replace(/(?=[ˈˌ])/g, '|')
+      .split('|')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // Bước 2: Với mỗi cụm chưa có dấu chấm nhưng có nhiều nguyên âm (VD: ˈpruːvəl, ˈmeʒərmənt),
+    // tự động tách giữa các nhân nguyên âm IPA
+    const vowelRegex =
+      /eɪ|aɪ|ɔɪ|aʊ|oʊ|əʊ|ɪə|eə|ʊə|ɑː|ɔː|uː|iː|ɜː|ɝː|[iɪeɛæɑɒɔoʊuʌəɜɝɚa]+ː?/g;
+    const validOnsets = [
+      'tʃ',
+      'dʒ',
+      'tr',
+      'dr',
+      'pr',
+      'br',
+      'kr',
+      'gr',
+      'fr',
+      'θr',
+      'ʃr',
+      'pl',
+      'bl',
+      'kl',
+      'gl',
+      'fl',
+      'sl',
+      'kw',
+      'tw',
+      'dw',
+      'sw',
+      'sp',
+      'st',
+      'sk',
+      'sm',
+      'sn',
+    ];
+
+    const finalChunks: string[] = [];
+    for (const chunk of step1) {
+      const matches = Array.from(chunk.matchAll(vowelRegex));
+      if (matches.length <= 1) {
+        finalChunks.push(chunk);
+        continue;
+      }
+
+      let startIdx = 0;
+      for (let i = 0; i < matches.length - 1; i++) {
+        const curVowelEnd = (matches[i].index ?? 0) + matches[i][0].length;
+        const nextVowelStart = matches[i + 1].index ?? curVowelEnd;
+        const interConsonants = chunk.slice(curVowelEnd, nextVowelStart);
+
+        let splitPoint = nextVowelStart;
+        if (interConsonants.length === 1) {
+          splitPoint = curVowelEnd;
+        } else if (interConsonants.length >= 2) {
+          const lastTwo = interConsonants.slice(-2);
+          if (validOnsets.includes(lastTwo)) {
+            splitPoint = nextVowelStart - 2;
+          } else {
+            splitPoint = nextVowelStart - 1;
+          }
+        }
+
+        finalChunks.push(chunk.slice(startIdx, splitPoint));
+        startIdx = splitPoint;
+      }
+      finalChunks.push(chunk.slice(startIdx));
+    }
+
+    return finalChunks.filter(Boolean);
   };
-  return fallbackMap[item.word.toLowerCase()] || item.ipa;
+
+  // Tách từ tiếng Anh thành các âm tiết tương ứng nếu chưa có preset
+  const splitEnglishWord = (wordStr: string, targetCount: number): string[] => {
+    const clean = wordStr.trim();
+    if (!clean) return [];
+    if (targetCount <= 1) return [clean];
+    if (clean.includes(' ') || clean.includes('-')) {
+      const parts = clean.split(/[\s-]+/).filter(Boolean);
+      if (parts.length === targetCount) return parts;
+    }
+    if (/^[A-Z]{2,5}$/.test(clean) && clean.length === targetCount) {
+      return clean.split('');
+    }
+    const wordChunks =
+      clean.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?/gi) || [clean];
+    if (wordChunks.length === targetCount) return wordChunks;
+    return [];
+  };
+
+  const ipaParts = splitIpaIntoSyllables(cleanIpa);
+  let syllables: AnalyzedSyllable[] = [];
+
+  if (presetSyllables && presetSyllables.includes('·')) {
+    const parts = presetSyllables
+      .split('·')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    syllables = parts.map((part, idx) => {
+      const isUpper = part === part.toUpperCase() && /[A-ZÀ-Ỹ]/.test(part);
+      const ipaPart = ipaParts[idx] || part;
+      return {
+        label: part,
+        ipaPart,
+        stressed: isUpper,
+        secondary: ipaPart.startsWith('ˌ'),
+      };
+    });
+  } else if (ipaParts.length > 0) {
+    const hasExplicitPrimary = ipaParts.some((p) => p.includes('ˈ'));
+    const wordParts = splitEnglishWord(rawWord, ipaParts.length);
+
+    syllables = ipaParts.map((ipaPart, idx) => {
+      const cleanSyllableIpa = ipaPart.replace(/^[ˈˌ]+/, '');
+      let isPrimary = ipaPart.includes('ˈ');
+      const isSecondary = ipaPart.includes('ˌ');
+
+      if (!hasExplicitPrimary) {
+        if (hintedStressIdx === -1) {
+          isPrimary = idx === ipaParts.length - 1;
+        } else if (hintedStressIdx !== null && hintedStressIdx < ipaParts.length) {
+          isPrimary = idx === hintedStressIdx;
+        } else {
+          isPrimary = idx === 0;
+        }
+      }
+
+      const baseDisplay = wordParts[idx] || cleanSyllableIpa || rawWord;
+      const label = isPrimary
+        ? cleanSyllableIpa.toUpperCase()
+        : cleanSyllableIpa.toLowerCase();
+
+      return {
+        label: wordParts[idx]
+          ? isPrimary
+            ? `${wordParts[idx].toUpperCase()} (${cleanSyllableIpa})`
+            : `${wordParts[idx].toLowerCase()} (${cleanSyllableIpa})`
+          : label || baseDisplay,
+        ipaPart: cleanSyllableIpa,
+        stressed: isPrimary,
+        secondary: isSecondary,
+      };
+    });
+  } else if (rawWord) {
+    const fallbackChunks =
+      rawWord.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?/gi) || [rawWord];
+    const stressIdx =
+      hintedStressIdx === -1
+        ? fallbackChunks.length - 1
+        : hintedStressIdx !== null && hintedStressIdx < fallbackChunks.length
+        ? hintedStressIdx
+        : 0;
+    syllables = fallbackChunks.map((chunk, idx) => ({
+      label: idx === stressIdx ? chunk.toUpperCase() : chunk.toLowerCase(),
+      ipaPart: chunk,
+      stressed: idx === stressIdx,
+    }));
+  }
+
+  if (syllables.length === 0) {
+    syllables = [{ label: 'WORD', ipaPart: '...', stressed: true }];
+  }
+  if (!syllables.some((s) => s.stressed)) {
+    syllables[0].stressed = true;
+    syllables[0].label = syllables[0].label.toUpperCase();
+  }
+
+  const stressedIndex = Math.max(
+    0,
+    syllables.findIndex((s) => s.stressed)
+  );
+  const stressedIpa = syllables[stressedIndex]?.ipaPart || cleanIpa;
+
+  // 2. Tự động nhận diện Khẩu hình miệng (Mouth Posture) từ IPA & Hướng dẫn phát âm
+  let mouthPosture: MouthPostureType = 'open';
+  let mouthLabelVi = 'Mở tự nhiên & nhấn rõ trọng âm';
+  let mouthLabelEn = 'Natural open jaw on stressed syllable';
+
+  if (
+    /tròn\s*môi|chu\s*môi|môi\s*tròn/.test(tipLower) ||
+    /[uʊɔɒ]|uː|ɔː|oʊ|əʊ|ʃ|ʒ|w/.test(stressedIpa)
+  ) {
+    mouthPosture = 'rounded';
+    mouthLabelVi = 'Chu tròn môi ở âm nhấn';
+    mouthLabelEn = 'Round your lips clearly';
+  } else if (
+    /căng\s*(ngang\s*)?môi|khóe\s*miệng|mỉm\s*cười|kéo\s*dài\s*\/?i/.test(tipLower) ||
+    /iː|eɪ|ɪ/.test(stressedIpa)
+  ) {
+    mouthPosture = 'spread';
+    mouthLabelVi = 'Căng nhẹ khóe miệng sang ngang';
+    mouthLabelEn = 'Spread corners of lips slightly';
+  } else if (
+    /cong\s*lưỡi|đầu\s*lưỡi|chạm\s*hàm|răng|khép\s*môi/.test(tipLower)
+  ) {
+    mouthPosture = 'tongue';
+    mouthLabelVi = 'Đặt đúng vị trí lưỡi & bật âm';
+    mouthLabelEn = 'Position tongue tip & release cleanly';
+  } else if (
+    /hạ\s*hàm|mở\s*rộng|há\s*miệng/.test(tipLower) ||
+    /ɑː|æ|aɪ|aʊ|ʌ|e/.test(stressedIpa)
+  ) {
+    mouthPosture = 'open';
+    mouthLabelVi = 'Hạ hàm mở miệng rõ ở âm nhấn';
+    mouthLabelEn = 'Drop jaw slightly on stressed vowel';
+  }
+
+  // 3. Tự động nhận diện điểm lưu ý âm cuối / phụ âm từ IPA & Tip
+  let endingCueVi = '';
+  const cleanEnding = cleanIpa.replace(/[ˈˌ.·\s]/g, '');
+  if (cleanEnding.endsWith('nt')) {
+    endingCueVi = 'Âm cuối /nt/: ngân nhẹ /n/ rồi bật /t/';
+  } else if (cleanEnding.endsWith('ld')) {
+    endingCueVi = 'Âm cuối /ld/: cong lưỡi /l/ rồi bật nhẹ /d/';
+  } else if (cleanEnding.endsWith('l')) {
+    endingCueVi = 'Âm cuối /l/: cong đầu lưỡi chạm hàm trên';
+  } else if (cleanEnding.endsWith('t') || cleanEnding.endsWith('d')) {
+    endingCueVi = `Âm cuối /${cleanEnding.slice(-1)}/: bật nhẹ đầu lưỡi`;
+  } else if (cleanEnding.endsWith('p') || cleanEnding.endsWith('b') || cleanEnding.endsWith('m')) {
+    endingCueVi = `Âm cuối /${cleanEnding.slice(-1)}/: khép hai môi ở cuối từ`;
+  } else if (cleanEnding.includes('ʒ') || cleanEnding.includes('ʃ')) {
+    endingCueVi = 'Phụ âm /ʒ/-/ʃ/: chu nhẹ môi đẩy luồng hơi';
+  } else if (rawTip) {
+    endingCueVi = rawTip.length > 52 ? `${rawTip.slice(0, 50)}...` : rawTip;
+  } else {
+    endingCueVi = `Nhấn mạnh âm tiết thứ ${stressedIndex + 1}`;
+  }
+
+  const readableGuide = syllables.map((s) => s.label).join(' · ');
+
+  return {
+    syllables,
+    readableGuide,
+    stressedIndex,
+    mouthPosture,
+    mouthLabelVi,
+    mouthLabelEn,
+    endingCueVi,
+  };
+};
+
+const getWordSyllableGuide = (item: WorkplaceWordItem): string => {
+  return analyzeWordPronunciation(item).readableGuide;
+};
+
+export interface AutoPronunciationGraphicProps {
+  item: Partial<WorkplaceWordItem>;
+  isPlaying?: boolean;
+  darkMode?: boolean;
+  compact?: boolean;
+  onListen?: () => void;
+}
+
+/**
+ * Hình vẽ SVG tự động sinh 100% từ 4 trường:
+ * (Từ tiếng Anh, IPA, Nghĩa tiếng Việt, Hướng dẫn phát âm)
+ * - Vẽ biểu đồ đường cong ngữ điệu (Pitch Contour) & cột nhịp trọng âm (▲ / •)
+ * - Vẽ sơ đồ khẩu hình miệng & lưỡi (Tròn môi / Căng môi / Mở hàm / Đầu lưỡi)
+ */
+export const AutoPronunciationGraphic: React.FC<AutoPronunciationGraphicProps> = ({
+  item,
+  isPlaying = false,
+  darkMode = false,
+  compact = false,
+  onListen,
+}) => {
+  const analysis = analyzeWordPronunciation(item);
+  const { syllables, stressedIndex, mouthPosture, mouthLabelVi, endingCueVi } = analysis;
+
+  // Tọa độ các nút âm tiết trên SVG đường cong ngữ điệu (ViewBox 220 x 72)
+  const count = syllables.length;
+  const svgWidth = 220;
+  const points = syllables.map((syl, idx) => {
+    const x =
+      count === 1
+        ? svgWidth / 2
+        : 28 + (idx * (svgWidth - 56)) / Math.max(1, count - 1);
+    const y = syl.stressed ? 16 : syl.secondary ? 32 : 46;
+    return { x, y, ...syl };
+  });
+
+  // Tạo đường cong mượt nối các âm tiết
+  const buildCurvePath = () => {
+    if (points.length === 1) {
+      const p = points[0];
+      return `M 30 46 Q ${p.x} ${p.y - 10} ${svgWidth - 30} 46`;
+    }
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i];
+      const p1 = points[i + 1];
+      const midX = (p0.x + p1.x) / 2;
+      d += ` C ${midX} ${p0.y}, ${midX} ${p1.y}, ${p1.x} ${p1.y}`;
+    }
+    return d;
+  };
+
+  return (
+    <div
+      onClick={onListen}
+      role={onListen ? 'button' : undefined}
+      tabIndex={onListen ? 0 : undefined}
+      className={`rounded-xl border transition select-none overflow-hidden ${
+        onListen ? 'cursor-pointer' : ''
+      } ${compact ? 'p-2' : 'p-2.5 sm:p-3'} ${
+        isPlaying
+          ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/20'
+          : darkMode
+          ? 'bg-slate-900/95 border-slate-700 hover:border-blue-500/60'
+          : 'bg-gradient-to-br from-slate-50 via-white to-indigo-50/60 border-slate-200/90 hover:border-blue-300 shadow-inner'
+      }`}
+    >
+      {/* Hàng trên: Badge Trọng âm + Badge Khẩu hình */}
+      <div className="flex items-center justify-between gap-1 mb-1.5">
+        <span
+          className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+            darkMode
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              : 'bg-amber-100 text-amber-800 border border-amber-200'
+          }`}
+        >
+          ▲ Nhấn âm {stressedIndex + 1}/{count}
+        </span>
+        <span
+          className={`px-1.5 py-0.5 rounded text-[9px] font-bold truncate ${
+            darkMode
+              ? 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+              : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+          }`}
+        >
+          👄 {mouthPosture === 'rounded'
+            ? 'Tròn môi'
+            : mouthPosture === 'spread'
+            ? 'Căng khóe môi'
+            : mouthPosture === 'tongue'
+            ? 'Cong/Bật lưỡi'
+            : 'Mở rộng hàm'}
+        </span>
+      </div>
+
+      {/* Khu vực Hình vẽ chính: Biểu đồ sóng trọng âm + Sơ đồ khẩu hình SVG */}
+      <div className="grid grid-cols-12 gap-1.5 items-center">
+        {/* Cột trái (8/12): Đường cong ngữ điệu & cột âm tiết */}
+        <div className="col-span-8 flex flex-col items-center">
+          <svg
+            viewBox={`0 0 ${svgWidth} 64`}
+            className={`w-full ${compact ? 'h-12' : 'h-14'} overflow-visible`}
+          >
+            <defs>
+              <linearGradient id="stressCurveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#3b82f6" />
+                <stop offset="50%" stopColor="#f59e0b" />
+                <stop offset="100%" stopColor="#ec4899" />
+              </linearGradient>
+            </defs>
+
+            {/* Đường chuẩn ngang mờ */}
+            <line
+              x1="14"
+              y1="48"
+              x2={svgWidth - 14}
+              y2="48"
+              stroke={darkMode ? '#334155' : '#cbd5e1'}
+              strokeDasharray="3 3"
+              strokeWidth="1"
+            />
+
+            {/* Đường cong nối cao độ giữa các âm tiết */}
+            <path
+              d={buildCurvePath()}
+              fill="none"
+              stroke="url(#stressCurveGrad)"
+              strokeWidth="2.75"
+              strokeLinecap="round"
+            />
+
+            {/* Các cột & điểm nút âm tiết */}
+            {points.map((pt, idx) => (
+              <g key={idx}>
+                {/* Cột thẳng đứng từ đáy lên điểm nhấn */}
+                <line
+                  x1={pt.x}
+                  y1="52"
+                  x2={pt.x}
+                  y2={pt.y}
+                  stroke={pt.stressed ? '#f59e0b' : '#3b82f6'}
+                  strokeWidth={pt.stressed ? '5' : '3'}
+                  strokeLinecap="round"
+                  opacity={pt.stressed ? 0.9 : 0.45}
+                />
+
+                {/* Nút tròn tại đỉnh âm tiết */}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={pt.stressed ? (isPlaying ? 8 : 6.5) : 4.5}
+                  fill={pt.stressed ? '#f59e0b' : '#3b82f6'}
+                  stroke="#ffffff"
+                  strokeWidth="1.5"
+                />
+
+                {/* Ký hiệu ▲ cho trọng âm chính */}
+                {pt.stressed && (
+                  <text
+                    x={pt.x}
+                    y={pt.y - 9}
+                    textAnchor="middle"
+                    fill={darkMode ? '#fcd34d' : '#d97706'}
+                    fontSize="9"
+                    fontWeight="900"
+                  >
+                    ▲
+                  </text>
+                )}
+
+                {/* Nhãn IPA / Âm tiết bên dưới */}
+                <text
+                  x={pt.x}
+                  y="62"
+                  textAnchor="middle"
+                  fill={
+                    pt.stressed
+                      ? darkMode
+                        ? '#fbbf24'
+                        : '#b45309'
+                      : darkMode
+                      ? '#94a3b8'
+                      : '#475569'
+                  }
+                  fontSize={count > 3 ? '8.5' : '9.5'}
+                  fontWeight={pt.stressed ? '900' : '700'}
+                >
+                  {pt.ipaPart.length > 7 ? `${pt.ipaPart.slice(0, 6)}…` : pt.ipaPart}
+                </text>
+              </g>
+            ))}
+          </svg>
+        </div>
+
+        {/* Cột phải (4/12): Sơ đồ Khẩu hình miệng SVG tự động */}
+        <div
+          className={`col-span-4 flex flex-col items-center justify-center rounded-lg p-1 border ${
+            darkMode
+              ? 'bg-slate-800/90 border-slate-700'
+              : 'bg-white/90 border-slate-200/80'
+          }`}
+        >
+          <svg
+            viewBox="0 0 80 54"
+            className={`${compact ? 'w-12 h-9' : 'w-14 h-10'} overflow-visible`}
+          >
+            {mouthPosture === 'rounded' && (
+              <g>
+                {/* Khẩu hình Tròn môi (→ ○ ←) */}
+                <ellipse
+                  cx="40"
+                  cy="27"
+                  rx="14"
+                  ry="14"
+                  fill="#fb7185"
+                  fillOpacity="0.2"
+                  stroke="#e11d48"
+                  strokeWidth="3"
+                />
+                <ellipse
+                  cx="40"
+                  cy="27"
+                  rx="7.5"
+                  ry="7.5"
+                  fill={darkMode ? '#0f172a' : '#1e293b'}
+                />
+                {/* Mũi tên chụm vào */}
+                <path
+                  d="M 10 27 L 21 27 M 17 23 L 21 27 L 17 31"
+                  stroke="#f59e0b"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 70 27 L 59 27 M 63 23 L 59 27 L 63 31"
+                  stroke="#f59e0b"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+              </g>
+            )}
+
+            {mouthPosture === 'spread' && (
+              <g>
+                {/* Khẩu hình Căng ngang khóe miệng (← ▬▬ →) */}
+                <path
+                  d="M 16 26 Q 40 16 64 26 Q 40 38 16 26 Z"
+                  fill="#fb7185"
+                  fillOpacity="0.22"
+                  stroke="#e11d48"
+                  strokeWidth="2.75"
+                />
+                <path
+                  d="M 22 26 Q 40 23 58 26 Q 40 32 22 26 Z"
+                  fill="#ffffff"
+                  stroke="#cbd5e1"
+                  strokeWidth="1"
+                />
+                {/* Mũi tên kéo sang 2 bên */}
+                <path
+                  d="M 15 26 L 6 26 M 10 22 L 6 26 L 10 30"
+                  stroke="#10b981"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 65 26 L 74 26 M 70 22 L 74 26 L 70 30"
+                  stroke="#10b981"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+              </g>
+            )}
+
+            {mouthPosture === 'open' && (
+              <g>
+                {/* Khẩu hình Hạ hàm mở rộng (↓ ◯ ↑) */}
+                <ellipse
+                  cx="40"
+                  cy="26"
+                  rx="18"
+                  ry="14"
+                  fill="#fb7185"
+                  fillOpacity="0.22"
+                  stroke="#e11d48"
+                  strokeWidth="2.75"
+                />
+                <ellipse
+                  cx="40"
+                  cy="26"
+                  rx="12"
+                  ry="9.5"
+                  fill={darkMode ? '#0f172a' : '#1e293b'}
+                />
+                {/* Răng trên */}
+                <path
+                  d="M 31 18 Q 40 20 49 18"
+                  stroke="#ffffff"
+                  strokeWidth="2.5"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+                {/* Mũi tên hạ hàm xuống */}
+                <path
+                  d="M 40 42 L 40 51 M 36 47 L 40 51 L 44 47"
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+              </g>
+            )}
+
+            {mouthPosture === 'tongue' && (
+              <g>
+                {/* Khẩu hình Đầu lưỡi nâng chạm hàm trên (/l/, /t/, /d/, /n/) */}
+                <path
+                  d="M 16 28 Q 40 14 64 28 Q 40 42 16 28 Z"
+                  fill="#fb7185"
+                  fillOpacity="0.2"
+                  stroke="#e11d48"
+                  strokeWidth="2.5"
+                />
+                {/* Lưỡi cong lên chạm vòm họng trên */}
+                <path
+                  d="M 26 35 Q 40 34 45 20 Q 50 32 54 35"
+                  fill="#f43f5e"
+                  fillOpacity="0.65"
+                  stroke="#be123c"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                {/* Điểm chạm hàm trên */}
+                <circle cx="45" cy="19" r="3" fill="#f59e0b" />
+              </g>
+            )}
+          </svg>
+          <span
+            className={`text-[9px] font-extrabold text-center leading-tight line-clamp-1 ${
+              darkMode ? 'text-slate-300' : 'text-slate-700'
+            }`}
+          >
+            {mouthLabelVi}
+          </span>
+        </div>
+      </div>
+
+      {/* Dòng nhắc phát âm dưới đáy hình vẽ */}
+      <div
+        className={`mt-1.5 pt-1 border-t flex items-center justify-between gap-1 text-[10px] ${
+          darkMode ? 'border-slate-800 text-blue-300' : 'border-slate-200/70 text-blue-700'
+        }`}
+      >
+        <span className="font-bold truncate">{endingCueVi}</span>
+        {onListen && (
+          <span className="font-extrabold shrink-0 text-amber-600 dark:text-amber-400">
+            🔊 Nghe
+          </span>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props> = ({
@@ -452,9 +1124,8 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
             const tipText =
               item.tip ||
               (lang === 'vi' ? item.tipVi : lang === 'en' ? item.tipEn : item.tipKo);
-            const syllableGuide = getWordSyllableGuide(item);
+            const analysis = analyzeWordPronunciation(item);
             const resolvedImg = item.imageUrl ? resolveMediaUrl(item.imageUrl) : '';
-            const syllableParts = syllableGuide.split('·').map((s) => s.trim()).filter(Boolean);
 
             return (
               <div
@@ -469,7 +1140,7 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
               >
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-center">
                   {/* Cột trái: Từ vựng + IPA + Cách đọc tách âm + Khẩu hình */}
-                  <div className="md:col-span-8 space-y-2">
+                  <div className="md:col-span-7 space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="w-6 h-6 rounded-lg bg-blue-600 text-white text-xs font-black inline-flex items-center justify-center shrink-0">
@@ -510,7 +1181,7 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
                       </button>
                     </div>
 
-                    {/* Cách đọc phiên âm tách âm tiết dễ đọc */}
+                    {/* Cách đọc phiên âm tách âm tiết tự động từ IPA & Từ vựng */}
                     <div
                       className={`p-2.5 rounded-xl border flex flex-wrap items-center gap-2 ${
                         darkMode
@@ -523,27 +1194,24 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
                         {qt.howToReadLabel}:
                       </span>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {syllableParts.map((part, pIdx) => {
-                          const isStressed = part === part.toUpperCase() && part.length > 1;
-                          return (
-                            <React.Fragment key={pIdx}>
-                              {pIdx > 0 && (
-                                <span className="text-slate-400 font-bold">·</span>
-                              )}
-                              <span
-                                className={`px-2 py-0.5 rounded-lg text-xs font-black ${
-                                  isStressed
-                                    ? 'bg-amber-500 text-white shadow-sm'
-                                    : darkMode
-                                    ? 'bg-slate-800 text-slate-200 border border-slate-700'
-                                    : 'bg-white text-slate-800 border border-slate-200'
-                                }`}
-                              >
-                                {part}
-                              </span>
-                            </React.Fragment>
-                          );
-                        })}
+                        {analysis.syllables.map((syl, pIdx) => (
+                          <React.Fragment key={pIdx}>
+                            {pIdx > 0 && (
+                              <span className="text-slate-400 font-bold">·</span>
+                            )}
+                            <span
+                              className={`px-2 py-0.5 rounded-lg text-xs font-black ${
+                                syl.stressed
+                                  ? 'bg-amber-500 text-white shadow-sm'
+                                  : darkMode
+                                  ? 'bg-slate-800 text-slate-200 border border-slate-700'
+                                  : 'bg-white text-slate-800 border border-slate-200'
+                              }`}
+                            >
+                              {syl.label}
+                            </span>
+                          </React.Fragment>
+                        ))}
                       </div>
                     </div>
 
@@ -556,12 +1224,12 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
                       <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
                         💡 {qt.mouthTipLabel}:{' '}
                       </span>
-                      {tipText}
+                      {tipText || `${analysis.mouthLabelVi}. ${analysis.endingCueVi}`}
                     </p>
                   </div>
 
-                  {/* Cột phải: Ảnh hoặc Ảnh GIF minh họa cách đọc / khẩu hình */}
-                  <div className="md:col-span-4">
+                  {/* Cột phải: Hình vẽ tự động gen từ 4 trường (hoặc Ảnh tùy chọn nếu có) */}
+                  <div className="md:col-span-5">
                     {resolvedImg ? (
                       <div
                         onClick={() => handleListenWord(item)}
@@ -579,49 +1247,12 @@ export const PronunciationChallengeQ11: React.FC<PronunciationChallengeQ11Props>
                         </span>
                       </div>
                     ) : (
-                      /* Minh họa GIF-style Sóng âm & Nhấn Trọng Âm trực quan khi chưa có ảnh riêng */
-                      <div
-                        onClick={() => handleListenWord(item)}
-                        className={`rounded-xl border p-3 cursor-pointer transition flex flex-col items-center justify-center text-center h-32 sm:h-36 ${
-                          isPlaying
-                            ? 'bg-blue-600/15 border-blue-500'
-                            : darkMode
-                            ? 'bg-slate-900/90 border-slate-700 hover:border-blue-500/50'
-                            : 'bg-gradient-to-br from-slate-50 to-blue-50/60 border-slate-200 hover:border-blue-300'
-                        }`}
-                      >
-                        {/* Biểu đồ động minh họa nhịp trọng âm của từ */}
-                        <div className="flex items-end justify-center gap-2 h-12 mb-2">
-                          {syllableParts.map((part, pIdx) => {
-                            const isStressed = part === part.toUpperCase() && part.length > 1;
-                            return (
-                              <div key={pIdx} className="flex flex-col items-center gap-1">
-                                <div
-                                  className={`w-7 sm:w-8 rounded-t-lg transition-all duration-300 flex items-center justify-center text-[10px] font-black text-white ${
-                                    isStressed
-                                      ? `h-10 bg-gradient-to-t from-amber-500 to-rose-500 shadow-sm ${
-                                          isPlaying ? 'animate-bounce' : 'animate-pulse'
-                                        }`
-                                      : `h-6 bg-blue-500/75 ${isPlaying ? 'animate-pulse' : ''}`
-                                  }`}
-                                >
-                                  {isStressed ? '▲' : '•'}
-                                </div>
-                                <span className="text-[10px] font-extrabold truncate max-w-[60px]">
-                                  {part}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <span
-                          className={`text-[10px] font-bold ${
-                            darkMode ? 'text-blue-300' : 'text-blue-700'
-                          }`}
-                        >
-                          👄 Nhấn mạnh ở âm màu cam • Bấm để nghe
-                        </span>
-                      </div>
+                      <AutoPronunciationGraphic
+                        item={item}
+                        isPlaying={isPlaying}
+                        darkMode={darkMode}
+                        onListen={() => handleListenWord(item)}
+                      />
                     )}
                   </div>
                 </div>
