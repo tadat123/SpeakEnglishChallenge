@@ -2537,9 +2537,9 @@ export const App: React.FC = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-0.5 rounded-full text-xs font-extrabold">
                           {isTodayLocked ? (
-                            <>🔒 {L('Bài học đang khóa', 'Lesson is locked', '강의 잠김')} • {todayChallenge?.title || 'Day 1'} ({todayChallenge?.dateLabel || '04/11/2026'})</>
+                            <>🔒 {L('Bài học đang khóa', 'Lesson is locked', '강의 잠김')} • {todayChallenge?.title || 'Day 1'} ({todayChallenge?.dateLabel || new Date().toLocaleDateString('vi-VN')})</>
                           ) : (
-                            <>🔥 {t.todayChallengeBadge} • {todayChallenge?.title || 'Day 1'} ({todayChallenge?.dateLabel || '04/11/2026'})</>
+                            <>🔥 {t.todayChallengeBadge} • {todayChallenge?.title || 'Day 1'} ({todayChallenge?.dateLabel || new Date().toLocaleDateString('vi-VN')})</>
                           )}
                         </div>
                         <div className="inline-flex items-center gap-1 bg-amber-400/90 text-slate-950 px-2.5 py-0.5 rounded-full text-[11px] font-black">
@@ -2553,7 +2553,9 @@ export const App: React.FC = () => {
                           🎉 {t.speakRightEventsBtn}
                         </button>
                       </div>
-                      <h1 className="text-xl sm:text-2xl font-black">{t.todayTitle}</h1>
+                      <h1 className="text-xl sm:text-2xl font-black">
+                        {t.todayTitle.replace('10', String(todayChallenge?.questionCount || 10))}
+                      </h1>
                     </div>
 
                     <div className="shrink-0">
@@ -2821,7 +2823,7 @@ export const App: React.FC = () => {
                       </div>
                       <span className="text-xs font-black text-blue-600">
                         {myTotalScore.toLocaleString()}
-                        {t.pointsSuffix} • {completedCount}/30 {t.daysUnit}
+                        {t.pointsSuffix} • {completedCount}/21 {t.daysUnit}
                       </span>
                     </div>
                   </div>
@@ -2833,7 +2835,9 @@ export const App: React.FC = () => {
                     ? popupEvents.filter((e) => e.isVisible !== false)
                     : [];
                   const displayCount = visibleActivities.length;
-                  const displayTitle = t.activitiesTitle.replace(/^3/, String(displayCount));
+                  const cleanActTitle = t.activitiesTitle.replace(/^\d+\s*/, '');
+                  const displayTitle =
+                    displayCount > 0 ? `${displayCount} ${cleanActTitle}` : cleanActTitle;
                   const chipIcons = [Users, FileText, Trophy, Target, Gift, InfinityIcon];
 
                   return (
@@ -3426,7 +3430,7 @@ export const App: React.FC = () => {
                   </h3>
                   <div className="grid grid-cols-5 gap-2 text-center">
                     {[1, 5, 10, 15, 21].map((m) => {
-                      const unlocked = completedCount >= m || m === 1;
+                      const unlocked = completedCount >= m;
                       return (
                         <div
                           key={m}
@@ -3571,9 +3575,9 @@ export const App: React.FC = () => {
                       </h3>
                       <p className={`text-[11px] ${textSecondary}`}>
                         {L(
-                          'Cho phép ứng dụng gửi thông báo bài mới (8h sáng) và Top 1 (19h tối) ra ngoài màn hình khóa ngay cả khi đã tắt app.',
-                          'Receive lesson alerts at 8 AM and Top 1 at 7 PM on your lock screen even when app is closed.',
-                          '앱을 종료해도 오전 8시 새 강의 및 오후 7시 1위 알림을 잠금화면에서 바로 수신합니다.'
+                          'Cho phép ứng dụng gửi thông báo khi có thử thách mới, cập nhật Top 1 Bảng xếp hạng và nhắc nhở học tập ra ngoài màn hình khóa ngay cả khi đã tắt app.',
+                          'Receive alerts for new daily challenges, Top 1 leaderboard updates, and study reminders on your lock screen even when the app is closed.',
+                          '앱을 종료해도 새 일일 챌린지, 랭킹 1위 소식 및 학습 알림을 잠금화면에서 바로 수신합니다.'
                         )}
                       </p>
                     </div>

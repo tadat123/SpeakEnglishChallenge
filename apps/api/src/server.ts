@@ -1815,9 +1815,9 @@ app.get('/api/notifications', async (request: any, reply: any) => {
         campaignId: 'init-02',
         type: 'NEW_DAY_UNLOCKED' as const,
         userId: null,
-        title: '🔥 TOP 1 đã lộ diện – Bài thi mới đã mở!',
-        body: '🏆 Bài thi mới mỗi ngày mở lúc 07:00 sáng, bản tin Khen ngợi lúc 19:00 và nhắc nhở lúc 21:00! Nhanh tay vào chiến thôi, chậm một giây là đối thủ vượt mặt mất rồi! 😆⚡',
-        targetUrl: '#challenges',
+        title: '👑 Bản tin Bảng Xếp Hạng & Mở bài thi mới',
+        body: '⏰ Mỗi ngày là một thử thách mới! Hệ thống sẽ tự động đóng thử thách cũ và mở thử thách tiếp theo lúc 00:00. Đừng quên quay lại vào ngày hôm sau để xem đáp án và cập nhật thứ hạng của mình bạn nhé! 🚀',
+        targetUrl: '#leaderboard',
         deliveredAt: new Date(Date.now() - 3600000).toISOString(),
       },
     ];

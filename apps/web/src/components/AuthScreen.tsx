@@ -627,7 +627,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             />
             <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-extrabold mb-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              30 DAYS PRONUNCIATION
+              21 DAYS PRONUNCIATION
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">SPEAK RIGHT 2026</h1>
           </div>

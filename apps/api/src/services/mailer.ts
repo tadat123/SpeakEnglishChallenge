@@ -80,7 +80,7 @@ export async function sendPasswordResetEmail(payload: ResetEmailPayload): Promis
       <!-- Banner Đầu Thư - Gradient Xanh Samsung Hệ Thống -->
       <div style="background: linear-gradient(135deg, #0d2358 0%, #1d4ed8 50%, #0284c7 100%); padding: 32px 24px 28px; border-radius: 20px 20px 0 0; text-align: center; color: #ffffff; box-shadow: 0 4px 14px rgba(29, 78, 216, 0.2);">
         <div style="display: inline-block; background: rgba(255, 255, 255, 0.16); padding: 5px 14px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.25);">
-          ✨ 30 DAYS PRONUNCIATION CHALLENGE
+          ✨ 21 DAYS PRONUNCIATION CHALLENGE
         </div>
         <h1 style="margin: 0; font-size: 26px; font-weight: 900; letter-spacing: 0.5px; color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.25);">
           SPEAK RIGHT 2026

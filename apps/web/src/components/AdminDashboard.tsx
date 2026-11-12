@@ -3502,7 +3502,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* 3 Khung giờ Push trong ngày */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {/* Khung 1: 07:00 Sáng */}
+            {/* Khung 1: Buổi sáng */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
@@ -3531,12 +3531,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Send className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.morningNewDay
-                  ? `Gửi lại tin 07:00`
-                  : `Gửi ngay tin 07:00`}
+                  ? `Gửi lại tin ${String(morningHour).padStart(2, '0')}:${String(morningMinute).padStart(2, '0')}`
+                  : `Gửi ngay tin ${String(morningHour).padStart(2, '0')}:${String(morningMinute).padStart(2, '0')}`}
               </button>
             </div>
 
-            {/* Khung 2: 19:00 Khen ngợi */}
+            {/* Khung 2: Khen ngợi buổi tối */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
@@ -3565,12 +3565,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <Trophy className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.evening19hTop1
-                  ? 'Gửi lại Khen ngợi 19:00'
-                  : 'Gửi Khen ngợi 19:00'}
+                  ? `Gửi lại Khen ngợi ${String(eveningTop1Hour).padStart(2, '0')}:${String(eveningTop1Minute).padStart(2, '0')}`
+                  : `Gửi Khen ngợi ${String(eveningTop1Hour).padStart(2, '0')}:${String(eveningTop1Minute).padStart(2, '0')}`}
               </button>
             </div>
 
-            {/* Khung 3: 21:00 Cảnh báo người chưa làm bài */}
+            {/* Khung 3: Cảnh báo người chưa làm bài */}
             <div className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 ${subCardBg}`}>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-1">
@@ -3599,8 +3599,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <BellRing className="w-3.5 h-3.5" />
                 {pushStatus.queueStatus?.sentToday?.night23hUnstudied
-                  ? 'Gửi lại Cảnh báo 21:00'
-                  : 'Gửi Cảnh báo 21:00'}
+                  ? `Gửi lại Cảnh báo ${String(nightUnstudiedHour).padStart(2, '0')}:${String(nightUnstudiedMinute).padStart(2, '0')}`
+                  : `Gửi Cảnh báo ${String(nightUnstudiedHour).padStart(2, '0')}:${String(nightUnstudiedMinute).padStart(2, '0')}`}
               </button>
             </div>
           </div>
@@ -3635,7 +3635,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  07:00 Sáng (TOP 1 & Bài mới)
+                  {String(morningHour).padStart(2, '0')}:{String(morningMinute).padStart(2, '0')} Sáng (TOP 1 & Bài mới)
                 </label>
                 <input
                   type="time"
@@ -3672,7 +3672,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  19:00 Tối (Khen ngợi)
+                  {String(eveningTop1Hour).padStart(2, '0')}:{String(eveningTop1Minute).padStart(2, '0')} Tối (Khen ngợi)
                 </label>
                 <input
                   type="time"
@@ -3709,7 +3709,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div>
                 <label className={`block text-[11px] font-bold mb-1 ${textSecondary}`}>
-                  21:00 Tối (Cảnh báo chưa làm)
+                  {String(nightUnstudiedHour).padStart(2, '0')}:{String(nightUnstudiedMinute).padStart(2, '0')} Tối (Cảnh báo chưa làm)
                 </label>
                 <input
                   type="time"

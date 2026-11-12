@@ -33,7 +33,6 @@ export const TRANSLATIONS = {
     // Home Dashboard
     todayChallengeBadge: 'BÀI THỬ THÁCH HÔM NAY',
     todayTitle: '10 Câu Phát Âm & Từ Vựng Công Sở',
-    todayVocab: 'Từ vựng hôm nay: Approval, Equipment, Yield rate, DOE, Tool, Measurement...',
     startTodayBtn: 'Vào làm ngay',
     retryTodayBtn: 'Làm lại',
     completedDaysLabel: 'Đã hoàn thành',
@@ -164,7 +163,6 @@ export const TRANSLATIONS = {
     // Home Dashboard
     todayChallengeBadge: "TODAY'S CHALLENGE",
     todayTitle: '10 Workplace Pronunciation & Vocab Questions',
-    todayVocab: "Today's words: Approval, Equipment, Yield rate, DOE, Tool, Measurement...",
     startTodayBtn: 'Start Now',
     retryTodayBtn: 'Practice Again',
     completedDaysLabel: 'Completed',
@@ -217,7 +215,7 @@ export const TRANSLATIONS = {
     wrongShort: '■ Wrong',
 
     // Exciting Activities
-    activitiesTitle: '3 EXCITING ACTIVITIES',
+    activitiesTitle: 'EXCITING ACTIVITIES',
     activitiesHeading: 'Exciting Activities with Speak Right 2026',
     activitiesSub: 'Join the challenges, improve your English and make your voice heard!',
     bellTitle: 'RING THE GOLDEN BELL',
@@ -295,7 +293,6 @@ export const TRANSLATIONS = {
     // Home Dashboard
     todayChallengeBadge: '오늘의 챌린지',
     todayTitle: '비즈니스 영어 발음 & 어휘 10문제',
-    todayVocab: '오늘의 단어: Approval, Equipment, Yield rate, DOE, Tool, Measurement...',
     startTodayBtn: '지금 시작하기',
     retryTodayBtn: '다시 풀기',
     completedDaysLabel: '완료일',
@@ -348,7 +345,7 @@ export const TRANSLATIONS = {
     wrongShort: '■ 오답',
 
     // Exciting Activities
-    activitiesTitle: '3가지 신나는 액티비티',
+    activitiesTitle: '신나는 액티비티',
     activitiesHeading: 'Speak Right 2026 신나는 액티비티 시리즈',
     activitiesSub: '챌린지에 참여하고, 영어 실력을 높이고, 당신의 목소리를 들려주세요!',
     bellTitle: 'RING THE GOLDEN BELL',

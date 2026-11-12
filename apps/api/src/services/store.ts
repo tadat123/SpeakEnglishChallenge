@@ -351,175 +351,6 @@ export function computeCompositeLeaderboardScore(totalScore: number, totalTimeMs
   return totalScore * 10_000_000 + (T_MAX - totalSeconds);
 }
 
-const defaultUserPassHash = bcrypt.hashSync('User@2026', 10);
-const DEFAULT_EMPLOYEES: UserRecord[] = [
-  {
-    id: 'u-1',
-    employeeId: '20260001',
-    fullName: 'Nguyễn Minh Anh',
-    email: 'minhanh.dev@gmail.com',
-    phone: '0912345001',
-    department: 'R&D Center',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=MinhAnh',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 100,
-    totalTimeMs: 45000,
-    completedDays: 1,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-2',
-    employeeId: '20260002',
-    fullName: 'Trần Quốc Huy',
-    email: 'quochuy.eng@gmail.com',
-    phone: '0912345002',
-    department: 'Production',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=QuocHuy',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 90,
-    totalTimeMs: 52000,
-    completedDays: 1,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-3',
-    employeeId: '20260003',
-    fullName: 'Lê Thu Hương',
-    email: 'thuhuong.qa@gmail.com',
-    phone: '0912345003',
-    department: 'Quality Assurance (QA)',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ThuHuong',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 90,
-    totalTimeMs: 58000,
-    completedDays: 1,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-4',
-    employeeId: '20260004',
-    fullName: 'Phạm Hoàng Nam',
-    email: 'hoangnam.it@gmail.com',
-    phone: '0912345004',
-    department: 'IT & System',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=HoangNam',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 80,
-    totalTimeMs: 65000,
-    completedDays: 1,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-5',
-    employeeId: '20260005',
-    fullName: 'Đỗ Mai Linh',
-    email: 'mailinh.hr@gmail.com',
-    phone: '0912345005',
-    department: 'HR & Training',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=MaiLinh',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 80,
-    totalTimeMs: 70000,
-    completedDays: 1,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-thao',
-    employeeId: '20261234',
-    fullName: 'Nguyễn Thị Thảo',
-    email: 'thaonguyen.work@gmail.com',
-    phone: '0987654321',
-    department: 'Quality Assurance (QA)',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ThaoNguyen',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 70,
-    totalTimeMs: 80000,
-    completedDays: 1,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-6',
-    employeeId: '20260006',
-    fullName: 'Vũ Đức Thắng',
-    email: 'ducthang.eng@gmail.com',
-    phone: '0912345006',
-    department: 'Quality Assurance (QA)',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=DucThang',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 0,
-    totalTimeMs: 0,
-    completedDays: 0,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-7',
-    employeeId: '20260007',
-    fullName: 'Hoàng Bích Ngọc',
-    email: 'bichngoc.fin@gmail.com',
-    phone: '0912345007',
-    department: 'Logistics & Supply',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BichNgoc',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 0,
-    totalTimeMs: 0,
-    completedDays: 0,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-8',
-    employeeId: '20260008',
-    fullName: 'Bùi Tiến Dũng',
-    email: 'tiendung.pe@gmail.com',
-    phone: '0912345008',
-    department: 'Production',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=TienDung',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 0,
-    totalTimeMs: 0,
-    completedDays: 0,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-9',
-    employeeId: '20260009',
-    fullName: 'Đặng Khánh Vy',
-    email: 'khanhvy.mkt@gmail.com',
-    phone: '0912345009',
-    department: 'R&D Center',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=KhanhVy',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 0,
-    totalTimeMs: 0,
-    completedDays: 0,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-  {
-    id: 'u-10',
-    employeeId: '20260010',
-    fullName: 'Ngô Quang Hải',
-    email: 'quanghai.qa@gmail.com',
-    phone: '0912345010',
-    department: 'Quality Assurance (QA)',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=QuangHai',
-    passwordHash: defaultUserPassHash,
-    role: 'USER',
-    totalScore: 0,
-    totalTimeMs: 0,
-    completedDays: 0,
-    createdAt: '2026-10-29T14:40:54.932Z',
-  },
-];
-
 class DataStore {
   private data: DatabaseShape;
   // key = `${userId}:${dayNumber}` -> ActiveQuizSession
@@ -682,28 +513,12 @@ class DataStore {
   }
 
   private ensurePushState(parsed: DatabaseShape): DatabaseShape {
-    const defaultSubs: PwaPushSubscriptionRecord[] = parsed.users
-      .filter((u) => u.role === 'USER')
-      .map((u, idx) => ({
-        id: `pwa-seed-${u.id}`,
-        endpoint: `https://pwa-device.speakright.local/endpoint/${u.employeeId}`,
-        keys: {
-          p256dh: `seed_p256dh_${u.employeeId}`,
-          auth: `seed_auth_${u.employeeId}`,
-        },
-        userId: u.id,
-        employeeId: u.employeeId,
-        fullName: u.fullName,
-        isPwaInstalled: true,
-        isSimulated: true,
-        userAgent: idx % 2 === 0 ? 'iPhone iOS 17.5 Standalone PWA' : 'Android 14 Chrome Standalone PWA',
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        updatedAt: new Date().toISOString(),
-        lastNotifiedAt: null,
-      }));
-
-    if (!Array.isArray(parsed.pwaSubscriptions) || parsed.pwaSubscriptions.length === 0) {
-      parsed.pwaSubscriptions = defaultSubs;
+    if (!Array.isArray(parsed.pwaSubscriptions)) {
+      parsed.pwaSubscriptions = [];
+    } else {
+      parsed.pwaSubscriptions = parsed.pwaSubscriptions.filter(
+        (s) => !s.isSimulated && !String(s.id).startsWith('pwa-seed-')
+      );
     }
 
     if (!Array.isArray(parsed.pushCampaigns)) {
@@ -803,13 +618,14 @@ class DataStore {
             }
           }
         }
-        // Đảm bảo luôn có tài khoản Admin GEN: 88888888 với mật khẩu Admin@2026 và role ADMIN
+        // Đảm bảo luôn có tài khoản Admin GEN: 88888888 và giữ nguyên mật khẩu mới nếu Admin đã đổi
         if (!Array.isArray(parsed.users)) parsed.users = [];
         if (!Array.isArray(parsed.attempts)) parsed.attempts = [];
 
+        const defaultAdminPass = process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026';
         const adminUser = parsed.users.find((u) => u.employeeId === '88888888');
-        const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
         if (!adminUser) {
+          const adminPassHash = bcrypt.hashSync(defaultAdminPass, 10);
           parsed.users.unshift({
             id: 'u-admin',
             employeeId: '88888888',
@@ -827,8 +643,8 @@ class DataStore {
           });
         } else {
           adminUser.role = 'ADMIN';
-          if (!bcrypt.compareSync('Admin@2026', adminUser.passwordHash)) {
-            adminUser.passwordHash = adminPassHash;
+          if (!adminUser.passwordHash) {
+            adminUser.passwordHash = bcrypt.hashSync(defaultAdminPass, 10);
           }
         }
         const hydrated = this.ensurePushState(parsed);
@@ -867,7 +683,7 @@ class DataStore {
       }
     }
 
-    const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
+    const adminPassHash = bcrypt.hashSync(process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026', 10);
 
     const initialUsers: UserRecord[] = [
       {
@@ -930,15 +746,18 @@ class DataStore {
 
   public async resetToFreshAdminOnly(): Promise<{ success: boolean; message: string }> {
     this.reloadIfChanged();
-    const adminPassHash = bcrypt.hashSync('Admin@2026', 10);
+    const existingAdmin = this.data.users.find((u) => u.employeeId === '88888888');
+    const adminPassHash =
+      existingAdmin?.passwordHash ||
+      bcrypt.hashSync(process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026', 10);
     const adminUser: UserRecord = {
-      id: 'u-admin',
+      id: existingAdmin?.id || 'u-admin',
       employeeId: '88888888',
-      fullName: 'Ban Tổ Chức (Admin)',
-      email: 'admin.speakright@gmail.com',
-      phone: '0901234567',
-      department: 'HR & Training',
-      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
+      fullName: existingAdmin?.fullName || 'Ban Tổ Chức (Admin)',
+      email: existingAdmin?.email || 'admin.speakright@gmail.com',
+      phone: existingAdmin?.phone || '0901234567',
+      department: existingAdmin?.department || 'HR & Training',
+      avatarUrl: existingAdmin?.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
       passwordHash: adminPassHash,
       role: 'ADMIN',
       totalScore: 0,
@@ -947,7 +766,7 @@ class DataStore {
       resetOtpCode: null,
       resetToken: null,
       resetExpiresAt: null,
-      createdAt: new Date().toISOString(),
+      createdAt: existingAdmin?.createdAt || new Date().toISOString(),
     };
 
     this.data.users = [adminUser];

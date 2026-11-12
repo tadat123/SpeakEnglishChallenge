@@ -29,12 +29,12 @@ const PWA_I18N = {
   vi: {
     // 1 Dòng thông báo cô đọng khi chưa thêm vào MH chính
     oneLineAddTitle: 'Thêm vào Màn hình chính để nhận thông báo bài mới & Top 1 ngoài màn hình khóa!',
-    oneLineAddSub: 'Nhận bài mới lúc 8h sáng & Top 1 lúc 19h tối ngay cả khi tắt app (Không cần cài APK)',
+    oneLineAddSub: 'Nhận thông báo bài thi mới & Bảng xếp hạng ngay cả khi tắt app (Không cần cài APK)',
     btnAddScreen: 'Thêm vào MH chính',
     btnEnablePush: 'Bật thông báo',
 
     // 1 Dòng thông báo khi đã thêm vào màn hình chính nhưng chưa cấp quyền thông báo
-    standaloneTitle: 'Bật thông báo để nhận bài học mới (8h) & Top 1 (19h) ngoài màn hình khóa!',
+    standaloneTitle: 'Bật thông báo để nhận thông báo bài học mới & Bảng xếp hạng ngoài màn hình khóa!',
     standaloneSub: 'Thông báo sẽ hiện trực tiếp trên thanh trạng thái / màn hình khóa điện thoại của bạn',
     btnEnablePushNow: 'Bật thông báo ngay',
 
@@ -59,11 +59,11 @@ const PWA_I18N = {
   },
   en: {
     oneLineAddTitle: 'Add to Home Screen to get lesson alerts & Top 1 on lock screen!',
-    oneLineAddSub: 'Get alerts at 8 AM & 7 PM even when app is closed (No APK needed)',
+    oneLineAddSub: 'Get alerts for new lessons & rankings even when app is closed (No APK needed)',
     btnAddScreen: 'Add to Home',
     btnEnablePush: 'Enable Alerts',
 
-    standaloneTitle: 'Enable notifications for new lessons (8 AM) & Top 1 (7 PM) on lock screen!',
+    standaloneTitle: 'Enable notifications for new lessons & Top 1 rankings on lock screen!',
     standaloneSub: 'Alerts will appear directly in your device notification center',
     btnEnablePushNow: 'Enable Now',
 
@@ -84,11 +84,11 @@ const PWA_I18N = {
   },
   ko: {
     oneLineAddTitle: '홈 화면에 추가하고 잠금화면에서 새 강의 및 1위 알림을 받으세요!',
-    oneLineAddSub: '앱을 닫아도 오전 8시 및 오후 7시 알림 수신 (APK 설치 불필요)',
+    oneLineAddSub: '앱을 닫아도 새 강의 및 랭킹 알림 수신 (APK 설치 불필요)',
     btnAddScreen: '홈 화면에 추가',
     btnEnablePush: '알림 켜기',
 
-    standaloneTitle: '새 강의(오전 8시) 및 1위(오후 7시) 알림을 잠금화면에서 받으세요!',
+    standaloneTitle: '새 강의 및 1위 랭킹 알림을 잠금화면에서 받으세요!',
     standaloneSub: '기기 상태 표시줄 및 잠금화면에 바로 알림이 표시됩니다',
     btnEnablePushNow: '알림 켜기',
 

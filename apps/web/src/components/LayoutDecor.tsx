@@ -46,7 +46,7 @@ const FOOTER_TEXT = {
   vi: {
     desc: 'Nền tảng luyện phát âm và giao tiếp tiếng Anh hằng ngày. Theo dõi tiến độ trực quan và tự tin tỏa sáng mỗi ngày.',
     col1Title: 'Thử thách',
-    col1Links: ['Bài thi hôm nay', 'Bản đồ 30 ngày', 'Luyện phát âm IPA', 'Bảng xếp hạng'],
+    col1Links: ['Bài thi hôm nay', 'Bản đồ 21 ngày', 'Luyện phát âm IPA', 'Bảng xếp hạng'],
     col2Title: 'Tài nguyên',
     col2Links: ['Hướng dẫn làm bài', 'Thống kê kết quả', 'Huy hiệu cột mốc'],
     col3Title: 'Chương trình',
@@ -55,16 +55,16 @@ const FOOTER_TEXT = {
   en: {
     desc: 'Real-time workplace English pronunciation challenge. See what to improve and speak with confidence every day.',
     col1Title: 'Product',
-    col1Links: ["Today's Challenge", '30-Day Map', 'IPA Pronunciation', 'Leaderboard'],
+    col1Links: ["Today's Challenge", '21-Day Map', 'IPA Pronunciation', 'Leaderboard'],
     col2Title: 'Resources',
     col2Links: ['Documentation', 'Accuracy Stats', 'Milestone Badges'],
     col3Title: 'Program',
     col3Links: ['About', 'Top 50 Players', 'Get Expert Help', 'Contact'],
   },
   ko: {
-    desc: '임직원을 위한 30일 비즈니스 영어 발음 챌린지 플랫폼. 매일 발음을 연습하고 실시간 랭킹을 확인하세요.',
+    desc: '임직원을 위한 21일 비즈니스 영어 발음 챌린지 플랫폼. 매일 발음을 연습하고 실시간 랭킹을 확인하세요.',
     col1Title: '챌린지',
-    col1Links: ['오늘의 문제', '30일 전체 맵', 'IPA 발음 연습', '실시간 랭킹'],
+    col1Links: ['오늘의 문제', '21일 전체 맵', 'IPA 발음 연습', '실시간 랭킹'],
     col2Title: '리소스',
     col2Links: ['이용 가이드', '학습 통계', '달성 배지'],
     col3Title: '프로그램',
