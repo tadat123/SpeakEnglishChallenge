@@ -23,6 +23,8 @@ interface InstallPwaModalProps {
   user?: any;
   token?: string | null;
   onToast?: (msg: string, isError?: boolean) => void;
+  forceOpenGuide?: boolean;
+  onCloseGuide?: () => void;
 }
 
 const PWA_I18N = {
@@ -106,14 +108,14 @@ const PWA_I18N = {
   },
 };
 
-const DISMISS_KEY = 'sr_dismiss_add_screen_banner_v1';
-
 export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
   lang,
   darkMode,
   user,
   token,
   onToast,
+  forceOpenGuide,
+  onCloseGuide,
 }) => {
   const [showGuide, setShowGuide] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -124,17 +126,46 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
   const pt = PWA_I18N[lang];
   const baseUrl = import.meta.env.BASE_URL || '/';
 
+  const userKey = user?.id || user?.employeeId || 'guest';
+  const DISMISS_KEY = `sr_dismiss_add_screen_banner_${userKey}`;
+  const FIRST_LOGIN_GUIDE_KEY = `sr_pwa_guide_seen_${userKey}`;
+
   useEffect(() => {
-    setIsStandalone(isRunningStandalonePwa());
+    const standalone = isRunningStandalonePwa();
+    setIsStandalone(standalone);
     setPermission(getNotificationPermissionState());
-    if (sessionStorage.getItem(DISMISS_KEY) === 'true') {
+
+    if (!token || !user?.id) return;
+
+    if (localStorage.getItem(DISMISS_KEY) === 'true') {
       setDismissed(true);
     }
-  }, []);
+
+    // Tự động bật modal hướng dẫn 3 bước ngay lần đầu người dùng đăng nhập (nếu chưa cài PWA standalone)
+    if (!standalone && !localStorage.getItem(FIRST_LOGIN_GUIDE_KEY)) {
+      setShowGuide(true);
+    }
+  }, [user?.id, token]);
+
+  useEffect(() => {
+    if (forceOpenGuide) {
+      setShowGuide(true);
+    }
+  }, [forceOpenGuide]);
+
+  const handleCloseGuide = () => {
+    setShowGuide(false);
+    if (user?.id) {
+      localStorage.setItem(FIRST_LOGIN_GUIDE_KEY, 'true');
+    }
+    onCloseGuide?.();
+  };
 
   const handleDismiss = () => {
     setDismissed(true);
-    sessionStorage.setItem(DISMISS_KEY, 'true');
+    if (user?.id) {
+      localStorage.setItem(DISMISS_KEY, 'true');
+    }
   };
 
   const handleEnablePush = async () => {
@@ -164,73 +195,83 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
     }
   };
 
-  // Nếu người dùng đã cấp quyền thông báo và đang ở PWA standalone, hoặc đã bấm tắt thì không cần hiện
-  if ((isStandalone && permission === 'granted') || dismissed) {
+  // Chỉ hiển thị cho người dùng đã đăng nhập
+  if (!token || !user?.id) {
+    return null;
+  }
+
+  // Ẩn banner nếu đã bấm tắt hoặc đã cài đặt PWA và cấp quyền thông báo
+  const hideBanner = dismissed || (isStandalone && permission === 'granted');
+
+  // Nếu không hiện banner và cũng không mở modal hướng dẫn thì không render gì
+  if (hideBanner && !showGuide) {
     return null;
   }
 
   return (
     <>
       {/* ================= 1 DÒNG THÔNG BÁO THÊM VÀO MÀN HÌNH ĐỂ NHẬN THÔNG BÁO ================= */}
-      <div
-        className={`backdrop-blur-md px-3.5 py-2.5 sm:py-3 rounded-2xl shadow-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3.5 transition-all animate-in fade-in slide-in-from-top-2 ${
-          darkMode
-            ? 'bg-gradient-to-r from-blue-950/85 via-indigo-950/80 to-blue-900/85 border-blue-500/40 text-white shadow-blue-950/40'
-            : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white border-blue-400/50 shadow-blue-500/20'
-        }`}
-      >
-        {/* Cụm biểu tượng & 1 Dòng thông điệp duy nhất */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 shadow-sm border border-white/20">
-            {isStandalone ? (
-              <BellRing className="w-4 h-4 text-amber-300 animate-bounce" />
-            ) : (
-              <Smartphone className="w-4 h-4 text-amber-300" />
+      {!hideBanner && (
+        <div
+          className={`backdrop-blur-md px-3.5 py-2.5 sm:py-3 rounded-2xl shadow-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3.5 transition-all animate-in fade-in slide-in-from-top-2 ${
+            darkMode
+              ? 'bg-gradient-to-r from-blue-950/85 via-indigo-950/80 to-blue-900/85 border-blue-500/40 text-white shadow-blue-950/40'
+              : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white border-blue-400/50 shadow-blue-500/20'
+          }`}
+        >
+          {/* Cụm biểu tượng & 1 Dòng thông điệp duy nhất */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 shadow-sm border border-white/20">
+              {isStandalone ? (
+                <BellRing className="w-4 h-4 text-amber-300 animate-bounce" />
+              ) : (
+                <Smartphone className="w-4 h-4 text-amber-300" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs sm:text-sm font-black leading-snug">
+                {isStandalone ? pt.standaloneTitle : pt.oneLineAddTitle}
+              </span>
+            </div>
+          </div>
+
+          {/* Các nút hành động ngay trên dòng */}
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            {!isStandalone && (
+              <button
+                type="button"
+                onClick={() => setShowGuide(true)}
+                className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 active:scale-95 transition font-black text-xs shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {pt.btnAddScreen}
+              </button>
             )}
-          </div>
-          <div className="min-w-0">
-            <span className="text-xs sm:text-sm font-black leading-snug">
-              {isStandalone ? pt.standaloneTitle : pt.oneLineAddTitle}
-            </span>
-          </div>
-        </div>
 
-        {/* Các nút hành động ngay trên dòng */}
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-          {!isStandalone && (
+            {permission !== 'granted' && (
+              <button
+                type="button"
+                onClick={handleEnablePush}
+                disabled={isEnabling}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 active:scale-95 transition font-black text-xs shadow-sm flex items-center gap-1.5 shrink-0 disabled:opacity-60"
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                {isEnabling ? 'Đang bật...' : isStandalone ? pt.btnEnablePushNow : pt.btnEnablePush}
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => setShowGuide(true)}
-              className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 active:scale-95 transition font-black text-xs shadow-sm flex items-center gap-1.5 shrink-0"
+              onClick={handleDismiss}
+              className="p-1.5 text-blue-100 hover:text-white hover:bg-white/10 rounded-lg transition"
+              title="Đóng thông báo"
+              aria-label="Close"
             >
-              <Download className="w-3.5 h-3.5" />
-              {pt.btnAddScreen}
+              <X className="w-4 h-4" />
             </button>
-          )}
-
-          {permission !== 'granted' && (
-            <button
-              type="button"
-              onClick={handleEnablePush}
-              disabled={isEnabling}
-              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 active:scale-95 transition font-black text-xs shadow-sm flex items-center gap-1.5 shrink-0 disabled:opacity-60"
-            >
-              <BellRing className="w-3.5 h-3.5" />
-              {isEnabling ? 'Đang bật...' : isStandalone ? pt.btnEnablePushNow : pt.btnEnablePush}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="p-1.5 text-blue-100 hover:text-white hover:bg-white/10 rounded-lg transition"
-            title="Đóng thông báo"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ================= MODAL HƯỚNG DẪN 3 BƯỚC THÊM RA MÀN HÌNH CHÍNH ================= */}
       {showGuide && (
@@ -261,7 +302,7 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
                 </div>
               </div>
               <button
-                onClick={() => setShowGuide(false)}
+                onClick={handleCloseGuide}
                 className={`p-2 rounded-full ${
                   darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-500'
                 }`}
@@ -316,7 +357,7 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
               <button
                 type="button"
                 onClick={async () => {
-                  setShowGuide(false);
+                  handleCloseGuide();
                   await handleEnablePush();
                 }}
                 className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 transition"

@@ -11,7 +11,6 @@ import {
   WorkplaceWordItem,
   DEFAULT_Q11_5_WORDS,
   generate21DaysChallenges,
-  generate30DaysChallenges,
 } from './seedData.js';
 
 const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
@@ -1240,7 +1239,7 @@ class DataStore {
   }
 
   // Kiểm tra xem ngày thi có bị Admin khóa cưỡng chế (Force Lock) hay không
-  public isSessionForceLocked(dayNumber: number, sessionStartedAt?: number): boolean {
+  public isSessionForceLocked(dayNumber: number, _sessionStartedAt?: number): boolean {
     this.reloadIfChanged();
     const challenge = this.getChallengeByDay(dayNumber);
     if (challenge && (challenge.forceLockedAt != null || !challenge.isPublished)) return true;

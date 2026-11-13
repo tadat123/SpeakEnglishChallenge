@@ -15,7 +15,6 @@ import {
   Sparkles,
   ExternalLink,
   Copy,
-  Zap,
   Sun,
   Moon,
   Loader2,

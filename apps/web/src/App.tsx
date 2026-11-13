@@ -31,8 +31,6 @@ import {
   Trash2,
   Users,
   FileText,
-  Clapperboard,
-  CalendarDays,
   Infinity as InfinityIcon,
   Target,
   Gift,
@@ -40,6 +38,7 @@ import {
   Send,
   Sparkles,
   ArrowRight,
+  Download,
 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { extractResetPasswordParams } from './utils/validation';
@@ -51,6 +50,7 @@ import {
   Q11SubmissionData,
 } from './components/PronunciationChallengeQ11';
 import { SpeakRightEventsPopup, EventPopupItem } from './components/SpeakRightEventsPopup';
+import { InstallPwaModal } from './components/InstallPwaModal';
 import { playPronunciation } from './utils/audio';
 import { resolveMediaUrl } from './utils/clientApiFallback';
 import { Lang, TRANSLATIONS } from './utils/i18n';
@@ -199,7 +199,6 @@ export const App: React.FC = () => {
   const t = TRANSLATIONS[lang];
   /** Chọn nhanh chuỗi theo ngôn ngữ đang dùng (VI / EN / KO) */
   const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
-  const baseUrl = import.meta.env.BASE_URL || '/';
 
   useEffect(() => {
     const root = document.documentElement;
@@ -250,10 +249,6 @@ export const App: React.FC = () => {
   const [pwaUpdateReady, setPwaUpdateReady] = useState<boolean>(false);
   const lastServerBootTimeRef = useRef<string | null>(null);
   const lastDbMtimeRef = useRef<number | null>(null);
-  // ===== CHẾ ĐỘ KHÁCH (KHÔNG ĐĂNG NHẬP): chỉ làm bài hôm nay + xem bảng xếp hạng, KHÔNG lưu điểm =====
-  const [guestMode, setGuestMode] = useState<boolean>(
-    () => sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
-  );
   const [authView, setAuthView] = useState<{
     mode: 'login' | 'register' | 'forgot' | 'enter_otp' | 'reset';
     notice?: string | null;
@@ -284,17 +279,11 @@ export const App: React.FC = () => {
   const [autoNextOnSelect, setAutoNextOnSelect] = useState<boolean>(true);
   const [gracePeriodNotice, setGracePeriodNotice] = useState<string | null>(null);
   const [forceLockModalMsg, setForceLockModalMsg] = useState<string | null>(null);
-  const [livePushAlert, setLivePushAlert] = useState<{
-    id: string;
-    title: string;
-    body: string;
-    targetUrl: string;
-    type?: string;
-  } | null>(null);
 
   // ===== QUẢN LÝ THÔNG BÁO TỪ BAN TỔ CHỨC / ADMIN =====
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifModal, setShowNotifModal] = useState<boolean>(false);
+  const [showPwaInstallGuideModal, setShowPwaInstallGuideModal] = useState<boolean>(false);
   const getLastReadNotifKey = (uid?: string | null) =>
     `sr_last_read_notif_${uid || 'guest'}`;
   const [lastReadNotifTime, setLastReadNotifTime] = useState<number>(() => {
@@ -360,11 +349,9 @@ export const App: React.FC = () => {
 
   // Quản lý các thiết bị đã đăng nhập của người dùng
   const [userDevices, setUserDevices] = useState<any[]>([]);
-  const [loadingDevices, setLoadingDevices] = useState<boolean>(false);
 
   const fetchUserDevices = async () => {
     if (!token) return;
-    setLoadingDevices(true);
     try {
       const res = await fetch('/api/profile/devices', {
         headers: { Authorization: `Bearer ${token}` },
@@ -375,8 +362,6 @@ export const App: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoadingDevices(false);
     }
   };
 
@@ -951,7 +936,6 @@ export const App: React.FC = () => {
     localStorage.setItem('sr_token', newToken);
     localStorage.setItem('sr_user', JSON.stringify(newUser));
     sessionStorage.removeItem(GUEST_MODE_KEY);
-    setGuestMode(false);
     setToken(newToken);
     setUser(newUser);
     setAuthView(null);
@@ -1003,8 +987,6 @@ export const App: React.FC = () => {
     setToken(null);
     setUser(null);
     setNotifications([]);
-    setLivePushAlert(null);
-    setGuestMode(false);
     setAuthView(null);
     setActiveQuiz(null);
     setQuizResult(null);
@@ -1753,6 +1735,19 @@ export const App: React.FC = () => {
               <X className="w-4 h-4" />
             </button>
           </div>
+        )}
+
+        {/* Hướng dẫn cài đặt PWA & Thêm ra màn hình chính (Tự động hiện lần đầu khi đăng nhập) */}
+        {!isGuest && !activeQuiz && (
+          <InstallPwaModal
+            lang={lang}
+            darkMode={darkMode}
+            user={user}
+            token={token}
+            onToast={showMessage}
+            forceOpenGuide={showPwaInstallGuideModal}
+            onCloseGuide={() => setShowPwaInstallGuideModal(false)}
+          />
         )}
 
         {/* Banner chế độ Khách nhắc nhở */}
@@ -3710,7 +3705,17 @@ export const App: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setShowPwaInstallGuideModal(true)}
+                        className="px-3.5 py-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 font-extrabold text-xs shadow-sm transition flex items-center gap-1.5"
+                        title={L('Xem hướng dẫn thêm icon Speak Right ra màn hình chính', 'View Home Screen Shortcut Guide', '홈 화면 바로가기 추가 가이드 보기')}
+                      >
+                        <Download className="w-4 h-4" />
+                        {L('Hướng dẫn cài đặt', 'Install Guide', '설치 가이드')}
+                      </button>
+
                       {getNotificationPermissionState() !== 'granted' ? (
                         <button
                           type="button"

@@ -42,7 +42,7 @@ SpeakEnglishChallenge/
 │   └── web/                 # Frontend PWA (React 18 + Vite + Tailwind CSS + Lucide Icons)
 │       ├── public/          # manifest.json (Cấu hình cài đặt App PWA)
 │       └── src/
-│           ├── components/  # AuthScreen.tsx, InstallPwaModal.tsx
+│           ├── components/  # AuthScreen, AdminDashboard, LayoutDecor, PronunciationChallengeQ11, SpeakRightEventsPopup
 │           ├── utils/       # audio.ts, validation.ts
 │           └── App.tsx      # Giao diện chính (Home, 30 Ngày, Làm bài, Kết quả, Xếp hạng, Admin)
 ├── nginx/

@@ -21,13 +21,9 @@ import {
   Send,
   Smartphone,
   Trophy,
-  Clock,
   BarChart3,
   Search,
-  Filter,
   Sparkles,
-  Laptop,
-  Tablet,
   Eye,
   EyeOff,
   RotateCcw,
@@ -44,14 +40,7 @@ import {
   FileUp,
   AlertCircle,
   Check,
-  ExternalLink,
-  Image as ImageIcon,
-  Clapperboard,
-  CalendarDays,
-  Bell,
   Flame,
-  Target,
-  Gift,
   Play,
 } from 'lucide-react';
 import { playPronunciation } from '../utils/audio';
@@ -393,7 +382,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
 }) => {
   const at = ADMIN_I18N[lang];
-  const baseUrl = import.meta.env.BASE_URL || '/';
   const initialRoute = useMemo(() => parseAdminRoute(), []);
   // Quản lý các Sub-Tab của Admin CMS đồng bộ với URL route (#admin/<subtab>)
   const [adminSubTab, setAdminSubTab] = useState<AdminSubTab>(initialRoute.subTab);
@@ -404,14 +392,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedStatDay, setSelectedStatDay] = useState<number>(
     initialRoute.subTab === 'dashboard' && initialRoute.dayNumber ? initialRoute.dayNumber : 1
   );
-  const [loadingStats, setLoadingStats] = useState<boolean>(false);
 
   // Quản lý Danh sách Người dùng & Tìm kiếm
   const [userList, setUserList] = useState<any[]>([]);
   const [allUsersList, setAllUsersList] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState<string>('');
   const [userDeptFilter, setUserDeptFilter] = useState<string>('ALL');
-  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
   const [inspectingUser, setInspectingUser] = useState<any | null>(null);
 
   // Danh sách phòng ban khả dụng (chuẩn hóa theo dữ liệu thực tế)
@@ -601,7 +587,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const fetchDashboardStats = async (day = selectedStatDay) => {
-    setLoadingStats(true);
     try {
       const res = await fetch(`/api/admin/dashboard/stats?day=${day}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -612,13 +597,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoadingStats(false);
     }
   };
 
   const fetchAdminUsers = async () => {
-    setLoadingUsers(true);
     try {
       const q = encodeURIComponent(userSearch);
       const dept = encodeURIComponent(userDeptFilter);
@@ -635,8 +617,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoadingUsers(false);
     }
   };
 
@@ -1873,59 +1853,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showMessage('Lỗi khi xử lý ảnh tải lên!', true);
     } finally {
       setUploadingEventImg(false);
-    }
-  };
-
-  const handleUploadQ11WordImage = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-
-    if (file.size > 20 * 1024 * 1024) {
-      showMessage('Ảnh / GIF minh họa không được vượt quá 20MB!', true);
-      return;
-    }
-
-    try {
-      const base64Data = await compressImageIfNeeded(file, 800, 0.85);
-      setEditingQ11Words((prev) => {
-        const next = [...prev];
-        if (next[idx]) {
-          next[idx] = { ...next[idx], imageUrl: base64Data };
-        }
-        return next;
-      });
-
-      try {
-        const res = await fetch('/api/admin/upload-media', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            filename: file.name,
-            base64Data,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.url) {
-            setEditingQ11Words((prev) => {
-              const next = [...prev];
-              if (next[idx]) {
-                next[idx] = { ...next[idx], imageUrl: data.url };
-              }
-              return next;
-            });
-          }
-        }
-      } catch {
-        // Giữ nguyên base64Data nếu không gọi được API upload-media
-      }
-      showMessage(`Đã tải ảnh/GIF minh họa cho từ #${idx + 1}!`);
-    } catch {
-      showMessage('Không thể đọc file ảnh/GIF!', true);
     }
   };
 

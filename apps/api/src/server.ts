@@ -46,7 +46,7 @@ const app = Fastify({
 });
 app.server.headersTimeout = 6000;
 
-app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
   try {
     const str = (body as string)?.trim();
     const json = str ? JSON.parse(str) : {};
@@ -821,7 +821,7 @@ app.get(
 app.post(
   '/api/challenges/:dayNumber/finish-q10',
   { preHandler: [(app as any).authenticate] },
-  async (request: any, reply) => {
+  async (request: any) => {
     const dayNumber = Number(request.params.dayNumber);
     const userId = request.user.sub;
     const body = (request.body || {}) as { elapsedSeconds?: number };
@@ -834,7 +834,7 @@ app.post(
 app.post(
   '/api/challenges/:dayNumber/resume-quiz',
   { preHandler: [(app as any).authenticate] },
-  async (request: any, reply) => {
+  async (request: any) => {
     const dayNumber = Number(request.params.dayNumber);
     const userId = request.user.sub;
     store.clearSessionQ10Finished(userId, dayNumber);

@@ -361,8 +361,6 @@ export function generate21DaysChallenges(baseDateMs?: number): DailyChallengeIte
     const mm = String(vnDayObj.getUTCMonth() + 1).padStart(2, '0');
     const yyyy = vnDayObj.getUTCFullYear();
 
-    const unlockDate = new Date(unlockUtcMs).toISOString();
-
     const questions: QuestionItem[] = OFFICIAL_10_QUESTIONS.map((q, idx) => ({
       ...q,
       id: `day-${day}-q-${idx + 1}`,
