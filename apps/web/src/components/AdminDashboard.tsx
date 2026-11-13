@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   Plus,
   Edit3,
@@ -57,6 +57,13 @@ import {
 import { playPronunciation } from '../utils/audio';
 import { resolveMediaUrl } from '../utils/clientApiFallback';
 import { Lang } from '../utils/i18n';
+import {
+  AdminSubTab,
+  buildAdminHash,
+  getAdminDocumentTitle,
+  isAdminUrl,
+  parseAdminRoute,
+} from '../utils/adminRoutes';
 import {
   WORKPLACE_5_WORDS,
   WorkplaceWordItem,
@@ -387,14 +394,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const at = ADMIN_I18N[lang];
   const baseUrl = import.meta.env.BASE_URL || '/';
-  // Quản lý các Sub-Tab của Admin CMS
-  type AdminSubTab = 'dashboard' | 'users' | 'challenges' | 'events' | 'notifications' | 'security';
-  const [adminSubTab, setAdminSubTab] = useState<AdminSubTab>('dashboard');
+  const initialRoute = useMemo(() => parseAdminRoute(), []);
+  // Quản lý các Sub-Tab của Admin CMS đồng bộ với URL route (#admin/<subtab>)
+  const [adminSubTab, setAdminSubTab] = useState<AdminSubTab>(initialRoute.subTab);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
   // Thống kê Dashboard & Tỉ lệ hoàn thành
   const [dashboardStats, setDashboardStats] = useState<any | null>(null);
-  const [selectedStatDay, setSelectedStatDay] = useState<number>(1);
+  const [selectedStatDay, setSelectedStatDay] = useState<number>(
+    initialRoute.subTab === 'dashboard' && initialRoute.dayNumber ? initialRoute.dayNumber : 1
+  );
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
 
   // Quản lý Danh sách Người dùng & Tìm kiếm
@@ -430,7 +439,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [notifTargetUrl, setNotifTargetUrl] = useState<string>('#challenges');
   const [sendingNotif, setSendingNotif] = useState<boolean>(false);
 
-  const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [selectedDay, setSelectedDay] = useState<number>(
+    initialRoute.subTab === 'challenges' && initialRoute.dayNumber ? initialRoute.dayNumber : 1
+  );
   const [dayDetail, setDayDetail] = useState<any | null>(null);
   const [loadingDay, setLoadingDay] = useState<boolean>(false);
   const [toast, setToast] = useState<string>('');
@@ -718,6 +729,105 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const originalTitleRef = useRef<string>(typeof document !== 'undefined' ? document.title : '');
+
+  useEffect(() => {
+    return () => {
+      if (originalTitleRef.current) {
+        document.title = originalTitleRef.current;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    document.title = getAdminDocumentTitle(
+      {
+        subTab: adminSubTab,
+        dayNumber:
+          adminSubTab === 'challenges'
+            ? selectedDay
+            : adminSubTab === 'dashboard' && selectedStatDay > 1
+            ? selectedStatDay
+            : undefined,
+      },
+      lang
+    );
+  }, [adminSubTab, selectedDay, selectedStatDay, lang]);
+
+  useEffect(() => {
+    const syncRouteFromUrl = () => {
+      if (!isAdminUrl()) return;
+      const route = parseAdminRoute();
+      setAdminSubTab(route.subTab);
+      if (route.subTab === 'challenges' && route.dayNumber) {
+        setSelectedDay(route.dayNumber);
+      }
+      if (route.subTab === 'dashboard' && route.dayNumber) {
+        setSelectedStatDay(route.dayNumber);
+      }
+    };
+
+    // Chuẩn hóa URL ban đầu nếu đang ở #admin hoặc /admin/... -> #admin/dashboard (hoặc #admin/<subtab>)
+    const route = parseAdminRoute();
+    const initialDay =
+      route.subTab === 'challenges'
+        ? route.dayNumber ?? 1
+        : route.subTab === 'dashboard' && route.dayNumber && route.dayNumber > 1
+        ? route.dayNumber
+        : undefined;
+    const canonicalHash = buildAdminHash(route.subTab, initialDay);
+    const cleanPath = window.location.pathname.replace(/\/admin(?:\/.*)?$/i, '/') || '/';
+    if (window.location.pathname !== cleanPath || window.location.hash !== canonicalHash) {
+      window.history.replaceState(null, '', `${cleanPath}${window.location.search}${canonicalHash}`);
+    }
+
+    window.addEventListener('hashchange', syncRouteFromUrl);
+    window.addEventListener('popstate', syncRouteFromUrl);
+    return () => {
+      window.removeEventListener('hashchange', syncRouteFromUrl);
+      window.removeEventListener('popstate', syncRouteFromUrl);
+    };
+  }, []);
+
+  const navigateAdmin = (nextTab: AdminSubTab, dayNumber?: number, replace = false) => {
+    const resolvedChallengeDay =
+      nextTab === 'challenges' && typeof dayNumber === 'number' ? dayNumber : selectedDay;
+    const resolvedStatDay =
+      nextTab === 'dashboard' && typeof dayNumber === 'number' ? dayNumber : selectedStatDay;
+
+    setAdminSubTab(nextTab);
+    setMobileSidebarOpen(false);
+    if (nextTab === 'challenges' && typeof dayNumber === 'number') {
+      setSelectedDay(dayNumber);
+    }
+    if (nextTab === 'dashboard' && typeof dayNumber === 'number') {
+      setSelectedStatDay(dayNumber);
+    }
+
+    const targetHash = buildAdminHash(
+      nextTab,
+      nextTab === 'challenges'
+        ? resolvedChallengeDay
+        : nextTab === 'dashboard' && resolvedStatDay > 1
+        ? resolvedStatDay
+        : undefined
+    );
+    const cleanPath = window.location.pathname.replace(/\/admin(?:\/.*)?$/i, '/') || '/';
+    const nextUrl = `${cleanPath}${window.location.search}${targetHash}`;
+
+    if (replace) {
+      window.history.replaceState(null, '', nextUrl);
+    } else if (window.location.pathname !== cleanPath || window.location.hash !== targetHash) {
+      window.history.pushState(null, '', nextUrl);
+    }
+
+    if (nextTab === 'dashboard') fetchDashboardStats(resolvedStatDay);
+    if (nextTab === 'users') fetchAdminUsers();
+    if (nextTab === 'events') fetchAdminEvents();
+    if (nextTab === 'notifications') fetchPushStatus(false);
+    if (nextTab === 'security') fetchSecurityStats();
+  };
 
   const handleSavePushConfig = async (resetTodayQuota = false) => {
     try {
@@ -1969,16 +2079,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {ADMIN_SIDEBAR_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = adminSubTab === item.id;
+            const itemHref = buildAdminHash(
+              item.id,
+              item.id === 'challenges'
+                ? selectedDay
+                : item.id === 'dashboard' && selectedStatDay > 1
+                ? selectedStatDay
+                : undefined
+            );
             return (
-              <button
+              <a
                 key={item.id}
-                onClick={() => {
-                  setAdminSubTab(item.id);
-                  setMobileSidebarOpen(false);
-                  if (item.id === 'dashboard') fetchDashboardStats(selectedStatDay);
-                  if (item.id === 'users') fetchAdminUsers();
-                  if (item.id === 'events') fetchAdminEvents();
+                href={itemHref}
+                onClick={(e) => {
+                  if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                    e.preventDefault();
+                    navigateAdmin(item.id);
+                  }
                 }}
+                aria-current={isActive ? 'page' : undefined}
                 className={`w-full p-2.5 rounded-2xl text-left flex items-center justify-between transition group ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 font-black'
@@ -2013,7 +2132,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {item.badge}
                   </span>
                 )}
-              </button>
+              </a>
             );
           })}
 
@@ -2125,7 +2244,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-center gap-2.5 flex-wrap">
               <h1 className={`text-base sm:text-lg font-black truncate ${textPrimary}`}>
                 {adminSubTab === 'dashboard'
                   ? 'Thống Kê'
@@ -2139,6 +2258,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ? 'Thông Báo'
                   : 'Bảo Mật'}
               </h1>
+              <span
+                className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold border ${
+                  darkMode
+                    ? 'bg-slate-800/80 border-slate-700 text-blue-300'
+                    : 'bg-slate-100 border-slate-200 text-slate-600'
+                }`}
+              >
+                {buildAdminHash(
+                  adminSubTab,
+                  adminSubTab === 'challenges'
+                    ? selectedDay
+                    : adminSubTab === 'dashboard' && selectedStatDay > 1
+                    ? selectedStatDay
+                    : undefined
+                )}
+              </span>
             </div>
           </div>
 
@@ -2235,7 +2370,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <span className={`text-xs font-bold ${textSecondary}`}>Ngày:</span>
                 <select
                   value={selectedStatDay}
-                  onChange={(e) => setSelectedStatDay(Number(e.target.value))}
+                  onChange={(e) => navigateAdmin('dashboard', Number(e.target.value))}
                   className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold outline-none ${inputBg}`}
                 >
                   {Array.from({ length: 21 }, (_, i) => i + 1).map((d) => (
@@ -2255,7 +2390,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 return (
                   <button
                     key={d}
-                    onClick={() => setSelectedStatDay(d)}
+                    onClick={() => navigateAdmin('dashboard', d)}
                     className={`p-2 rounded-xl border text-center transition ${
                       isSelected
                         ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-105'
@@ -2344,7 +2479,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {dashboardStats?.allDaysStats?.map((st: any) => (
                 <div
                   key={st.dayNumber}
-                  onClick={() => setSelectedStatDay(st.dayNumber)}
+                  onClick={() => navigateAdmin('dashboard', st.dayNumber)}
                   className={`p-3 rounded-2xl border cursor-pointer hover:border-blue-400 transition ${
                     selectedStatDay === st.dayNumber ? 'border-blue-600 ring-2 ring-blue-500/20' : subCardBg
                   }`}
@@ -2477,7 +2612,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => {
-                              setAdminSubTab('notifications');
+                              navigateAdmin('notifications');
                               setNotifTargetType('user');
                               setNotifTargetValue(u.id);
                               setNotifTitle(`🎉 Chào ${u.fullName}!`);
@@ -2585,7 +2720,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             return (
               <button
                 key={c.dayNumber}
-                onClick={() => setSelectedDay(c.dayNumber)}
+                onClick={() => navigateAdmin('challenges', c.dayNumber)}
                 className={`p-2 rounded-xl border text-center transition relative ${
                   isSelected
                     ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-[1.03]'
