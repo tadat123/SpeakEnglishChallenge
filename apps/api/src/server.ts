@@ -1696,38 +1696,46 @@ app.get('/api/push/vapid-public-key', async () => {
   };
 });
 
-// Đăng ký hoặc đồng bộ thiết bị cài đặt PWA với tài khoản người dùng
+// Đăng ký hoặc đồng bộ thiết bị cài đặt PWA với tài khoản người dùng (BẮT BUỘC đã đăng nhập)
 app.post('/api/push/subscribe', async (request: any, reply) => {
   const body = (request.body || {}) as {
     subscription?: {
       endpoint?: string;
       keys?: { p256dh?: string; auth?: string };
     };
-    userId?: string | null;
+    deviceId?: string | null;
     employeeId?: string | null;
     fullName?: string | null;
     isPwaInstalled?: boolean;
     userAgent?: string;
   };
 
-  let authUserId: string | null = body.userId || null;
+  let authUserId: string | null = null;
   try {
     await request.jwtVerify();
     if (request.user?.sub) {
       authUserId = request.user.sub;
     }
   } catch {
-    // Cho phép cả thiết bị PWA đăng ký trước khi đăng nhập hoặc dùng body.userId
+    // ignore
+  }
+
+  if (!authUserId) {
+    return reply.code(401).send({
+      message: 'Vui lòng đăng nhập tài khoản trước khi bật thông báo.',
+      ignored: true,
+    });
   }
 
   const endpoint =
     body.subscription?.endpoint ||
-    `https://pwa-client.speakright.local/device/${authUserId || crypto.randomUUID().slice(0, 8)}`;
+    `https://pwa-client.speakright.local/device/${authUserId}${body.deviceId ? `-${body.deviceId}` : ''}`;
 
   const record = store.upsertPwaSubscription({
     endpoint,
     keys: body.subscription?.keys,
     userId: authUserId,
+    deviceId: body.deviceId || null,
     employeeId: body.employeeId || null,
     fullName: body.fullName || null,
     isPwaInstalled: body.isPwaInstalled ?? true,
@@ -1740,23 +1748,47 @@ app.post('/api/push/subscribe', async (request: any, reply) => {
   });
 });
 
-// Hủy đăng ký nhận thông báo PWA
+// Hủy đăng ký nhận thông báo PWA (khi người dùng tắt thông báo hoặc đăng xuất khỏi thiết bị)
 app.post('/api/push/unsubscribe', async (request: any) => {
-  const { endpoint } = (request.body || {}) as { endpoint?: string };
-  if (endpoint) {
-    store.removePwaSubscription(endpoint);
+  const { endpoint, deviceId } = (request.body || {}) as { endpoint?: string; deviceId?: string | null };
+  let authUserId: string | null = null;
+  try {
+    await request.jwtVerify();
+    if (request.user?.sub) authUserId = request.user.sub;
+  } catch {
+    // ignore
   }
+  store.unbindDeviceSubscriptions(authUserId, endpoint || null, deviceId || null);
   return { message: 'Đã tắt nhận thông báo PWA trên thiết bị này.' };
 });
 
-// Đồng bộ thông báo thời gian thực cho các máy đã cài PWA (nhận đúng nhịp chia đều của Queue)
+// Đồng bộ thông báo thời gian thực cho người dùng đã đăng nhập (chống gửi lặp & chặn khách vãng lai)
 app.get('/api/push/poll', async (request: any, reply: any) => {
   const since = Number(request.query?.since || 0);
+  const deviceId = (request.query?.deviceId as string) || null;
 
-  // TẦNG CACHE 1: FAST-PATH TRẢ VỀ NGAY NẾU KHÔNG CÓ THÔNG BÁO MỚI (TIẾT KIỆM 99% CPU VÀ BỎ QUA JWT DECODE)
+  let authUserId: string | null = null;
+  try {
+    await request.jwtVerify();
+    if (request.user?.sub) authUserId = request.user.sub;
+  } catch {
+    // Khách vãng lai -> tuyệt đối không trả về thông báo
+  }
+
+  reply.header('Cache-Control', 'no-store');
+
+  if (!authUserId) {
+    return {
+      notifications: [],
+      serverTime: Date.now(),
+      serverBootTime: SERVER_BOOT_TIME,
+      dbMtime: store.getLastMtime(),
+    };
+  }
+
+  // TẦNG CACHE 1: FAST-PATH TRẢ VỀ NGAY NẾU KHÔNG CÓ THÔNG BÁO MỚI
   const lastNotifTime = store.getLastNotificationTimestamp();
   if (since > 0 && since >= lastNotifTime) {
-    reply.header('Cache-Control', 'private, max-age=3');
     reply.header('X-Notif-Cache', 'HIT-EMPTY');
     return {
       notifications: [],
@@ -1766,16 +1798,19 @@ app.get('/api/push/poll', async (request: any, reply: any) => {
     };
   }
 
-  let userId: string | null = (request.query?.userId as string) || null;
-  try {
-    await request.jwtVerify();
-    if (request.user?.sub) userId = request.user.sub;
-  } catch {
-    // ignore
+  const notifications = store.getRecentInAppNotifications(authUserId, since, {
+    forPushPoll: true,
+    deviceId,
+  });
+
+  if (notifications.length > 0) {
+    store.markNotificationsDelivered(
+      notifications.map((n) => n.id),
+      authUserId,
+      deviceId
+    );
   }
 
-  const notifications = store.getRecentInAppNotifications(userId, since);
-  reply.header('Cache-Control', 'private, max-age=3');
   return {
     notifications,
     serverTime: Date.now(),
@@ -1784,7 +1819,7 @@ app.get('/api/push/poll', async (request: any, reply: any) => {
   };
 });
 
-// Lấy danh sách toàn bộ thông báo In-App cho người dùng (bao gồm thông báo chung và thông báo cá nhân/phòng ban)
+// Lấy danh sách toàn bộ thông báo In-App cho người dùng đã đăng nhập
 app.get('/api/notifications', async (request: any, reply: any) => {
   let userId: string | null = null;
   try {
@@ -1794,9 +1829,20 @@ app.get('/api/notifications', async (request: any, reply: any) => {
     // Không đăng nhập hoặc là khách
   }
 
+  reply.header('Cache-Control', 'no-store');
+
+  // Khách vãng lai không nhận thông báo người dùng
+  if (!userId) {
+    return {
+      notifications: [],
+      total: 0,
+      serverTime: Date.now(),
+    };
+  }
+
   const all = store.getRecentInAppNotifications(userId, 0);
 
-  // Khởi tạo các thông báo chào mừng & hướng dẫn nếu hệ thống chưa có thông báo nào
+  // Khởi tạo các thông báo chào mừng & hướng dẫn nếu người dùng chưa có thông báo nào (dùng timestamp cố định)
   let list = all;
   if (!list || list.length === 0) {
     list = [
@@ -1808,7 +1854,7 @@ app.get('/api/notifications', async (request: any, reply: any) => {
         title: '🎉 Chào mừng bạn tham gia Speak Right 2026!',
         body: 'Thử thách phát âm tiếng Anh chuẩn 21 ngày. Tham gia đều đặn mỗi ngày để tích lũy điểm và vươn lên Top 1 Bảng Xếp Hạng nhé!',
         targetUrl: '#challenges',
-        deliveredAt: new Date().toISOString(),
+        deliveredAt: '2026-11-01T00:00:00.000Z',
       },
       {
         id: 'system-notif-schedule',
@@ -1818,7 +1864,7 @@ app.get('/api/notifications', async (request: any, reply: any) => {
         title: '👑 Bản tin Bảng Xếp Hạng & Mở bài thi mới',
         body: '⏰ Mỗi ngày là một thử thách mới! Hệ thống sẽ tự động đóng thử thách cũ và mở thử thách tiếp theo lúc 00:00. Đừng quên quay lại vào ngày hôm sau để xem đáp án và cập nhật thứ hạng của mình bạn nhé! 🚀',
         targetUrl: '#leaderboard',
-        deliveredAt: new Date(Date.now() - 3600000).toISOString(),
+        deliveredAt: '2026-11-01T00:00:00.000Z',
       },
     ];
   }
@@ -1827,7 +1873,6 @@ app.get('/api/notifications', async (request: any, reply: any) => {
     .sort((a, b) => new Date(b.deliveredAt).getTime() - new Date(a.deliveredAt).getTime())
     .slice(0, 50);
 
-  reply.header('Cache-Control', 'no-cache');
   return {
     notifications: sorted,
     total: sorted.length,

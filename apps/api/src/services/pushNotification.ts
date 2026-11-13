@@ -17,6 +17,7 @@ interface VapidKeysFile {
 
 interface QueuedPushTask {
   campaignId: string;
+  notificationId?: string;
   subscription: PwaPushSubscriptionRecord;
   type: PushNotificationType;
   userId: string | null;
@@ -147,7 +148,8 @@ class StaggeredPushService {
    */
   public enqueueNewDayUnlocked(challenge: DailyChallengeItem): PushCampaignRecord {
     const { dateKey } = getVietnamDateAndHour();
-    const pwaSubs = store.getPwaSubscriptions(true);
+    // Chỉ gửi Web Push tới các thiết bị PWA đã đăng nhập tài khoản (không gửi cho khách vãng lai)
+    const pwaSubs = store.getPwaSubscriptions(true).filter((s) => Boolean(s.userId));
     const leaderboard = store.getLeaderboard();
     const top1 = leaderboard.find((u) => u.totalScore > 0) || leaderboard[0] || null;
 
@@ -158,10 +160,11 @@ class StaggeredPushService {
     const targetUrl = '/#challenges';
 
     const campaignId = `camp-morning-${Date.now()}`;
+    const notificationId = `notif-morning-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`;
 
-    // Luôn lưu thông báo vào quả chuông 🔔 trên web cho toàn bộ người dùng
+    // Luôn lưu thông báo vào quả chuông 🔔 trên web cho người dùng đã đăng nhập
     store.addInAppNotification({
-      id: `notif-morning-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+      id: notificationId,
       campaignId,
       type: 'NEW_DAY_UNLOCKED',
       userId: null,
@@ -172,8 +175,9 @@ class StaggeredPushService {
     });
 
     const tasks = pwaSubs.map((sub) => ({
+      notificationId,
       subscription: sub,
-      userId: null, // Broadcast tới tất cả người cài PWA
+      userId: sub.userId,
       recipientName: sub.fullName || 'Người dùng PWA',
       employeeId: sub.employeeId || 'PWA',
       title,
@@ -207,7 +211,8 @@ class StaggeredPushService {
     runnerUp?: { id: string; fullName: string; employeeId: string; totalScore: number } | null
   ): PushCampaignRecord {
     const { dateKey } = getVietnamDateAndHour();
-    const pwaSubs = store.getPwaSubscriptions(true);
+    // Chỉ gửi Web Push tới thiết bị PWA gắn với tài khoản thật
+    const pwaSubs = store.getPwaSubscriptions(true).filter((s) => Boolean(s.userId));
     const latestDay = store.getLatestUnlockedChallenge();
     const completedList = store.getCompletedAccountsForCurrentDay();
     const completedUserIds = new Set(completedList.map((c) => c.user.id));
@@ -221,13 +226,15 @@ class StaggeredPushService {
         : `👏 Bản tin Khen ngợi 19:00: Tuyên dương các thành viên chăm chỉ rèn luyện tại Speak Right 2026! Hãy tiếp tục giữ vững phong độ mỗi ngày nhé! 🏆✨`;
     const targetUrl = '/#leaderboard';
     const campaignId = `camp-praise-${Date.now()}`;
+    const broadcastNotifId = `notif-praise-all-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`;
 
     const inAppList: any[] = [
       {
-        id: `notif-praise-all-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+        id: broadcastNotifId,
         campaignId,
         type: 'NEW_TOP_1',
         userId: null,
+        excludedUserIds: Array.from(completedUserIds),
         title,
         body,
         targetUrl,
@@ -236,6 +243,7 @@ class StaggeredPushService {
     ];
 
     const tasks: {
+      notificationId?: string;
       subscription: PwaPushSubscriptionRecord;
       userId: string | null;
       recipientName: string;
@@ -249,9 +257,10 @@ class StaggeredPushService {
     for (const item of completedList) {
       const personalTitle = `🌟 Khen ngợi ${item.user.fullName} đã hoàn thành xuất sắc ${item.targetDay.title}!`;
       const personalBody = `👏 Chúc mừng ${item.user.fullName} (GEN ${item.user.employeeId}) đã chinh phục ${item.targetDay.title} (đạt ${item.attemptScore} điểm)! Tổng điểm tích lũy của bạn là ${item.user.totalScore} điểm. Hãy tiếp tục giữ vững phong độ tuyệt vời này nhé! 🏆🔥`;
+      const personalNotifId = `notif-praise-${Date.now()}-${item.user.id}-${crypto.randomBytes(2).toString('hex')}`;
 
       inAppList.push({
-        id: `notif-praise-${Date.now()}-${item.user.id}-${crypto.randomBytes(2).toString('hex')}`,
+        id: personalNotifId,
         campaignId,
         type: 'NEW_TOP_1',
         userId: item.user.id,
@@ -262,7 +271,9 @@ class StaggeredPushService {
       });
 
       for (const sub of item.subscriptions) {
+        if (!sub.userId) continue;
         tasks.push({
+          notificationId: personalNotifId,
           subscription: sub,
           userId: item.user.id,
           recipientName: item.user.fullName,
@@ -276,10 +287,12 @@ class StaggeredPushService {
 
     // Các thiết bị PWA khác nhận bản tin Khen ngợi chung
     for (const sub of pwaSubs) {
-      if (sub.userId && completedUserIds.has(sub.userId)) continue;
+      if (!sub.userId) continue;
+      if (completedUserIds.has(sub.userId)) continue;
       tasks.push({
+        notificationId: broadcastNotifId,
         subscription: sub,
-        userId: sub.userId || null,
+        userId: sub.userId,
         recipientName: sub.fullName || 'Người dùng PWA',
         employeeId: sub.employeeId || 'PWA',
         title,
@@ -319,6 +332,7 @@ class StaggeredPushService {
     const campaignId = `camp-warn-${Date.now()}`;
 
     const tasks: {
+      notificationId?: string;
       subscription: PwaPushSubscriptionRecord;
       userId: string | null;
       recipientName: string;
@@ -337,8 +351,9 @@ class StaggeredPushService {
         ? `⏰ Đã 21:00 rồi! Tài khoản ${item.user.fullName} (GEN ${item.user.employeeId}) vẫn chưa làm bài thi nào. ${item.targetDay.title} sẽ đóng lúc 00:00 đêm nay, nhanh tay vào làm ngay kẻo lỡ chuỗi điểm nhé! 🔥⚡`
         : `⏰ Đã 21:00 rồi! Chào ${item.user.fullName} (GEN ${item.user.employeeId}), bạn vẫn chưa hoàn thành ${item.targetDay.title}. Bài thi sẽ đóng lúc 00:00 đêm nay, nhanh tay vào chiến ngay kẻo đối thủ bỏ xa nhé! 🔥⚡`;
 
+      const personalNotifId = `notif-warn-${Date.now()}-${item.user.id}-${crypto.randomBytes(2).toString('hex')}`;
       inAppList.push({
-        id: `notif-warn-${Date.now()}-${item.user.id}-${crypto.randomBytes(2).toString('hex')}`,
+        id: personalNotifId,
         campaignId,
         type: 'UNSTUDIED_REMINDER',
         userId: item.user.id,
@@ -349,7 +364,9 @@ class StaggeredPushService {
       });
 
       for (const sub of item.subscriptions) {
+        if (!sub.userId) continue;
         tasks.push({
+          notificationId: personalNotifId,
           subscription: sub,
           userId: item.user.id,
           recipientName: item.user.fullName,
@@ -461,9 +478,10 @@ class StaggeredPushService {
 
     const campaignId = `camp-custom-${Date.now()}`;
     const targetUrl = payload.targetUrl || '/#challenges';
-    const allPwaSubs = store.getPwaSubscriptions(true);
+    const allPwaSubs = store.getPwaSubscriptions(true).filter((s) => Boolean(s.userId));
 
     const tasks: {
+      notificationId?: string;
       subscription: PwaPushSubscriptionRecord;
       userId: string | null;
       recipientName: string;
@@ -486,8 +504,9 @@ class StaggeredPushService {
         .replace(/\{gen\}/gi, user.employeeId)
         .replace(/\{score\}/gi, String(user.totalScore || 0));
 
+      const personalNotifId = `inapp-${Date.now()}-${user.id}-${crypto.randomBytes(2).toString('hex')}`;
       inAppList.push({
-        id: `inapp-${Date.now()}-${user.id}-${crypto.randomBytes(2).toString('hex')}`,
+        id: personalNotifId,
         campaignId,
         type: 'PERSONALIZED',
         userId: user.id,
@@ -504,6 +523,7 @@ class StaggeredPushService {
 
       for (const sub of userSubs) {
         tasks.push({
+          notificationId: personalNotifId,
           subscription: sub,
           userId: user.id,
           recipientName: user.fullName,
@@ -569,6 +589,7 @@ class StaggeredPushService {
     body: string,
     targetUrl: string,
     rawTasks: {
+      notificationId?: string;
       subscription: PwaPushSubscriptionRecord;
       userId: string | null;
       recipientName: string;
@@ -616,6 +637,7 @@ class StaggeredPushService {
     rawTasks.forEach((t, idx) => {
       this.pendingQueue.push({
         campaignId: campaign.id,
+        notificationId: t.notificationId,
         subscription: t.subscription,
         type,
         userId: t.userId,
@@ -653,19 +675,22 @@ class StaggeredPushService {
 
         let deliveryStatus: 'SENT' | 'DELIVERED_LOCAL' | 'FAILED' = 'DELIVERED_LOCAL';
 
+        const notifTag = task.notificationId || `${task.type}-${task.campaignId}`;
         const pushPayload = JSON.stringify({
+          notificationId: task.notificationId || notifTag,
           title: task.title,
           body: task.body,
           icon: './logo.png',
           badge: './logo.png',
-          tag: `${task.type}-${task.campaignId}`,
+          tag: notifTag,
           url: task.targetUrl,
           type: task.type,
           timestamp: Date.now(),
         });
 
-        // Nếu là Web Push Subscription thật trên trình duyệt/PWA -> Gửi qua giao thức VAPID Web Push
+        // Chỉ gửi Web Push nếu subscription gắn với tài khoản userId hợp lệ (không gửi cho khách vãng lai)
         if (
+          task.subscription.userId &&
           !task.subscription.isSimulated &&
           task.subscription.endpoint.startsWith('http') &&
           task.subscription.keys?.p256dh &&
@@ -684,6 +709,13 @@ class StaggeredPushService {
               { TTL: 86400 }
             );
             deliveryStatus = 'SENT';
+            if (task.notificationId) {
+              store.markNotificationsDelivered(
+                [task.notificationId],
+                task.userId || task.subscription.userId,
+                task.subscription.deviceId
+              );
+            }
           } catch (err: any) {
             console.error(
               `[PUSH ERROR] Lỗi gửi tới ${task.recipientName} (${task.subscription.endpoint.slice(0, 45)}...):`,

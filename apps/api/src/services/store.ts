@@ -159,6 +159,7 @@ export interface PwaPushSubscriptionRecord {
     auth: string;
   };
   userId: string | null;
+  deviceId?: string | null;
   employeeId: string | null;
   fullName: string | null;
   isPwaInstalled: boolean;
@@ -198,7 +199,10 @@ export interface InAppNotificationRecord {
   id: string;
   campaignId: string;
   type: PushNotificationType;
-  userId: string | null; // null = gửi cho mọi PWA
+  userId: string | null; // null = gửi cho mọi người dùng đã đăng nhập
+  excludedUserIds?: string[]; // Những userId đã có thông báo cá nhân hóa riêng (tránh nhận trùng 2 lần)
+  deliveredToUserIds?: string[]; // Danh sách userId đã nhận thông báo này (chống gửi lại)
+  deliveredToDeviceIds?: string[]; // Danh sách deviceId đã nhận thông báo này
   endpoint?: string;
   title: string;
   body: string;
@@ -1986,6 +1990,7 @@ class DataStore {
     endpoint: string;
     keys?: { p256dh?: string; auth?: string };
     userId?: string | null;
+    deviceId?: string | null;
     employeeId?: string | null;
     fullName?: string | null;
     isPwaInstalled?: boolean;
@@ -1995,6 +2000,11 @@ class DataStore {
     if (!this.data.pwaSubscriptions) {
       this.data.pwaSubscriptions = [];
     }
+
+    // Dọn dẹp mọi bản ghi subscription cũ chưa gắn userId (khách vãng lai từ phiên bản cũ)
+    this.data.pwaSubscriptions = this.data.pwaSubscriptions.filter(
+      (s) => Boolean(s.userId)
+    );
 
     const now = new Date().toISOString();
     const userObj = input.userId ? this.findUserById(input.userId) : undefined;
@@ -2021,8 +2031,9 @@ class DataStore {
         auth: input.keys?.auth || target.keys.auth || '',
       };
       if (input.userId !== undefined) target.userId = input.userId;
-      if (resolvedEmployeeId) target.employeeId = resolvedEmployeeId;
-      if (resolvedFullName) target.fullName = resolvedFullName;
+      if (input.deviceId !== undefined) target.deviceId = input.deviceId;
+      target.employeeId = resolvedEmployeeId;
+      target.fullName = resolvedFullName;
       target.isPwaInstalled = input.isPwaInstalled ?? true;
       target.isSimulated = input.endpoint.includes('speakright.local');
       if (input.userAgent) target.userAgent = input.userAgent;
@@ -2039,6 +2050,7 @@ class DataStore {
         auth: input.keys?.auth || '',
       },
       userId: input.userId || null,
+      deviceId: input.deviceId || null,
       employeeId: resolvedEmployeeId,
       fullName: resolvedFullName,
       isPwaInstalled: input.isPwaInstalled ?? true,
@@ -2066,6 +2078,31 @@ class DataStore {
       return true;
     }
     return false;
+  }
+
+  public unbindDeviceSubscriptions(
+    userId?: string | null,
+    endpoint?: string | null,
+    deviceId?: string | null
+  ): number {
+    this.reloadIfChanged();
+    if (!this.data.pwaSubscriptions || this.data.pwaSubscriptions.length === 0) return 0;
+    const before = this.data.pwaSubscriptions.length;
+    this.data.pwaSubscriptions = this.data.pwaSubscriptions.filter((s) => {
+      if (!s.userId) return false; // luôn dọn bản ghi không có userId
+      const matchEndpoint = Boolean(endpoint && s.endpoint === endpoint);
+      const matchDevice = Boolean(deviceId && s.deviceId === deviceId);
+      const matchUserDevice = Boolean(userId && s.userId === userId && (matchEndpoint || matchDevice));
+      if (matchEndpoint || matchUserDevice || (matchDevice && !userId)) {
+        return false;
+      }
+      return true;
+    });
+    const removed = before - this.data.pwaSubscriptions.length;
+    if (removed > 0) {
+      this.save();
+    }
+    return removed;
   }
 
   public getLatestUnlockedChallenge(): DailyChallengeItem {
@@ -2206,8 +2243,57 @@ class DataStore {
     return this.lastNotificationTimestamp;
   }
 
-  public getRecentInAppNotifications(userId?: string | null, sinceMs = 0): InAppNotificationRecord[] {
+  public markNotificationsDelivered(
+    notificationIds: string[],
+    userId?: string | null,
+    deviceId?: string | null
+  ): boolean {
+    if (!notificationIds || notificationIds.length === 0) return false;
+    if (!userId && !deviceId) return false;
+
     this.reloadIfChanged();
+    const list = this.data.inAppNotifications;
+    if (!list || list.length === 0) return false;
+
+    const idSet = new Set(notificationIds);
+    let changed = false;
+
+    for (const n of list) {
+      if (!idSet.has(n.id)) continue;
+      if (userId) {
+        if (!n.deliveredToUserIds) n.deliveredToUserIds = [];
+        if (!n.deliveredToUserIds.includes(userId)) {
+          n.deliveredToUserIds.push(userId);
+          changed = true;
+        }
+      }
+      if (deviceId) {
+        if (!n.deliveredToDeviceIds) n.deliveredToDeviceIds = [];
+        if (!n.deliveredToDeviceIds.includes(deviceId)) {
+          n.deliveredToDeviceIds.push(deviceId);
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      this.save();
+    }
+    return changed;
+  }
+
+  public getRecentInAppNotifications(
+    userId?: string | null,
+    sinceMs = 0,
+    options?: { forPushPoll?: boolean; deviceId?: string | null }
+  ): InAppNotificationRecord[] {
+    this.reloadIfChanged();
+
+    // Khách vãng lai (chưa đăng nhập) tuyệt đối KHÔNG nhận thông báo hệ thống/chiến dịch
+    if (!userId) {
+      return [];
+    }
+
     // FAST-PATH CACHE CHỐNG QUÁ TẢI (O(1)):
     // Nếu client gửi sinceMs >= mốc thông báo mới nhất của toàn hệ thống,
     // chắc chắn 100% không có tin mới -> Trả về [] ngay lập tức (0ms, 0 loop CPU/RAM)
@@ -2218,11 +2304,36 @@ class DataStore {
     const list = this.data.inAppNotifications || [];
     if (list.length === 0) return [];
 
+    const userObj = this.findUserById(userId);
+    const userCreatedMs = userObj?.createdAt ? new Date(userObj.createdAt).getTime() : 0;
+    const pollWindowFloorMs = options?.forPushPoll
+      ? Math.max(sinceMs, Date.now() - 24 * 60 * 60 * 1000)
+      : sinceMs;
+
     return list.filter((n) => {
-      const timeOk = new Date(n.deliveredAt).getTime() > sinceMs;
-      if (!timeOk) return false;
-      // Gửi cho tất cả PWA (userId === null) hoặc gửi đích danh cho tài khoản chưa học (n.userId === userId)
-      return n.userId === null || (userId && n.userId === userId);
+      const deliveredMs = new Date(n.deliveredAt).getTime();
+      if (deliveredMs <= pollWindowFloorMs) return false;
+
+      // Không gửi lại thông báo broadcast tạo từ trước khi user đăng ký tài khoản
+      if (n.userId === null && Number.isFinite(userCreatedMs) && userCreatedMs > 0) {
+        if (deliveredMs < userCreatedMs - 60_000) {
+          return false;
+        }
+      }
+
+      // Kiểm tra đích danh hoặc broadcast (loại trừ những user đã có bản cá nhân hóa riêng)
+      if (n.userId !== null && n.userId !== userId) return false;
+      if (n.excludedUserIds && n.excludedUserIds.includes(userId)) return false;
+
+      // Nếu đang poll để bật thông báo / toast:
+      // Chỉ trả về nếu userId này CHƯA TỪNG nhận thông báo N này trước đó
+      if (options?.forPushPoll) {
+        if (n.deliveredToUserIds && n.deliveredToUserIds.includes(userId)) {
+          return false;
+        }
+      }
+
+      return true;
     });
   }
 

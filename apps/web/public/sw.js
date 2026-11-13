@@ -59,6 +59,7 @@ self.addEventListener('push', (event) => {
   const badgeUrl = new URL(payload.badge || 'logo.png', self.registration.scope).href;
   const todayStr = new Date().toISOString().slice(0, 10);
   const notifTag =
+    payload.notificationId ||
     payload.tag ||
     (payload.type
       ? `sr-${payload.type}-${todayStr}`
@@ -69,10 +70,11 @@ self.addEventListener('push', (event) => {
     icon: iconUrl,
     badge: badgeUrl,
     tag: notifTag,
-    renotify: true,
+    renotify: false,
     vibrate: [200, 100, 200],
     requireInteraction: false,
     data: {
+      notificationId: notifTag,
       url: payload.url || './#challenges',
       type: payload.type,
     },
@@ -84,7 +86,11 @@ self.addEventListener('push', (event) => {
       for (const client of windowClients) {
         client.postMessage({
           type: 'PWA_PUSH_RECEIVED',
-          payload,
+          payload: {
+            ...payload,
+            notificationId: notifTag,
+            tag: notifTag,
+          },
         });
       }
     });

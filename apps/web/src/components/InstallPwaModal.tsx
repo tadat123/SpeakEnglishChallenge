@@ -138,6 +138,10 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
   };
 
   const handleEnablePush = async () => {
+    if (!token || !user?.id) {
+      onToast?.('Vui lòng đăng nhập tài khoản trước khi bật thông báo đẩy.', true);
+      return;
+    }
     setIsEnabling(true);
     try {
       const res = await syncAndSubscribePwaPush({

@@ -203,6 +203,15 @@ export async function syncAndSubscribePwaPush(options: {
 }> {
   const { user, token, askPermission = false, forcePwaFlag = false } = options;
 
+  // Khách vãng lai (chưa đăng nhập) tuyệt đối không đăng ký Web Push
+  if (!token || !user?.id) {
+    return {
+      ok: false,
+      permission: getNotificationPermissionState(),
+      message: 'Vui lòng đăng nhập tài khoản trước khi bật thông báo.',
+    };
+  }
+
   if (forcePwaFlag) {
     markPwaAsInstalled();
   }
@@ -273,7 +282,7 @@ export async function syncAndSubscribePwaPush(options: {
           endpoint: fallbackEndpoint,
           keys: { p256dh: `pwa_${deviceId}`, auth: `auth_${deviceId}` },
         },
-        userId: user?.id || null,
+        deviceId,
         employeeId: user?.employeeId || null,
         fullName: user?.fullName || null,
         isPwaInstalled: true,
@@ -298,6 +307,27 @@ export async function syncAndSubscribePwaPush(options: {
     permission,
     message: 'Không thể kết nối máy chủ thông báo.',
   };
+}
+
+export async function unsubscribePwaPush(token?: string | null): Promise<void> {
+  try {
+    const deviceId = getOrCreatePwaDeviceId();
+    let endpoint: string | undefined;
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = await reg?.pushManager?.getSubscription().catch(() => null);
+      if (sub?.endpoint) endpoint = sub.endpoint;
+    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    await fetch('/api/push/unsubscribe', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ endpoint, deviceId }),
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
 }
 
 export async function triggerLocalServiceWorkerNotification(payload: {

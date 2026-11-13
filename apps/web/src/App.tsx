@@ -44,6 +44,7 @@ import {
 import { AuthScreen } from './components/AuthScreen';
 import { extractResetPasswordParams } from './utils/validation';
 import { AdminDashboard } from './components/AdminDashboard';
+import { buildAdminHash, isAdminUrl, parseAdminRoute } from './utils/adminRoutes';
 import { ResponsiveBackground, PerfmonsterFooter } from './components/LayoutDecor';
 import {
   PronunciationChallengeQ11,
@@ -54,9 +55,10 @@ import { playPronunciation } from './utils/audio';
 import { resolveMediaUrl } from './utils/clientApiFallback';
 import { Lang, TRANSLATIONS } from './utils/i18n';
 import {
-  isRunningStandalonePwa,
   registerPwaServiceWorker,
   syncAndSubscribePwaPush,
+  unsubscribePwaPush,
+  getOrCreatePwaDeviceId,
   triggerLocalServiceWorkerNotification,
   sendTestNativeNotification,
   getNotificationPermissionState,
@@ -105,7 +107,10 @@ function readGuestPending(): GuestPendingSubmission | null {
 }
 
 function getTabFromHash(): TabType {
-  const hash = window.location.hash.replace('#', '').split('/')[0] as TabType;
+  if (isAdminUrl()) {
+    return 'admin';
+  }
+  const hash = window.location.hash.replace(/^#\/?/, '').split('/')[0] as TabType;
   return VALID_TABS.includes(hash) ? hash : 'home';
 }
 
@@ -290,20 +295,28 @@ export const App: React.FC = () => {
   // ===== QUẢN LÝ THÔNG BÁO TỪ BAN TỔ CHỨC / ADMIN =====
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifModal, setShowNotifModal] = useState<boolean>(false);
+  const getLastReadNotifKey = (uid?: string | null) =>
+    `sr_last_read_notif_${uid || 'guest'}`;
   const [lastReadNotifTime, setLastReadNotifTime] = useState<number>(() => {
-    const saved = localStorage.getItem('sr_last_read_notif');
+    const saved = localStorage.getItem(getLastReadNotifKey(user?.id));
     return saved ? Number(saved) : 0;
   });
+
+  useEffect(() => {
+    const saved = localStorage.getItem(getLastReadNotifKey(user?.id));
+    setLastReadNotifTime(saved ? Number(saved) : 0);
+  }, [user?.id]);
 
   const markAllNotifsAsRead = () => {
     const now = Date.now();
     setLastReadNotifTime(now);
-    localStorage.setItem('sr_last_read_notif', String(now));
+    localStorage.setItem(getLastReadNotifKey(user?.id), String(now));
   };
 
   const unreadNotifCount =
-    notifications.filter((n) => new Date(n.deliveredAt).getTime() > lastReadNotifTime).length +
-    (pwaUpdateReady ? 1 : 0);
+    (user?.id
+      ? notifications.filter((n) => new Date(n.deliveredAt).getTime() > lastReadNotifTime).length
+      : 0) + (pwaUpdateReady ? 1 : 0);
 
   const getQuizProgressKey = (dayNum: number) =>
     `sr_quiz_progress_${user?.id || 'guest'}_day_${dayNum}`;
@@ -449,7 +462,16 @@ export const App: React.FC = () => {
     setShowDetailedReview(false);
     setLockedModalDay(null);
     setActiveTab(tab);
-    window.location.hash = `#${tab}`;
+    if (tab === 'admin') {
+      const targetAdminRoute = parseAdminRoute();
+      const targetHash = buildAdminHash(targetAdminRoute.subTab, targetAdminRoute.dayNumber);
+      const cleanPath = window.location.pathname.replace(/\/admin(?:\/.*)?$/i, '/') || '/';
+      if (window.location.pathname !== cleanPath || window.location.hash !== targetHash) {
+        window.history.pushState(null, '', `${cleanPath}${window.location.search}${targetHash}`);
+      }
+    } else {
+      window.location.hash = `#${tab}`;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -466,7 +488,7 @@ export const App: React.FC = () => {
         return;
       }
 
-      const h = window.location.hash.replace('#', '');
+      const h = window.location.hash.replace(/^#\/?/, '');
       if (h.startsWith('quiz') || h.startsWith('result') || h.startsWith('review')) {
         return;
       }
@@ -486,11 +508,11 @@ export const App: React.FC = () => {
   const fetchAllData = async () => {
     try {
       if (!token) {
-        // Chế độ khách mặc định (vào web lần đầu chưa đăng nhập): tải bài hôm nay + bảng xếp hạng công khai + sự kiện
-        const [todayRes, lbRes, notifRes, evRes] = await Promise.all([
+        // Chế độ khách mặc định (vào web lần đầu chưa đăng nhập): tải bài hôm nay + bảng xếp hạng công khai + sự kiện (KHÔNG tải thông báo người dùng)
+        setNotifications([]);
+        const [todayRes, lbRes, evRes] = await Promise.all([
           fetch('/api/public/today'),
           fetch('/api/public/leaderboard'),
-          fetch('/api/notifications').catch(() => null),
           fetch('/api/events', { cache: 'no-store' }).catch(() => null),
         ]);
         if (todayRes.ok) {
@@ -499,10 +521,6 @@ export const App: React.FC = () => {
         }
         if (lbRes.ok) setLeaderboardData(await lbRes.json());
         try {
-          if (notifRes && notifRes.ok) {
-            const nData = await notifRes.json();
-            if (Array.isArray(nData.notifications)) setNotifications(nData.notifications);
-          }
           if (evRes && evRes.ok) {
             const evData = await evRes.json();
             if (Array.isArray(evData.events)) {
@@ -598,13 +616,22 @@ export const App: React.FC = () => {
     }
   }, [activeTab, token]);
 
-  // Khách mở thẳng link #challenges / #profile / #admin -> đưa về Trang chủ
+  // Khách mở thẳng link #challenges / #profile / #admin -> đưa về Trang chủ (trừ khi đang mở màn hình Đăng nhập để vào Admin)
   useEffect(() => {
     if (isGuest && !GUEST_TABS.includes(activeTab)) {
+      if (activeTab === 'admin' && authView !== null) {
+        return;
+      }
+      setActiveTab('home');
+      window.location.hash = '#home';
+      return;
+    }
+    // Tài khoản thường (không phải ADMIN) truy cập #admin -> đưa về Trang chủ
+    if (!isGuest && activeTab === 'admin' && user?.role !== 'ADMIN') {
       setActiveTab('home');
       window.location.hash = '#home';
     }
-  }, [isGuest, activeTab]);
+  }, [isGuest, activeTab, authView, user?.role]);
 
   // Đăng ký Service Worker PWA, đồng bộ cập nhật phiên bản & Nhận thông báo đẩy
   useEffect(() => {
@@ -620,13 +647,45 @@ export const App: React.FC = () => {
     // 2. Chủ động kiểm tra cập nhật ngay khi mở app
     checkForAppUpdate();
 
+    // Đọc danh sách ID thông báo đã hiển thị của riêng tài khoản này từ localStorage để không bị lặp lại
+    const isAuthenticated = Boolean(token && user?.id);
+    const SEEN_NOTIF_KEY = `sr_seen_notif_${user?.id || 'guest'}`;
+    const LAST_POLL_KEY = `sr_last_poll_${user?.id || 'guest'}`;
+
+    const storedSeenIds = (() => {
+      try {
+        return new Set<string>(JSON.parse(localStorage.getItem(SEEN_NOTIF_KEY) || '[]'));
+      } catch {
+        return new Set<string>();
+      }
+    })();
+    const seenIds = storedSeenIds;
+
+    const saveSeenId = (id: string) => {
+      if (!id) return;
+      seenIds.add(id);
+      try {
+        const arr = Array.from(seenIds).slice(-200);
+        localStorage.setItem(SEEN_NOTIF_KEY, JSON.stringify(arr));
+      } catch {
+        // ignore
+      }
+    };
+
     const onSwMessage = (event: MessageEvent) => {
       const data = event.data;
       if (!data) return;
 
       if (data.type === 'PWA_PUSH_RECEIVED' && data.payload) {
+        // Khách vãng lai không nhận thông báo người dùng
+        if (!isAuthenticated) return;
+
+        const realId =
+          data.payload.notificationId || data.payload.tag || `sw-${Date.now()}`;
+        saveSeenId(realId);
+
         const incomingNotif = {
-          id: `sw-${Date.now()}`,
+          id: realId,
           title: data.payload.title || 'SPEAK RIGHT 2026',
           body: data.payload.body || '',
           targetUrl: data.payload.url || '/#challenges',
@@ -647,49 +706,35 @@ export const App: React.FC = () => {
 
     navigator.serviceWorker?.addEventListener('message', onSwMessage);
 
-    // Tự động đồng bộ Web Push ngầm nếu đã được cấp quyền thông báo ngoài app
+    // Chỉ tự động đồng bộ Web Push khi người dùng ĐÃ đăng nhập tài khoản (chặn khách vãng lai)
     registerPwaServiceWorker().then(() => {
-      if (getNotificationPermissionState() === 'granted') {
+      if (isAuthenticated && getNotificationPermissionState() === 'granted') {
         syncAndSubscribePwaPush({ user, token, askPermission: false });
       }
     });
 
-    // Đọc danh sách ID thông báo đã hiển thị từ localStorage để không bị lặp lại
-    const SEEN_NOTIF_KEY = `sr_seen_notif_${user?.id || 'guest'}`;
-    const storedSeenIds = (() => {
-      try {
-        return new Set<string>(JSON.parse(localStorage.getItem(SEEN_NOTIF_KEY) || '[]'));
-      } catch {
-        return new Set<string>();
-      }
+    // TẦNG CACHE 3: SMART ADAPTIVE POLLING (LƯU MỐC LAST POLL THEO TỪNG USER, CHỈ GỬI 1 LẦN DUY NHẤT)
+    let lastPollTime = (() => {
+      if (!isAuthenticated) return 0;
+      const saved = Number(localStorage.getItem(LAST_POLL_KEY) || 0);
+      return Number.isFinite(saved) && saved > 0 ? saved : 0;
     })();
-    const seenIds = storedSeenIds;
-
-    const saveSeenId = (id: string) => {
-      seenIds.add(id);
-      try {
-        const arr = Array.from(seenIds).slice(-100);
-        localStorage.setItem(SEEN_NOTIF_KEY, JSON.stringify(arr));
-      } catch {
-        // ignore
-      }
-    };
-
-    // TẦNG CACHE 3: SMART ADAPTIVE POLLING (TỰ ĐỘNG GIÃN CÁCH NHỊP POLLING THEO TRẠNG THÁI ACTIVE / BACKGROUND)
-    let lastPollTime = Date.now() - 24 * 60 * 60 * 1000;
     let pollTimer: any = null;
     let consecutiveEmpties = 0;
+    const deviceId = getOrCreatePwaDeviceId();
 
     const executePoll = async () => {
-      const pwaEnabled =
-        isRunningStandalonePwa() || localStorage.getItem('sr_pwa_push_active') === 'true';
-      if (!pwaEnabled && !token) return;
+      // Tuyệt đối không poll hoặc bật thông báo cho khách vãng lai chưa đăng nhập
+      if (!isAuthenticated || !token || !user?.id) return;
 
       try {
-        const uidParam = user?.id ? `&userId=${encodeURIComponent(user?.id)}` : '';
-        const res = await fetch(`/api/push/poll?since=${lastPollTime}${uidParam}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
+        const res = await fetch(
+          `/api/push/poll?since=${lastPollTime}&deviceId=${encodeURIComponent(deviceId)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store',
+          }
+        );
         if (!res.ok) return;
         const data = await res.json();
 
@@ -712,6 +757,11 @@ export const App: React.FC = () => {
         const notifs = Array.isArray(data.notifications) ? data.notifications : [];
         if (data.serverTime) {
           lastPollTime = data.serverTime;
+          try {
+            localStorage.setItem(LAST_POLL_KEY, String(data.serverTime));
+          } catch {
+            // ignore
+          }
         }
 
         if (notifs.length > 0) {
@@ -937,15 +987,23 @@ export const App: React.FC = () => {
       }
     }
 
+    if (newUser?.role === 'ADMIN' && isAdminUrl()) {
+      navigateToTab('admin');
+      return;
+    }
+
     navigateToTab('home');
   };
 
   const handleLogout = () => {
+    void unsubscribePwaPush(token);
     localStorage.removeItem('sr_token');
     localStorage.removeItem('sr_user');
     sessionStorage.removeItem(GUEST_MODE_KEY);
     setToken(null);
     setUser(null);
+    setNotifications([]);
+    setLivePushAlert(null);
     setGuestMode(false);
     setAuthView(null);
     setActiveQuiz(null);
@@ -3397,15 +3455,20 @@ export const App: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => navigateToTab('admin')}
+                    <a
+                      href="#admin/dashboard"
+                      onClick={(e) => {
+                        if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                          e.preventDefault();
+                          navigateToTab('admin');
+                        }
+                      }}
                       className="px-5 py-2.5 rounded-2xl bg-white hover:bg-blue-50 text-blue-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shrink-0 transition active:scale-95 cursor-pointer"
                     >
                       <ShieldCheck className="w-4 h-4 text-blue-700" />
                       <span>{L('Vào Trang Quản Trị', 'Open Admin Portal', '관리자 포털')}</span>
                       <ArrowRight className="w-4 h-4" />
-                    </button>
+                    </a>
                   </div>
                 )}
 
