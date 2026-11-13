@@ -1,25 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ShieldAlert,
-  Lock,
-  Mail,
-  Hash,
-  User,
-  Eye,
-  EyeOff,
   CheckCircle2,
-  Check,
   XCircle,
-  KeyRound,
   ArrowLeft,
   Sparkles,
-  ExternalLink,
-  Copy,
   Sun,
   Moon,
-  Loader2,
-  Clock,
-  RotateCw,
 } from 'lucide-react';
 import {
   checkPasswordStrength,
@@ -27,141 +13,11 @@ import {
   validateGenId,
   validatePersonalGmail,
   extractResetPasswordParams,
-  PasswordCriteria,
 } from '../utils/validation';
 import { Lang, TRANSLATIONS } from '../utils/i18n';
 import { ResponsiveBackground } from './LayoutDecor';
-
-const PasswordStrengthMeter: React.FC<{
-  criteria: PasswordCriteria;
-  lang: Lang;
-  darkMode: boolean;
-}> = ({ criteria, lang, darkMode }) => {
-  const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
-
-  return (
-    <div className="space-y-2 mt-2">
-      {/* 1. Thanh đo độ mạnh (4 segments) + Nhãn */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className={`font-bold flex items-center gap-1.5 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-            <span>{L('Độ mạnh mật khẩu:', 'Password strength:', '비밀번호 강도:')}</span>
-          </span>
-          {criteria.level !== 'EMPTY' ? (
-            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black shadow-xs ${criteria.badgeBg}`}>
-              {criteria.levelText[lang] || criteria.levelText.vi}
-            </span>
-          ) : (
-            <span className="text-[11px] font-medium text-slate-400">
-              {L('Chưa nhập', 'Empty', '미입력')}
-            </span>
-          )}
-        </div>
-
-        {/* Thanh 4 vạch (Segments) */}
-        <div className="grid grid-cols-4 gap-1.5 h-1.5 w-full">
-          {[1, 2, 3, 4].map((seg) => (
-            <div
-              key={seg}
-              className={`h-full rounded-full transition-all duration-300 ${
-                seg <= criteria.activeBars
-                  ? criteria.barColor
-                  : darkMode
-                  ? 'bg-slate-700'
-                  : 'bg-slate-200'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* 2. Bảng 5 tiêu chuẩn bảo mật chi tiết */}
-      <div
-        className={`grid grid-cols-2 gap-x-2 gap-y-1.5 p-2.5 rounded-2xl text-[11px] border transition ${
-          darkMode
-            ? 'bg-slate-800/80 border-slate-700/60'
-            : 'bg-slate-50 border-slate-200/80'
-        }`}
-      >
-        <div
-          className={`flex items-center gap-1.5 ${
-            criteria.minLength
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500'
-          }`}
-        >
-          {criteria.minLength ? (
-            <Check className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-          ) : (
-            <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px]">•</span>
-          )}
-          <span>{L('Tối thiểu 8 ký tự', '8+ characters', '8자 이상')}</span>
-        </div>
-
-        <div
-          className={`flex items-center gap-1.5 ${
-            criteria.hasUpper
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500'
-          }`}
-        >
-          {criteria.hasUpper ? (
-            <Check className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-          ) : (
-            <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px]">•</span>
-          )}
-          <span>{L('Chữ HOA (A-Z)', 'Uppercase (A-Z)', '대문자 (A-Z)')}</span>
-        </div>
-
-        <div
-          className={`flex items-center gap-1.5 ${
-            criteria.hasLower
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500'
-          }`}
-        >
-          {criteria.hasLower ? (
-            <Check className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-          ) : (
-            <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px]">•</span>
-          )}
-          <span>{L('Chữ thường (a-z)', 'Lowercase (a-z)', '소문자 (a-z)')}</span>
-        </div>
-
-        <div
-          className={`flex items-center gap-1.5 ${
-            criteria.hasNumber
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500'
-          }`}
-        >
-          {criteria.hasNumber ? (
-            <Check className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-          ) : (
-            <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px]">•</span>
-          )}
-          <span>{L('Chữ số (0-9)', 'Number (0-9)', '숫자 (0-9)')}</span>
-        </div>
-
-        <div
-          className={`col-span-2 flex items-center gap-1.5 ${
-            criteria.hasSpecial
-              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-              : 'text-slate-400 dark:text-slate-500'
-          }`}
-        >
-          {criteria.hasSpecial ? (
-            <Check className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-          ) : (
-            <span className="w-3.5 h-3.5 flex items-center justify-center text-[10px]">•</span>
-          )}
-          <span>{L('Ký tự đặc biệt (!@#$...)', 'Special char (!@#$...)', '특수문자 (!@#$...)')}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
+import { AuthLoginRegisterViews } from './auth/AuthLoginRegisterViews';
+import { AuthRecoveryViews } from './auth/AuthRecoveryViews';
 
 interface AuthScreenProps {
   onAuthSuccess: (token: string, user: any) => void;
@@ -179,6 +35,8 @@ interface AuthScreenProps {
   initialToken?: string;
   /** Thông báo hiển thị phía trên form (VD: bài làm của khách đang chờ được lưu) */
   guestNotice?: string | null;
+  /** Tổng số ngày thử thách do Admin cấu hình */
+  totalDays?: number;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({
@@ -193,6 +51,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   initialEmail = '',
   initialToken = '',
   guestNotice,
+  totalDays = 0,
 }) => {
   const t = TRANSLATIONS[lang];
   const L = (vi: string, en: string, ko: string) => (lang === 'en' ? en : lang === 'ko' ? ko : vi);
@@ -626,7 +485,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             />
             <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-extrabold mb-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              21 DAYS PRONUNCIATION
+              {totalDays > 0 ? `${totalDays} DAYS PRONUNCIATION` : 'DAILY PRONUNCIATION'}
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">SPEAK RIGHT 2026</h1>
           </div>
@@ -698,574 +557,71 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </div>
             )}
 
-            {/* ================= 1. ĐĂNG NHẬP ================= */}
-            {mode === 'login' && (
-              <form onSubmit={handleLogin} className="space-y-3.5">
-                <div>
-                  <label className={labelClass}>{t.genLabel}</label>
-                  <div className="relative">
-                    <Hash className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={employeeId}
-                      onChange={(e) => handleGenInput(e.target.value)}
-                      placeholder="20261234"
-                      className={`${inputClass} pl-10 pr-16 font-bold tracking-wider`}
-                    />
-                    <span
-                      className={`absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold px-2 py-0.5 rounded-lg ${
-                        employeeId.length === 8
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : darkMode
-                          ? 'bg-slate-700 text-slate-300'
-                          : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {employeeId.length}/8
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className={`text-xs font-extrabold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                      {t.passwordLabel}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('forgot');
-                        setErrorMsg('');
-                        setSuccessMsg('');
-                      }}
-                      className="text-xs font-bold text-blue-600 hover:underline"
-                    >
-                      {t.forgotPassword}
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className={`${inputClass} pl-10 pr-10`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-blue-600/25 transition flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{t.loggingIn}</span>
-                    </>
-                  ) : (
-                    t.loginBtn
-                  )}
-                </button>
-              </form>
+            {(mode === 'login' || mode === 'register') && (
+              <AuthLoginRegisterViews
+                mode={mode}
+                setMode={setMode}
+                lang={lang}
+                darkMode={darkMode}
+                t={t}
+                labelClass={labelClass}
+                inputClass={inputClass}
+                employeeId={employeeId}
+                handleGenInput={handleGenInput}
+                fullName={fullName}
+                setFullName={setFullName}
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                hasSamsungWarning={hasSamsungWarning}
+                pwdCriteria={pwdCriteria}
+                loading={loading}
+                setErrorMsg={setErrorMsg}
+                setSuccessMsg={setSuccessMsg}
+                handleLogin={handleLogin}
+                handleRegister={handleRegister}
+              />
             )}
 
-            {/* ================= 2. ĐĂNG KÝ ================= */}
-            {mode === 'register' && (
-              <form onSubmit={handleRegister} className="space-y-3.5">
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className={labelClass}>{t.genLabel} *</label>
-                    <div className="relative">
-                      <Hash className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={employeeId}
-                        onChange={(e) => handleGenInput(e.target.value)}
-                        placeholder="20268888"
-                        className={`${inputClass} pl-8 pr-11 font-bold`}
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
-                        {employeeId.length}/8
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>{t.fullNameLabel} *</label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Nguyễn Văn A"
-                        className={`${inputClass} pl-8 pr-2.5`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>{t.emailLabel} *</label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="tenban@gmail.com"
-                      className={
-                        hasSamsungWarning
-                          ? 'w-full pl-10 pr-3 py-2.5 rounded-2xl border border-red-500 bg-red-50 text-red-900 outline-none text-sm'
-                          : `${inputClass} pl-10 pr-3`
-                      }
-                    />
-                  </div>
-                  {hasSamsungWarning && (
-                    <div className="mt-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-600 flex items-center gap-1.5">
-                      <ShieldAlert className="w-4 h-4 shrink-0" />
-                      <span>{t.samsungWarning}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className={labelClass}>{t.passwordLabel} *</label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Speak@2026"
-                      className={`${inputClass} pl-10 pr-10`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  <PasswordStrengthMeter criteria={pwdCriteria} lang={lang} darkMode={darkMode} />
-                </div>
-
-                {!hasSamsungWarning && (
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>{t.registerBtn}...</span>
-                      </>
-                    ) : (
-                      t.registerBtn
-                    )}
-                  </button>
-                )}
-              </form>
-            )}
-
-            {/* ================= 3. QUÊN MẬT KHẨU ================= */}
-            {mode === 'forgot' && (
-              <form onSubmit={handleForgotPassword} className="space-y-3.5">
-                <button
-                  type="button"
-                  onClick={() => setMode('login')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600"
-                >
-                  <ArrowLeft className="w-4 h-4" /> {t.backBtn}
-                </button>
-
-                <div>
-                  <h2 className={`text-base font-extrabold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                    {t.recoverTitle}
-                  </h2>
-                  <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{t.recoverDesc}</p>
-                </div>
-
-                <div>
-                  <label className={labelClass}>{t.emailLabel} *</label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="thaonguyen.work@gmail.com"
-                      className={
-                        hasSamsungWarning
-                          ? 'w-full pl-10 pr-3 py-2.5 rounded-2xl border border-red-500 bg-red-50 text-red-900 outline-none text-sm'
-                          : `${inputClass} pl-10 pr-3`
-                      }
-                    />
-                  </div>
-                  {hasSamsungWarning && (
-                    <p className="mt-1.5 text-xs font-bold text-red-600">{t.samsungWarning}</p>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setEmail('thaonguyen.work@gmail.com')}
-                  className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl"
-                >
-                  + thaonguyen.work@gmail.com
-                </button>
-
-                {!hasSamsungWarning && (
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg transition flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>{t.sendOtpBtn}...</span>
-                      </>
-                    ) : (
-                      t.sendOtpBtn
-                    )}
-                  </button>
-                )}
-              </form>
-            )}
-
-            {/* ================= 3b. NHẬP MÃ XÁC THỰC OTP (BƯỚC 2 TRƯỚC KHI ĐỔI MẬT KHẨU) ================= */}
-            {mode === 'enter_otp' && (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('forgot');
-                    setErrorMsg('');
-                    setSuccessMsg('');
-                  }}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600 transition"
-                >
-                  <ArrowLeft className="w-4 h-4" /> {t.backBtn}
-                </button>
-
-                <div>
-                  <h2 className={`text-base font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                    {L('Nhập mã xác thực OTP', 'Enter OTP Code', 'OTP 인증 코드 입력')}
-                  </h2>
-                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {L('Mã 6 chữ số đã gửi đến email:', '6-digit code has been sent to:', '6자리 코드가 이메일로 전송되었습니다:')}{' '}
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{email}</span>
-                  </p>
-                </div>
-
-                {/* Bộ đếm ngược thời gian hết hạn OTP (15 phút) */}
-                <div
-                  className={`p-3 rounded-2xl border flex items-center justify-between text-xs font-bold ${
-                    otpCountdown === 0
-                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400'
-                      : darkMode
-                      ? 'bg-slate-800/80 border-slate-700 text-slate-300'
-                      : 'bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                    <span>
-                      {otpCountdown > 0
-                        ? L('Mã OTP có hiệu lực trong:', 'OTP valid for:', 'OTP 유효 시간:')
-                        : L('Mã OTP đã hết hạn (quá 15p):', 'OTP expired (15m):', 'OTP 만료됨 (15분):')}
-                    </span>
-                  </span>
-                  <span
-                    className={`font-mono text-sm font-black px-2 py-0.5 rounded-lg ${
-                      otpCountdown === 0
-                        ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300'
-                        : otpCountdown < 120
-                        ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 animate-pulse'
-                        : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                    }`}
-                  >
-                    {formatCountdown(otpCountdown)}
-                  </span>
-                </div>
-
-                {/* Hộp xem trước demo email (khi test hoặc chưa bật SMTP thực) */}
-                {demoEmailBox && (
-                  <div
-                    className={`border rounded-2xl p-3 space-y-2.5 ${
-                      darkMode ? 'bg-slate-800/90 border-slate-700' : 'bg-blue-50/90 border-blue-200'
-                    }`}
-                  >
-                    <div className={`text-xs font-extrabold flex items-center justify-between ${darkMode ? 'text-blue-300' : 'text-blue-900'}`}>
-                      <span>📩 {L('Xem trước mã gửi qua email:', 'Email preview:', '이메일 미리보기:')}</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-200/50 text-blue-800 dark:text-blue-200">Demo</span>
-                    </div>
-                    <div
-                      className={`rounded-xl p-3 border flex flex-col sm:flex-row items-center justify-between gap-2 ${
-                        darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-blue-100'
-                      }`}
-                    >
-                      <div className="text-center sm:text-left">
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{L('Mã OTP 6 số', '6-digit OTP', '6자리 OTP')}</div>
-                        <div className="text-2xl font-black tracking-widest text-blue-600 dark:text-blue-400 font-mono">
-                          {demoEmailBox.otpCode}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 w-full sm:w-auto justify-end">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOtpOrToken(demoEmailBox.otpCode);
-                          }}
-                          className={`text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs transition ${
-                            darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}
-                        >
-                          <Copy className="w-3.5 h-3.5" /> {L('Điền mã OTP', 'Fill OTP', 'OTP 입력')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOtpOrToken(demoEmailBox.resetToken);
-                            setIsMagicLinkVerified(true);
-                            setMode('reset');
-                            setSuccessMsg(
-                              L(
-                                'Đã xác thực từ Liên kết Email! Hãy nhập mật khẩu mới.',
-                                'Email link verified! Please enter your new password.',
-                                '이메일 링크로 인증 완료! 새 비밀번호를 입력해주세요.'
-                              )
-                            );
-                          }}
-                          className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm transition"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" /> {L('Xác thực từ Link', 'Verify via Link', '링크로 인증')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Ô nhập mã OTP 6 số */}
-                <div>
-                  <label className={labelClass}>
-                    {L('Nhập 6 số OTP từ Email *', 'Enter 6-digit OTP from Email *', '이메일의 6자리 OTP 입력 *')}
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={6}
-                      autoFocus
-                      value={otpOrToken}
-                      onChange={(e) => setOtpOrToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="••••••"
-                      className={`w-full pl-12 pr-4 py-3 rounded-2xl border outline-none text-xl font-mono font-black tracking-[0.4em] text-center transition ${
-                        darkMode
-                          ? 'border-slate-700 bg-slate-800 text-white focus:border-blue-500'
-                          : 'border-slate-200 bg-white text-slate-900 focus:border-blue-600'
-                      }`}
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-400 font-medium mt-1 text-center">
-                    {L('Kiểm tra Hộp thư đến (hoặc Thư rác/Spam) của bạn', 'Check your Inbox or Spam folder', '받은편지함 또는 스팸함을 확인하세요')}
-                  </p>
-                </div>
-
-                {/* Nút Xác nhận OTP */}
-                <button
-                  type="submit"
-                  disabled={loading || otpOrToken.trim().length !== 6 || otpCountdown === 0}
-                  className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-blue-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{L('Đang kiểm tra mã OTP...', 'Verifying OTP...', 'OTP 확인 중...')}</span>
-                    </>
-                  ) : (
-                    <span>{L('Xác nhận mã OTP & Đổi mật khẩu', 'Verify OTP & Change Password', 'OTP 확인 및 비밀번호 변경')}</span>
-                  )}
-                </button>
-
-                {/* Gửi lại mã OTP */}
-                <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => handleForgotPassword()}
-                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1.5 transition"
-                  >
-                    <RotateCw className="w-3.5 h-3.5" />
-                    <span>{L('Chưa nhận được mã? Gửi lại mã OTP', "Didn't receive code? Resend OTP", '코드를 받지 못하셨나요? OTP 재전송')}</span>
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* ================= 4. CỬA SỔ THAY ĐỔI MẬT KHẨU (BƯỚC 3) ================= */}
-            {mode === 'reset' && (
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isMagicLinkVerified) {
-                      setMode('forgot');
-                    } else {
-                      setMode('enter_otp');
-                    }
-                    setErrorMsg('');
-                    setSuccessMsg('');
-                  }}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-blue-600 transition"
-                >
-                  <ArrowLeft className="w-4 h-4" /> {t.backBtn}
-                </button>
-
-                <div>
-                  <h2 className={`text-base font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                    {L('Cửa sổ thay đổi mật khẩu', 'Change Password Window', '비밀번호 변경 창')}
-                  </h2>
-                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {L('Thiết lập mật khẩu mới cho tài khoản:', 'Set new password for account:', '계정 새 비밀번호 설정:')}{' '}
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{email}</span>
-                  </p>
-                </div>
-
-                {/* Huy hiệu xác thực an toàn: Đã xác thực qua Link Magic Link hoặc đã xác thực OTP */}
-                <div className="p-3 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 shadow-xs flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-black text-emerald-900 dark:text-emerald-200 truncate">
-                        {isMagicLinkVerified
-                          ? L('Đã xác thực từ Liên kết Email (Magic Link)', 'Verified via Email Link (Magic Link)', '이메일 링크로 인증 완료 (Magic Link)')
-                          : L('Đã xác thực mã OTP 6 số thành công', 'OTP code verified successfully', 'OTP 인증 성공')}
-                      </div>
-                      <div className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 font-medium truncate">
-                        {isMagicLinkVerified
-                          ? L('Xác thực bảo mật qua Email', 'Authenticated via email', '이메일을 통한 보안 인증')
-                          : `${L('Mã OTP', 'OTP Code', 'OTP 코드')}: ${otpOrToken}`}
-                      </div>
-                    </div>
-                  </div>
-                  {otpCountdown > 0 && (
-                    <span className="text-[11px] font-mono font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-lg shrink-0">
-                      ⏱️ {formatCountdown(otpCountdown)}
-                    </span>
-                  )}
-                </div>
-
-                {/* Mật khẩu mới */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className={labelClass}>
-                      {L('Mật khẩu mới *', 'New password *', '새 비밀번호 *')}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
-                    >
-                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      <span>{showPassword ? L('Ẩn', 'Hide', '숨기기') : L('Hiện', 'Show', '보기')}</span>
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Speak@2026"
-                      className={`${inputClass} pl-10 pr-3.5 font-medium`}
-                      required
-                    />
-                  </div>
-
-                  <PasswordStrengthMeter criteria={pwdCriteria} lang={lang} darkMode={darkMode} />
-                </div>
-
-                {/* Xác nhận mật khẩu mới */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className={labelClass}>
-                      {L('Xác nhận mật khẩu mới *', 'Confirm new password *', '새 비밀번호 확인 *')}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      <span>{showConfirmPassword ? L('Ẩn', 'Hide', '숨기기') : L('Hiện', 'Show', '보기')}</span>
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Nhập lại mật khẩu mới..."
-                      className={`${inputClass} pl-10 pr-3.5 font-medium ${
-                        confirmPassword && confirmPassword !== newPassword
-                          ? 'border-rose-500 focus:border-rose-500'
-                          : confirmPassword && confirmPassword === newPassword
-                          ? 'border-emerald-500 focus:border-emerald-500'
-                          : ''
-                      }`}
-                      required
-                    />
-                  </div>
-                  {confirmPassword && confirmPassword !== newPassword && (
-                    <p className="text-[11px] text-rose-500 font-bold mt-1">
-                      {L('Mật khẩu xác nhận chưa khớp với mật khẩu mới', 'Passwords do not match', '비밀번호가 일치하지 않습니다')}
-                    </p>
-                  )}
-                  {confirmPassword && confirmPassword === newPassword && (
-                    <p className="text-[11px] text-emerald-500 font-bold mt-1 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      {L('Mật khẩu xác nhận trùng khớp', 'Passwords match', '비밀번호가 일치합니다')}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || !newPassword || !confirmPassword}
-                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{t.saveNewPassBtn}...</span>
-                    </>
-                  ) : (
-                    <span>{t.saveNewPassBtn} & {t.loginTab}</span>
-                  )}
-                </button>
-              </form>
+            {(mode === 'forgot' || mode === 'enter_otp' || mode === 'reset') && (
+              <AuthRecoveryViews
+                mode={mode}
+                setMode={setMode}
+                lang={lang}
+                darkMode={darkMode}
+                t={t}
+                L={L}
+                labelClass={labelClass}
+                inputClass={inputClass}
+                email={email}
+                setEmail={setEmail}
+                hasSamsungWarning={hasSamsungWarning}
+                otpOrToken={otpOrToken}
+                setOtpOrToken={setOtpOrToken}
+                otpCountdown={otpCountdown}
+                formatCountdown={formatCountdown}
+                demoEmailBox={demoEmailBox}
+                isMagicLinkVerified={isMagicLinkVerified}
+                setIsMagicLinkVerified={setIsMagicLinkVerified}
+                newPassword={newPassword}
+                setNewPassword={setNewPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                showConfirmPassword={showConfirmPassword}
+                setShowConfirmPassword={setShowConfirmPassword}
+                pwdCriteria={pwdCriteria}
+                loading={loading}
+                setErrorMsg={setErrorMsg}
+                setSuccessMsg={setSuccessMsg}
+                handleForgotPassword={handleForgotPassword}
+                handleVerifyOtp={handleVerifyOtp}
+                handleResetPassword={handleResetPassword}
+              />
             )}
 
             {/* Chế độ Khách: làm bài hôm nay & xem bảng xếp hạng không cần đăng nhập */}

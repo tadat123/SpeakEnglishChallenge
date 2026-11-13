@@ -42,9 +42,9 @@ export const ADMIN_ROUTE_META: Record<AdminSubTab, AdminRouteMeta> = {
   },
   challenges: {
     segment: 'challenges',
-    titleVi: 'Thử thách 21 ngày',
-    titleEn: '21-Day Challenges',
-    titleKo: '21일 챌린지',
+    titleVi: 'Lịch trình & Đề thi',
+    titleEn: 'Challenges & Schedule',
+    titleKo: '챌린지 & 일정',
   },
   events: {
     segment: 'events',
@@ -121,7 +121,7 @@ export function parseAdminRoute(hash?: string, pathname?: string): AdminRouteSta
     const dayToken = segments[2]?.toLowerCase() === 'day' ? segments[3] : segments[2];
     if (dayToken) {
       const parsedDay = Number.parseInt(dayToken, 10);
-      if (Number.isInteger(parsedDay) && parsedDay >= 1 && parsedDay <= 21) {
+      if (Number.isInteger(parsedDay) && parsedDay >= 1 && parsedDay <= 90) {
         return { subTab, dayNumber: parsedDay };
       }
     }
@@ -134,10 +134,10 @@ export function parseAdminRoute(hash?: string, pathname?: string): AdminRouteSta
  * Tạo hash chuẩn cho trang Admin, ví dụ `#admin/dashboard`, `#admin/users`, `#admin/challenges/day/5`.
  */
 export function buildAdminHash(subTab: AdminSubTab, dayNumber?: number): string {
-  if (subTab === 'challenges' && typeof dayNumber === 'number' && dayNumber >= 1 && dayNumber <= 21) {
+  if (subTab === 'challenges' && typeof dayNumber === 'number' && dayNumber >= 1 && dayNumber <= 90) {
     return `#admin/challenges/day/${dayNumber}`;
   }
-  if (subTab === 'dashboard' && typeof dayNumber === 'number' && dayNumber >= 1 && dayNumber <= 21) {
+  if (subTab === 'dashboard' && typeof dayNumber === 'number' && dayNumber >= 1 && dayNumber <= 90) {
     return `#admin/dashboard/day/${dayNumber}`;
   }
   return `#admin/${subTab}`;

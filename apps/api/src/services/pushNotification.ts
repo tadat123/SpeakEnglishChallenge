@@ -5,6 +5,7 @@ import webpush from 'web-push';
 import {
   store,
   PushNotificationType,
+  ALLOWED_NOTIFICATION_TYPES,
   PwaPushSubscriptionRecord,
   PushCampaignRecord,
 } from './store.js';
@@ -400,8 +401,9 @@ class StaggeredPushService {
    * Đồng thời tạo In-App Notification VÀ dispatch Web Push tới tất cả thiết bị PWA của người nhận.
    */
   public enqueuePersonalizedNotification(payload: {
-    targetType: 'all' | 'department' | 'user';
+    targetType: 'all' | 'user';
     targetValue?: string;
+    notifType?: PushNotificationType;
     title: string;
     body: string;
     targetUrl?: string;
@@ -414,6 +416,9 @@ class StaggeredPushService {
   } {
     let targets: any[] = [];
     const allUsers = store.getUsers();
+    const resolvedType: PushNotificationType = ALLOWED_NOTIFICATION_TYPES.has(payload.notifType || '')
+      ? (payload.notifType as PushNotificationType)
+      : 'NEW_TOP_1';
 
     if (payload.targetType === 'user') {
       if (!payload.targetValue) {
@@ -436,33 +441,6 @@ class StaggeredPushService {
         };
       }
       targets = [u];
-    } else if (payload.targetType === 'department') {
-      if (!payload.targetValue) {
-        return {
-          success: false,
-          message: 'Vui lòng chọn một phòng ban.',
-          sentCount: 0,
-          pwaDevicesCount: 0,
-        };
-      }
-      const rawDept = payload.targetValue.trim().toLowerCase();
-      targets = allUsers.filter((u) => {
-        if (!u.department) return false;
-        const uDept = u.department.trim().toLowerCase();
-        return (
-          uDept === rawDept ||
-          uDept.includes(rawDept) ||
-          rawDept.includes(uDept)
-        );
-      });
-      if (targets.length === 0) {
-        return {
-          success: false,
-          message: `Không có nhân viên nào thuộc phòng ban "${payload.targetValue}".`,
-          sentCount: 0,
-          pwaDevicesCount: 0,
-        };
-      }
     } else {
       targets = allUsers;
     }
@@ -508,7 +486,7 @@ class StaggeredPushService {
       inAppList.push({
         id: personalNotifId,
         campaignId,
-        type: 'PERSONALIZED',
+        type: resolvedType,
         userId: user.id,
         title: personalTitle,
         body: personalBody,
@@ -542,7 +520,7 @@ class StaggeredPushService {
     let campaign: PushCampaignRecord;
     if (tasks.length > 0) {
       campaign = this.createAndDispatchStaggeredCampaign(
-        'PERSONALIZED',
+        resolvedType,
         payload.title,
         payload.body,
         targetUrl,
@@ -552,7 +530,7 @@ class StaggeredPushService {
     } else {
       campaign = {
         id: campaignId,
-        type: 'PERSONALIZED',
+        type: resolvedType,
         title: payload.title,
         body: payload.body,
         targetUrl,

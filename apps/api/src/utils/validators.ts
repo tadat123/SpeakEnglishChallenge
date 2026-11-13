@@ -33,7 +33,6 @@ export const registerSchema = z.object({
   fullName: z.string().trim().min(2, 'Vui lòng nhập họ và tên'),
   email: personalEmailSchema,
   phone: z.string().trim().optional().default(''),
-  department: z.string().trim().optional().default(''),
   password: strongPasswordSchema,
 });
 

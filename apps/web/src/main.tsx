@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import { AppDialogProvider } from './components/AppDialogProvider';
 import { installClientApiFallback } from './utils/clientApiFallback';
 import './index.css';
 
@@ -14,6 +15,8 @@ window.addEventListener('vite:preloadError', () => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <AppDialogProvider>
+      <App />
+    </AppDialogProvider>
   </React.StrictMode>
 );

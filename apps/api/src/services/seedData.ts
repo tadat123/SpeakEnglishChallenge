@@ -343,8 +343,9 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
   },
 ];
 
-export function generate21DaysChallenges(baseDateMs?: number): DailyChallengeItem[] {
+export function generateChallengeDays(totalDays = 21, baseDateMs?: number): DailyChallengeItem[] {
   const days: DailyChallengeItem[] = [];
+  const totalCount = Math.min(90, Math.max(1, Math.round(Number(totalDays) || 21)));
   const refMs = typeof baseDateMs === 'number' ? baseDateMs : Date.now();
   // Tính ngày hiện tại theo múi giờ Việt Nam (UTC+7) để không bị lệch giờ trên Docker container (mặc định UTC)
   const vnNow = new Date(refMs + 7 * 3600 * 1000);
@@ -354,19 +355,14 @@ export function generate21DaysChallenges(baseDateMs?: number): DailyChallengeIte
   // Mốc 00:00:00 giờ Việt Nam (tương ứng 17:00:00 UTC của ngày hôm trước)
   const todayVnMidnightUtcMs = Date.UTC(vnYear, vnMonth, vnDate, 0, 0, 0, 0) - 7 * 3600 * 1000;
 
-  for (let day = 1; day <= 21; day++) {
+  for (let day = 1; day <= totalCount; day++) {
     const unlockUtcMs = todayVnMidnightUtcMs + (day - 1) * 86400 * 1000;
     const vnDayObj = new Date(unlockUtcMs + 7 * 3600 * 1000);
     const dd = String(vnDayObj.getUTCDate()).padStart(2, '0');
     const mm = String(vnDayObj.getUTCMonth() + 1).padStart(2, '0');
     const yyyy = vnDayObj.getUTCFullYear();
 
-    const questions: QuestionItem[] = OFFICIAL_10_QUESTIONS.map((q, idx) => ({
-      ...q,
-      id: `day-${day}-q-${idx + 1}`,
-      challengeId: day,
-      orderIndex: idx + 1,
-    }));
+    const questions: QuestionItem[] = [];
 
     days.push({
       id: day,
@@ -374,16 +370,20 @@ export function generate21DaysChallenges(baseDateMs?: number): DailyChallengeIte
       title: `Day ${day}`,
       dateLabel: `${dd}/${mm}/${yyyy}`,
       unlockDate: new Date(Date.now() + 86400000 * 365).toISOString(),
-      // Mặc định khi khởi tạo mới: KHÓA toàn bộ 21 ngày, chỉ mở khi Admin bấm "Start Challenge" hoặc mở khóa ngày
+      // Mặc định khi khởi tạo mới: KHÓA toàn bộ ngày, chỉ mở khi Admin bấm "Start Challenge" hoặc mở khóa ngày
       isPublished: false,
       forceLockedAt: null,
       forceRevealed: false,
       questions,
-      q11Words: JSON.parse(JSON.stringify(DEFAULT_Q11_5_WORDS)),
+      q11Words: [],
     });
   }
 
   return days;
 }
 
-export const generate30DaysChallenges = generate21DaysChallenges;
+export function generate21DaysChallenges(baseDateMs?: number): DailyChallengeItem[] {
+  return generateChallengeDays(21, baseDateMs);
+}
+
+export const generate30DaysChallenges = (baseDateMs?: number) => generateChallengeDays(30, baseDateMs);

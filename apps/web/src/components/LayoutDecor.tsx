@@ -39,46 +39,56 @@ export const ResponsiveBackground: React.FC<ResponsiveBackgroundProps> = ({ dark
 interface PerfmonsterFooterProps {
   lang: Lang;
   darkMode?: boolean;
+  totalDays?: number;
   onNavigate?: (tab: 'home' | 'challenges' | 'leaderboard' | 'profile') => void;
 }
 
 const FOOTER_TEXT = {
   vi: {
     desc: 'Nền tảng luyện phát âm và giao tiếp tiếng Anh hằng ngày. Theo dõi tiến độ trực quan và tự tin tỏa sáng mỗi ngày.',
-    col1Title: 'Thử thách',
-    col1Links: ['Bài thi hôm nay', 'Bản đồ 21 ngày', 'Luyện phát âm IPA', 'Bảng xếp hạng'],
-    col2Title: 'Tài nguyên',
-    col2Links: ['Hướng dẫn làm bài', 'Thống kê kết quả', 'Huy hiệu cột mốc'],
-    col3Title: 'Chương trình',
-    col3Links: ['Về SpeakRight', 'Vinh danh Top 50', 'Trợ giúp kỹ thuật', 'Liên hệ BTC'],
+    navTitle: 'Điều hướng',
+    home: 'Trang chủ',
+    challenges: 'Thử thách {n} ngày',
+    challengesFallback: 'Thử thách',
+    leaderboard: 'Bảng xếp hạng',
+    profile: 'Hồ sơ cá nhân',
   },
   en: {
     desc: 'Real-time workplace English pronunciation challenge. See what to improve and speak with confidence every day.',
-    col1Title: 'Product',
-    col1Links: ["Today's Challenge", '21-Day Map', 'IPA Pronunciation', 'Leaderboard'],
-    col2Title: 'Resources',
-    col2Links: ['Documentation', 'Accuracy Stats', 'Milestone Badges'],
-    col3Title: 'Program',
-    col3Links: ['About', 'Top 50 Players', 'Get Expert Help', 'Contact'],
+    navTitle: 'Navigation',
+    home: 'Home',
+    challenges: '{n}-Day Challenges',
+    challengesFallback: 'Challenges',
+    leaderboard: 'Leaderboard',
+    profile: 'Profile',
   },
   ko: {
-    desc: '임직원을 위한 21일 비즈니스 영어 발음 챌린지 플랫폼. 매일 발음을 연습하고 실시간 랭킹을 확인하세요.',
-    col1Title: '챌린지',
-    col1Links: ['오늘의 문제', '21일 전체 맵', 'IPA 발음 연습', '실시간 랭킹'],
-    col2Title: '리소스',
-    col2Links: ['이용 가이드', '학습 통계', '달성 배지'],
-    col3Title: '프로그램',
-    col3Links: ['소개', 'TOP 50 명예의 전당', '기술 지원', '문의하기'],
+    desc: '임직원을 위한 비즈니스 영어 발음 챌린지 플랫폼. 매일 발음을 연습하고 실시간 랭킹을 확인하세요.',
+    navTitle: '메뉴',
+    home: '홈',
+    challenges: '{n}일 챌린지',
+    challengesFallback: '챌린지',
+    leaderboard: '랭킹',
+    profile: '프로필',
   },
 };
 
 export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
   lang,
   darkMode = false,
+  totalDays = 0,
   onNavigate,
 }) => {
   const ft = FOOTER_TEXT[lang];
+  const roadmapLabel =
+    totalDays > 0 ? ft.challenges.replace('{n}', String(totalDays)) : ft.challengesFallback;
   const baseUrl = import.meta.env.BASE_URL || './';
+  const routes: Array<{ tab: 'home' | 'challenges' | 'leaderboard' | 'profile'; label: string }> = [
+    { tab: 'home', label: ft.home },
+    { tab: 'challenges', label: roadmapLabel },
+    { tab: 'leaderboard', label: ft.leaderboard },
+    { tab: 'profile', label: ft.profile },
+  ];
 
   return (
     <footer
@@ -89,10 +99,10 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
       }`}
     >
       <div className="max-w-5xl mx-auto relative z-10">
-        {/* Khối cột thương hiệu + 3 cột điều hướng (Đã xóa cột Bảo mật) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 pb-12 sm:pb-16">
+        {/* Khối thương hiệu + chỉ giữ lại các route đang tồn tại */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 pb-8 sm:pb-12 items-start">
           {/* Cột Thương hiệu bên trái */}
-          <div className="lg:col-span-5 space-y-2.5">
+          <div className="lg:col-span-7 space-y-2.5">
             <div className="flex items-center gap-3">
               <img
                 src={`${baseUrl}logo.png`}
@@ -108,7 +118,7 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
               </h2>
             </div>
             <p
-              className={`text-xs sm:text-sm leading-relaxed max-w-sm font-medium ${
+              className={`text-xs sm:text-sm leading-relaxed max-w-md font-medium ${
                 darkMode ? 'text-indigo-200/80' : 'text-slate-600'
               }`}
             >
@@ -116,145 +126,28 @@ export const PerfmonsterFooter: React.FC<PerfmonsterFooterProps> = ({
             </p>
           </div>
 
-          {/* 3 Cột Liên kết bên phải */}
-          <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8 text-xs sm:text-sm">
-            {/* Cột 1: Thử thách */}
-            <div className="space-y-2.5">
-              <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
-                {ft.col1Title}
-              </div>
-              <ul
-                className={`space-y-2 font-semibold ${
-                  darkMode ? 'text-indigo-200/75' : 'text-slate-600'
-                }`}
-              >
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('home')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col1Links[0]}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('challenges')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col1Links[1]}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('challenges')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col1Links[2]}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('leaderboard')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col1Links[3]}
-                  </button>
-                </li>
-              </ul>
+          {/* Điều hướng các route thật sự tồn tại */}
+          <div className="lg:col-span-5 text-xs sm:text-sm space-y-2.5">
+            <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
+              {ft.navTitle}
             </div>
-
-            {/* Cột 2: Tài nguyên */}
-            <div className="space-y-2.5">
-              <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
-                {ft.col2Title}
-              </div>
-              <ul
-                className={`space-y-2 font-semibold ${
-                  darkMode ? 'text-indigo-200/75' : 'text-slate-600'
-                }`}
-              >
-                <li>
+            <ul
+              className={`grid grid-cols-2 gap-x-6 gap-y-2 font-semibold ${
+                darkMode ? 'text-indigo-200/75' : 'text-slate-600'
+              }`}
+            >
+              {routes.map((r) => (
+                <li key={r.tab}>
                   <button
                     type="button"
-                    onClick={() => onNavigate?.('home')}
+                    onClick={() => onNavigate?.(r.tab)}
                     className="hover:text-blue-600 transition text-left"
                   >
-                    {ft.col2Links[0]}
+                    {r.label}
                   </button>
                 </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('profile')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col2Links[1]}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('profile')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col2Links[2]}
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            {/* Cột 3: Chương trình */}
-            <div className="space-y-2.5">
-              <div className={`font-extrabold ${darkMode ? 'text-white' : 'text-blue-950'}`}>
-                {ft.col3Title}
-              </div>
-              <ul
-                className={`space-y-2 font-semibold ${
-                  darkMode ? 'text-indigo-200/75' : 'text-slate-600'
-                }`}
-              >
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('home')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col3Links[0]}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('leaderboard')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col3Links[1]}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('profile')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col3Links[2]}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate?.('home')}
-                    className="hover:text-blue-600 transition text-left"
-                  >
-                    {ft.col3Links[3]}
-                  </button>
-                </li>
-              </ul>
-            </div>
+              ))}
+            </ul>
           </div>
         </div>
 

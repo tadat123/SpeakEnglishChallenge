@@ -13,7 +13,6 @@ import { Lang } from '../utils/i18n';
 import {
   getNotificationPermissionState,
   syncAndSubscribePwaPush,
-  sendTestNativeNotification,
   isRunningStandalonePwa,
 } from '../utils/pwaPush';
 
@@ -183,8 +182,7 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
       });
       setPermission(res.permission);
       if (res.permission === 'granted') {
-        onToast?.('🎉 Đã cấp quyền thông báo thành công! Đang gửi thông báo kiểm tra...');
-        await sendTestNativeNotification();
+        onToast?.('🎉 Đã bật nhận thông báo thành công!');
       } else if (res.permission === 'denied') {
         onToast?.('⚠️ Bạn đã chặn quyền thông báo. Hãy vào Cài đặt trình duyệt để Cho phép lại.', true);
       }
