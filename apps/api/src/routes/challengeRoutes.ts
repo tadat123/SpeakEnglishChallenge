@@ -1,6 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import crypto from 'crypto';
-import { calcChallengeMaxPoints, store } from '../services/store.js';
+import {
+  calcChallengeMaxPoints,
+  getFillInBlankAnswerText,
+  isFillInBlankCorrect,
+  store,
+} from '../services/store.js';
 import { QuestionItem } from '../services/seedData.js';
 
 function sanitizeQuizQuestions(questions: QuestionItem[]) {
@@ -11,7 +16,7 @@ function sanitizeQuizQuestions(questions: QuestionItem[]) {
     categoryLabel: q.categoryLabel,
     promptText: q.promptText,
     statementText: q.statementText,
-    targetWord: q.targetWord,
+    targetWord: q.questionType === 'FILL_IN_THE_BLANK' ? getFillInBlankAnswerText(q) : q.targetWord,
     hasPromptAudio: q.hasPromptAudio,
     audioNote: q.audioNote,
     promptAudioUrl: q.promptAudioUrl,
@@ -35,17 +40,11 @@ function gradeQuestionsForReview(questions: QuestionItem[], answers: Record<stri
     let isCorrect = false;
 
     if (q.questionType === 'FILL_IN_THE_BLANK') {
-      const userText = String(answers?.[q.id] || '')
-        .trim()
-        .toLowerCase()
-        .replace(/['’]/g, "'");
-      const expected = String(q.targetWord || '')
-        .trim()
-        .toLowerCase()
-        .replace(/['’]/g, "'");
-      isCorrect = userText.length > 0 && userText === expected;
+      isCorrect = isFillInBlankCorrect(answers?.[q.id], q);
     } else {
-      isCorrect = selectedOptionId === q.correctOptionId;
+      isCorrect =
+        String(selectedOptionId || '').trim().toUpperCase() ===
+        String(q.correctOptionId || '').trim().toUpperCase();
     }
 
     if (isCorrect) {
@@ -57,6 +56,7 @@ function gradeQuestionsForReview(questions: QuestionItem[], answers: Record<stri
 
     const correctOption = q.options?.find((o) => o.id === q.correctOptionId);
     const selectedOption = q.options?.find((o) => o.id === selectedOptionId);
+    const fillTargetText = getFillInBlankAnswerText(q);
 
     return {
       questionId: q.id,
@@ -64,18 +64,18 @@ function gradeQuestionsForReview(questions: QuestionItem[], answers: Record<stri
       questionType: q.questionType,
       promptText: q.promptText,
       statementText: q.statementText,
-      targetWord: q.targetWord,
+      targetWord: q.questionType === 'FILL_IN_THE_BLANK' ? fillTargetText : q.targetWord,
       promptAudioUrl: q.promptAudioUrl,
       promptVideoUrl: q.promptVideoUrl,
       options: q.options || [],
       selectedOptionId,
       selectedOptionText:
         q.questionType === 'FILL_IN_THE_BLANK'
-          ? answers?.[q.id] || 'Chưa điền'
+          ? String(answers?.[q.id] || '').trim() || 'Chưa điền'
           : selectedOption?.text || 'Chưa chọn',
       correctOptionId: q.correctOptionId,
       correctOptionText:
-        q.questionType === 'FILL_IN_THE_BLANK' ? q.targetWord : correctOption?.text || '',
+        q.questionType === 'FILL_IN_THE_BLANK' ? fillTargetText : correctOption?.text || '',
       isCorrect,
       explanation: q.explanation,
     };

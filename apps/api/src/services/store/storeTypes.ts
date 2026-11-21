@@ -334,6 +334,55 @@ export function calcChallengeMaxPoints(questions?: Array<{ points?: number | nul
   return questions.reduce((sum, q) => sum + (Number(q?.points) > 0 ? Number(q.points) : 10), 0);
 }
 
+/** Chuẩn hóa chuỗi trả lời câu điền từ (không phân biệt HOA/thường, bỏ khoảng trắng & dấu câu thừa) */
+export function normalizeFillInBlankText(val: unknown): string {
+  return String(val ?? '')
+    .normalize('NFKC')
+    .trim()
+    .toLowerCase()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/['’`´]/g, "'")
+    .replace(/[–—−]/g, '-')
+    .replace(/[.,!?;:]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Lấy từ đáp án chuẩn để hiển thị cho câu hỏi điền từ */
+export function getFillInBlankAnswerText(q: {
+  targetWord?: string | null;
+  correctOptionId?: string | null;
+}): string {
+  const target = String(q?.targetWord ?? '').trim();
+  if (target) return target;
+  return String(q?.correctOptionId ?? '').trim();
+}
+
+/** So sánh đáp án câu điền từ không phân biệt chữ HOA / chữ thường */
+export function isFillInBlankCorrect(
+  userAnswer: unknown,
+  q: { targetWord?: string | null; correctOptionId?: string | null }
+): boolean {
+  const userNorm = normalizeFillInBlankText(userAnswer);
+  if (!userNorm) return false;
+
+  const candidates = [q?.targetWord, q?.correctOptionId]
+    .map((c) => String(c ?? '').trim())
+    .filter(Boolean)
+    .flatMap((c) => c.split('/').map((part) => normalizeFillInBlankText(part)))
+    .filter(Boolean);
+
+  for (const expectedNorm of candidates) {
+    if (userNorm === expectedNorm) return true;
+    const userCompact = userNorm.replace(/[.\s-]/g, '');
+    const expectedCompact = expectedNorm.replace(/[.\s-]/g, '');
+    if (expectedCompact.length >= 2 && userCompact === expectedCompact) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Interface ngữ cảnh dùng chung cho các module con của DataStore */
 export interface StoreContext {
   getData: () => DatabaseShape;

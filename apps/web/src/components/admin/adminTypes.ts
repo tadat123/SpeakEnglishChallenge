@@ -238,23 +238,23 @@ export const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice (3 đáp án)',
+        label: '1. Chọn Audio ở 3 Đáp án A/B/C (3 nút Loa ở đáp án)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False (Đúng / Sai)',
+        label: '2. True / False (Nghe Đề bài & Chọn Đúng / Sai)',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Nghe audio / Video (3 đáp án)',
+        label: '3. Nghe Loa/Video Đề bài & Chọn đáp án chữ A/B/C (Multi Choice)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Nghĩa của từ / Viết tắt (3 đáp án)',
+        label: '4. Trắc nghiệm Nghĩa của từ / Viết tắt (3 đáp án chữ)',
       },
       {
         value: 'FILL_IN_THE_BLANK',
-        label: 'Điền từ (Fill in the blank)',
+        label: '5. Điền từ vựng (Fill in the blank)',
       },
     ],
     sidebarDashboard: 'Dashboard',
@@ -333,23 +333,23 @@ export const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: 'Multiple Choice (3 options)',
+        label: '1. Choose Audio on Options A/B/C (3 option speakers)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False',
+        label: '2. True / False (Listen to Prompt & Choose True/False)',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: 'Audio / Video (3 options)',
+        label: '3. Listen to Prompt Audio/Video & Choose A/B/C (Multi Choice)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: 'Vocabulary / Acronym',
+        label: '4. Vocabulary / Acronym Multiple Choice (Text only)',
       },
       {
         value: 'FILL_IN_THE_BLANK',
-        label: 'Fill in the blank',
+        label: '5. Fill in the blank (Type word)',
       },
     ],
     sidebarDashboard: 'Dashboard',
@@ -428,23 +428,23 @@ export const ADMIN_I18N = {
     types: [
       {
         value: 'CHOOSE_AUDIO',
-        label: '객관식 (3개 보기)',
+        label: '1. 보기 A/B/C 발음 오디오 선택 (보기별 스피커 3개)',
       },
       {
         value: 'TRUE_FALSE',
-        label: 'True / False (참/거짓)',
+        label: '2. True / False (문제 듣고 참/거짓 선택)',
       },
       {
         value: 'LISTEN_AND_CHOOSE',
-        label: '듣기 / 비디오 (3개 보기)',
+        label: '3. 문제 오디오/비디오 듣고 보기 A/B/C 선택 (객관식)',
       },
       {
         value: 'VOCAB_MEANING',
-        label: '단어 의미 / 약어 (3개 보기)',
+        label: '4. 단어 의미 / 약어 객관식 (스피커 없음)',
       },
       {
         value: 'FILL_IN_THE_BLANK',
-        label: '빈칸 채우기',
+        label: '5. 빈칸 채우기 (영단어 입력)',
       },
     ],
     sidebarDashboard: '대시보드',

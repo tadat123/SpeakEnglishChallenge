@@ -128,6 +128,47 @@ export function getChallengeMaxPoints(c: any): number {
   return 100;
 }
 
+/** Chuẩn hóa chuỗi trả lời câu điền từ (không phân biệt HOA/thường, bỏ khoảng trắng & dấu câu thừa) */
+export function normalizeFillInBlankText(val: unknown): string {
+  return String(val ?? '')
+    .normalize('NFKC')
+    .trim()
+    .toLowerCase()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/['’`´]/g, "'")
+    .replace(/[–—−]/g, '-')
+    .replace(/[.,!?;:]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function getFillInBlankAnswerText(q: any): string {
+  const target = String(q?.targetWord ?? '').trim();
+  if (target) return target;
+  return String(q?.correctOptionId ?? '').trim();
+}
+
+export function isFillInBlankCorrect(userAnswer: unknown, q: any): boolean {
+  const userNorm = normalizeFillInBlankText(userAnswer);
+  if (!userNorm) return false;
+
+  const candidates = [q?.targetWord, q?.correctOptionId]
+    .map((c) => String(c ?? '').trim())
+    .filter(Boolean)
+    .flatMap((c) => c.split('/').map((part) => normalizeFillInBlankText(part)))
+    .filter(Boolean);
+
+  for (const expectedNorm of candidates) {
+    if (userNorm === expectedNorm) return true;
+    const userCompact = userNorm.replace(/[.\s-]/g, '');
+    const expectedCompact = expectedNorm.replace(/[.\s-]/g, '');
+    if (expectedCompact.length >= 2 && userCompact === expectedCompact) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function gradeGuestQuiz(questions: any[], answers: Record<string, string>) {
   let score = 0;
   let totalPoints = 0;
@@ -142,17 +183,11 @@ export function gradeGuestQuiz(questions: any[], answers: Record<string, string>
     let isCorrect = false;
 
     if (q.questionType === 'FILL_IN_THE_BLANK') {
-      const userText = String(answers?.[q.id] || '')
-        .trim()
-        .toLowerCase()
-        .replace(/['’]/g, "'");
-      const expected = String(q.targetWord || '')
-        .trim()
-        .toLowerCase()
-        .replace(/['’]/g, "'");
-      isCorrect = userText.length > 0 && userText === expected;
+      isCorrect = isFillInBlankCorrect(answers?.[q.id], q);
     } else {
-      isCorrect = selectedOptionId === q.correctOptionId;
+      isCorrect =
+        String(selectedOptionId || '').trim().toUpperCase() ===
+        String(q.correctOptionId || '').trim().toUpperCase();
     }
 
     if (isCorrect) {
@@ -163,24 +198,25 @@ export function gradeGuestQuiz(questions: any[], answers: Record<string, string>
     }
     const correctOption = q.options?.find((o: any) => o.id === q.correctOptionId);
     const selectedOption = q.options?.find((o: any) => o.id === selectedOptionId);
+    const fillTargetText = getFillInBlankAnswerText(q);
     return {
       questionId: q.id,
       orderIndex: q.orderIndex,
       questionType: q.questionType,
       promptText: q.promptText,
       statementText: q.statementText,
-      targetWord: q.targetWord,
+      targetWord: q.questionType === 'FILL_IN_THE_BLANK' ? fillTargetText : q.targetWord,
       promptAudioUrl: q.promptAudioUrl,
       promptVideoUrl: q.promptVideoUrl,
       options: q.options || [],
       selectedOptionId,
       selectedOptionText:
         q.questionType === 'FILL_IN_THE_BLANK'
-          ? answers?.[q.id] || 'Chưa điền'
+          ? String(answers?.[q.id] || '').trim() || 'Chưa điền'
           : selectedOption?.text || 'Chưa chọn',
       correctOptionId: q.correctOptionId,
       correctOptionText:
-        q.questionType === 'FILL_IN_THE_BLANK' ? q.targetWord : correctOption?.text || '',
+        q.questionType === 'FILL_IN_THE_BLANK' ? fillTargetText : correctOption?.text || '',
       isCorrect,
       explanation: q.explanation,
     };

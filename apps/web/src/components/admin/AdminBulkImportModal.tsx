@@ -1,16 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Check,
   Download,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
   FileUp,
   Loader2,
+  Plus,
   Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
 import { appDialog } from '../AppDialogProvider';
+import { AdminBulkQuestionPreview } from './AdminBulkQuestionPreview';
+import {
+  BULK_CSV_HEADER,
+  BULK_SAMPLE_ROWS,
+  BulkParsedQuestionRow,
+  BulkQuestionType,
+  QUESTION_TYPE_OPTIONS,
+  buildExcelXmlWithDropdowns,
+  normalizeBulkCorrectOption,
+  parseBulkText,
+} from './bulkImportHelpers';
 
 interface AdminBulkImportModalProps {
   show: boolean;
@@ -26,172 +40,6 @@ interface AdminBulkImportModalProps {
   inputBg: string;
   textPrimary: string;
   textSecondary: string;
-}
-
-const BULK_CSV_HEADER =
-  'DayNumber,OrderIndex,QuestionType,CategoryLabel,PromptText,StatementText,TargetWord,OptionA,OptionB,OptionC,OptionD,CorrectOption,Explanation,Points,PromptAudioUrl,PromptVideoUrl';
-
-const BULK_SAMPLE_ROWS = [
-  '1,1,CHOOSE_AUDIO,Phát âm chuẩn,"Từ ""Approval"" được phát âm như thế nào? Nghe các phương án và chọn cách phát âm chuẩn nhất.",,/əˈpruːvəl/,Approval,Approval (sai trọng âm),Approval (sai âm cuối),,A,"Từ \'Approval\' có trọng âm rơi vào âm tiết thứ 2 (/əˈpruːvəl/).",10,,',
-  '1,2,TRUE_FALSE,True / False,"Nghe câu sau và xác định nhận định là Đúng hay Sai:","\'Schedule\' chỉ có 1 cách phát âm duy nhất trong tiếng Anh quốc tế.",schedule,True – Đúng,False – Sai,,,B,"Sai vì từ \'schedule\' có 2 cách đọc chuẩn: /ˈskedʒuːl/ (Mỹ) và /ˈʃedʒuːl/ (Anh).",10,,',
-  '1,3,LISTEN_AND_CHOOSE,Nghe & Chọn đáp án,"Nghe đoạn âm thanh sau và chọn từ được nhắc tới trong ngữ cảnh công việc.",,collaboration,collaboration,corporation,celebration,,A,"Từ được phát âm trong đoạn audio là \'collaboration\' (sự hợp tác).",10,,',
-  '1,4,VOCAB_MEANING,Từ vựng công sở,"Trong môi trường doanh nghiệp, từ viết tắt \'KPI\' có nghĩa là gì?",,KPI,Key Performance Indicator,Knowledge Process Integration,Key Project Initiative,Key Product Index,A,"KPI là viết tắt của Key Performance Indicator (Chỉ số đo lường hiệu quả công việc cốt lõi).",10,,',
-  '1,5,FILL_IN_THE_BLANK,Điền từ vựng,"Điền từ tiếng Anh tương ứng với định nghĩa và phiên âm sau:","/ˌrekəˈmend/ (Đưa ra gợi ý, giới thiệu giải pháp)",recommend,,,,recommend,"Từ đúng chính tả là \'recommend\' (2 chữ \'m\' và 1 chữ \'c\').",10,,',
-  '2,1,LISTEN_AND_CHOOSE,Phát âm công sở,"Chọn cách phát âm đúng của từ ""Deadline"".",,deadline,Deadline (/ˈdedlaɪn/),Dead line (/ded ˈlaɪn/),Deline (/ˈdiːlaɪn/),,A,"Trọng âm rơi vào âm tiết đầu tiên /ˈdedlaɪn/.",10,,',
-];
-
-function parseBulkText(
-  text: string,
-  bulkTargetMode: 'auto' | 'current',
-  selectedDay: number,
-  maxDayCap: number
-) {
-  const clean = text.trim();
-  if (!clean) return { parsedList: [], errors: [], dayCounts: {} as Record<number, number> };
-
-  const firstLine = clean.split(/\r?\n/)[0];
-  let delimiter = ',';
-  if (firstLine.includes('\t')) delimiter = '\t';
-  else if (!firstLine.includes(',') && firstLine.includes(';')) delimiter = ';';
-
-  const lines: string[][] = [];
-  let currentRow: string[] = [];
-  let currentField = '';
-  let insideQuotes = false;
-
-  for (let i = 0; i < clean.length; i++) {
-    const char = clean[i];
-    const nextChar = clean[i + 1];
-
-    if (char === '"') {
-      if (insideQuotes && nextChar === '"') {
-        currentField += '"';
-        i++;
-      } else {
-        insideQuotes = !insideQuotes;
-      }
-    } else if (char === delimiter && !insideQuotes) {
-      currentRow.push(currentField.trim());
-      currentField = '';
-    } else if ((char === '\r' || char === '\n') && !insideQuotes) {
-      if (char === '\r' && nextChar === '\n') {
-        i++;
-      }
-      currentRow.push(currentField.trim());
-      if (currentRow.some((f) => f.length > 0)) {
-        lines.push(currentRow);
-      }
-      currentRow = [];
-      currentField = '';
-    } else {
-      currentField += char;
-    }
-  }
-  if (currentField.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentField.trim());
-    if (currentRow.some((f) => f.length > 0)) {
-      lines.push(currentRow);
-    }
-  }
-
-  if (lines.length === 0) {
-    return {
-      parsedList: [],
-      errors: ['Dữ liệu rỗng.'],
-      dayCounts: {} as Record<number, number>,
-    };
-  }
-
-  const header = lines[0].map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-  const hasHeader = header.some(
-    (h) =>
-      h.includes('day') ||
-      h.includes('prompt') ||
-      h.includes('question') ||
-      h.includes('option') ||
-      h.includes('type')
-  );
-
-  const dataRows = hasHeader ? lines.slice(1) : lines;
-
-  const headerMap: Record<string, number> = {};
-  if (hasHeader) {
-    lines[0].forEach((col, idx) => {
-      const key = col.toLowerCase().replace(/[^a-z0-9]/g, '');
-      headerMap[key] = idx;
-    });
-  }
-
-  const getCol = (row: string[], colName: string, defaultIdx: number): string => {
-    if (hasHeader) {
-      for (const key of Object.keys(headerMap)) {
-        if (key.includes(colName)) {
-          return row[headerMap[key]] ?? '';
-        }
-      }
-    }
-    return row[defaultIdx] ?? '';
-  };
-
-  const parsedList: any[] = [];
-  const errors: string[] = [];
-  const dayCounts: Record<number, number> = {};
-
-  dataRows.forEach((cols, idx) => {
-    const lineNum = hasHeader ? idx + 2 : idx + 1;
-    const rawDay = parseInt(getCol(cols, 'day', 0), 10);
-    const dayNumber =
-      !isNaN(rawDay) && rawDay >= 1 && rawDay <= maxDayCap
-        ? rawDay
-        : bulkTargetMode === 'current'
-        ? selectedDay
-        : 1;
-    const orderIndex = parseInt(getCol(cols, 'order', 1), 10) || idx + 1;
-    const questionType = getCol(cols, 'type', 2) || 'LISTEN_AND_CHOOSE';
-    const categoryLabel = getCol(cols, 'cat', 3);
-    const promptText = getCol(cols, 'prompt', 4);
-    const statementText = getCol(cols, 'statement', 5);
-    const targetWord = getCol(cols, 'target', 6);
-    const optionA = getCol(cols, 'optiona', 7);
-    const optionB = getCol(cols, 'optionb', 8);
-    const optionC = getCol(cols, 'optionc', 9);
-    const optionD = getCol(cols, 'optiond', 10);
-    const correctOptionId = getCol(cols, 'correct', 11) || 'A';
-    const explanation = getCol(cols, 'explanation', 12);
-    const points = parseInt(getCol(cols, 'points', 13), 10) || 10;
-    const promptAudioUrl = getCol(cols, 'audiourl', 14);
-    const promptVideoUrl = getCol(cols, 'videourl', 15);
-
-    if (!promptText.trim()) {
-      errors.push(`Dòng ${lineNum}: Thiếu nội dung câu hỏi (PromptText).`);
-      return;
-    }
-
-    const rowTargetDay = bulkTargetMode === 'current' ? selectedDay : dayNumber;
-    dayCounts[rowTargetDay] = (dayCounts[rowTargetDay] || 0) + 1;
-
-    parsedList.push({
-      lineNum,
-      dayNumber: rowTargetDay,
-      orderIndex,
-      questionType,
-      categoryLabel,
-      promptText,
-      statementText,
-      targetWord,
-      optionA,
-      optionB,
-      optionC,
-      optionD,
-      correctOptionId,
-      explanation,
-      points,
-      promptAudioUrl,
-      promptVideoUrl,
-    });
-  });
-
-  return { parsedList, errors, dayCounts };
 }
 
 export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
@@ -213,14 +61,161 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
   const [bulkTargetMode, setBulkTargetMode] = useState<'auto' | 'current'>('auto');
   const [bulkWriteMode, setBulkWriteMode] = useState<'overwrite' | 'append'>('overwrite');
   const [bulkLoading, setBulkLoading] = useState<boolean>(false);
+  const [editableRows, setEditableRows] = useState<BulkParsedQuestionRow[]>([]);
+  const [bulkParseErrors, setBulkParseErrors] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number>(0);
+  const [showLivePreview, setShowLivePreview] = useState<boolean>(true);
+
+  const effectiveMaxDays = Math.max(1, Math.min(90, totalDays || 21));
+
+  useEffect(() => {
+    if (!bulkRawText.trim()) {
+      setEditableRows([]);
+      setBulkParseErrors([]);
+      setPreviewIndex(0);
+      return;
+    }
+    const { parsedList, errors } = parseBulkText(
+      bulkRawText,
+      bulkTargetMode,
+      selectedDay,
+      Math.max(90, totalDays || 30)
+    );
+    setEditableRows(parsedList);
+    setBulkParseErrors(errors);
+    setPreviewIndex(0);
+  }, [bulkRawText, bulkTargetMode, selectedDay, totalDays]);
+
+  const bulkDayCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const r of editableRows) {
+      const d = bulkTargetMode === 'current' ? selectedDay : r.dayNumber;
+      counts[d] = (counts[d] || 0) + 1;
+    }
+    return counts;
+  }, [editableRows, bulkTargetMode, selectedDay]);
 
   if (!show) return null;
 
-  const {
-    parsedList: bulkParsedQuestions,
-    errors: bulkParseErrors,
-    dayCounts: bulkDayCounts,
-  } = parseBulkText(bulkRawText, bulkTargetMode, selectedDay, Math.max(90, totalDays || 30));
+  const updateRow = (index: number, patch: Partial<BulkParsedQuestionRow>) => {
+    setEditableRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== index) return row;
+        const next: BulkParsedQuestionRow = { ...row, ...patch };
+
+        if (patch.questionType && patch.questionType !== row.questionType) {
+          const meta = QUESTION_TYPE_OPTIONS.find((t) => t.value === patch.questionType);
+          if (meta) {
+            next.categoryLabel = meta.defaultCategory;
+          }
+          if (patch.questionType === 'TRUE_FALSE') {
+            next.optionA = next.optionA?.trim() || 'True – Đúng';
+            next.optionB = next.optionB?.trim() || 'False – Sai';
+            next.optionC = '';
+            next.optionD = '';
+          }
+          const norm = normalizeBulkCorrectOption(
+            patch.questionType,
+            next.correctOptionId,
+            next.targetWord,
+            {
+              optionA: next.optionA,
+              optionB: next.optionB,
+              optionC: next.optionC,
+              optionD: next.optionD,
+            }
+          );
+          next.correctOptionId = norm.correctOptionId;
+          next.targetWord = norm.targetWord;
+        }
+
+        if (next.questionType === 'FILL_IN_THE_BLANK' && patch.targetWord !== undefined) {
+          next.correctOptionId = patch.targetWord.trim().toLowerCase();
+        }
+        if (next.questionType === 'FILL_IN_THE_BLANK' && patch.correctOptionId !== undefined) {
+          next.targetWord = patch.correctOptionId;
+          next.correctOptionId = patch.correctOptionId.trim().toLowerCase();
+        }
+
+        return next;
+      })
+    );
+  };
+
+  const handleApplyQuestionTypeToAll = (newType: BulkQuestionType) => {
+    setEditableRows((prev) =>
+      prev.map((row) => {
+        const meta = QUESTION_TYPE_OPTIONS.find((t) => t.value === newType);
+        const optionA =
+          newType === 'TRUE_FALSE' ? row.optionA?.trim() || 'True – Đúng' : row.optionA;
+        const optionB =
+          newType === 'TRUE_FALSE' ? row.optionB?.trim() || 'False – Sai' : row.optionB;
+        const norm = normalizeBulkCorrectOption(newType, row.correctOptionId, row.targetWord, {
+          optionA,
+          optionB,
+          optionC: row.optionC,
+          optionD: row.optionD,
+        });
+        return {
+          ...row,
+          questionType: newType,
+          categoryLabel: meta?.defaultCategory || row.categoryLabel,
+          optionA,
+          optionB,
+          correctOptionId: norm.correctOptionId,
+          targetWord: norm.targetWord,
+        };
+      })
+    );
+  };
+
+  const handleConvertAllOfType = (fromType: BulkQuestionType, toType: BulkQuestionType) => {
+    const meta = QUESTION_TYPE_OPTIONS.find((t) => t.value === toType);
+    setEditableRows((prev) =>
+      prev.map((row) => {
+        if (row.questionType !== fromType) return row;
+        return {
+          ...row,
+          questionType: toType,
+          categoryLabel: meta?.defaultCategory || row.categoryLabel,
+        };
+      })
+    );
+  };
+
+  const handleAddEmptyRow = () => {
+    setEditableRows((prev) => {
+      const nextOrder = prev.length + 1;
+      setPreviewIndex(prev.length);
+      setShowLivePreview(true);
+      return [
+        ...prev,
+        {
+          lineNum: nextOrder,
+          dayNumber: selectedDay,
+          orderIndex: nextOrder,
+          questionType: 'LISTEN_AND_CHOOSE',
+          categoryLabel: 'Nghe & Chọn đáp án',
+          promptText: '',
+          statementText: '',
+          targetWord: '',
+          optionA: '',
+          optionB: '',
+          optionC: '',
+          optionD: '',
+          correctOptionId: 'A',
+          explanation: '',
+          points: 10,
+          promptAudioUrl: '',
+          promptVideoUrl: '',
+        },
+      ];
+    });
+  };
+
+  const handleRemoveRow = (index: number) => {
+    setEditableRows((prev) => prev.filter((_, idx) => idx !== index));
+  };
 
   const handleDownloadTemplate = () => {
     const blob = new Blob(['\uFEFF' + [BULK_CSV_HEADER, ...BULK_SAMPLE_ROWS].join('\r\n')], {
@@ -230,6 +225,21 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', 'SpeakRight_Questions_Template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadExcelWithDropdowns = () => {
+    const xml = buildExcelXmlWithDropdowns();
+    const blob = new Blob([xml], {
+      type: 'application/vnd.ms-excel;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'SpeakRight_Questions_Dropdown_Template.xls');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -253,22 +263,39 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
   };
 
   const handleExecuteBulkImport = async () => {
-    if (bulkParsedQuestions.length === 0) {
-      showMessage('Chưa có câu hỏi hợp lệ nào để nhập!', true);
+    const validRows = editableRows.filter((r) => r.promptText.trim().length > 0);
+    if (validRows.length === 0) {
+      showMessage('Chưa có câu hỏi hợp lệ nào (cần có Nội dung câu hỏi)!', true);
       return;
     }
 
-    const affectedDaysList = Object.keys(bulkDayCounts)
-      .map(Number)
-      .sort((a, b) => a - b);
+    const missingFillWord = validRows.find(
+      (r) => r.questionType === 'FILL_IN_THE_BLANK' && !(r.targetWord || r.correctOptionId).trim()
+    );
+    if (missingFillWord) {
+      showMessage(
+        `Câu #${missingFillWord.orderIndex} (Day ${missingFillWord.dayNumber}) là câu Điền từ nhưng chưa nhập Từ cần điền!`,
+        true
+      );
+      return;
+    }
+
+    const finalQuestions = validRows.map((r) => ({
+      ...r,
+      dayNumber: bulkTargetMode === 'current' ? selectedDay : r.dayNumber,
+    }));
+
+    const affectedDaysList = Array.from(new Set(finalQuestions.map((r) => r.dayNumber))).sort(
+      (a, b) => a - b
+    );
     const confirmMsg =
       bulkWriteMode === 'overwrite'
         ? `⚠️ CẢNH BÁO: Chế độ GHI ĐÈ sẽ XÓA TOÀN BỘ câu hỏi cũ của các ngày (${affectedDaysList
             .map((d) => `Day ${d}`)
             .join(', ')}) và thay bằng ${
-            bulkParsedQuestions.length
+            finalQuestions.length
           } câu hỏi mới.\n\nBạn có chắc chắn muốn tiến hành?`
-        : `Bạn có muốn nhập ${bulkParsedQuestions.length} câu hỏi vào các ngày (${affectedDaysList
+        : `Bạn có muốn nhập ${finalQuestions.length} câu hỏi vào các ngày (${affectedDaysList
             .map((d) => `Day ${d}`)
             .join(', ')})?`;
 
@@ -292,7 +319,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          questions: bulkParsedQuestions,
+          questions: finalQuestions,
           mode: bulkWriteMode,
           targetDayNumber: bulkTargetMode === 'current' ? selectedDay : undefined,
         }),
@@ -305,6 +332,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
 
       showMessage(data.message || `Đã nhập thành công ${data.totalImported} câu hỏi!`);
       setBulkRawText('');
+      setEditableRows([]);
       onClose();
       onImported();
     } catch (err: any) {
@@ -317,7 +345,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div
-        className={`w-full max-w-4xl rounded-3xl p-4 sm:p-6 shadow-2xl border space-y-4 my-auto max-h-[94vh] flex flex-col ${cardBg}`}
+        className={`w-full max-w-5xl rounded-3xl p-4 sm:p-6 shadow-2xl border space-y-4 my-auto max-h-[94vh] flex flex-col ${cardBg}`}
       >
         {/* Header */}
         <div
@@ -331,8 +359,11 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
             </span>
             <div>
               <h3 className={`text-base sm:text-lg font-black ${textPrimary}`}>
-                Nhập Đề Thi (Excel / CSV)
+                Nhập Đề Thi (Excel / CSV) — Có Dropdown Chọn Nhanh
               </h3>
+              <p className={`text-[11px] ${textSecondary}`}>
+                Tải file Excel có sẵn Dropdown hoặc chọn trực tiếp Dạng câu & Đáp án đúng ở bảng bên dưới để không bị gõ nhầm
+              </p>
             </div>
           </div>
           <button
@@ -351,6 +382,15 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                onClick={handleDownloadExcelWithDropdowns}
+                className="px-3 py-1.5 rounded-xl border border-emerald-400 dark:border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs"
+                title="Tải file Excel (.xls) có sẵn danh sách thả xuống (Dropdown) ở cột QuestionType và CorrectOption"
+              >
+                <Download className="w-3.5 h-3.5" /> File Excel Mẫu (Có Dropdown .XLS)
+              </button>
+
+              <button
+                type="button"
                 onClick={handleDownloadTemplate}
                 className="px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/70 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
               >
@@ -358,10 +398,10 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
               </button>
 
               <label className="px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-blue-800 dark:text-blue-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs">
-                <FileUp className="w-3.5 h-3.5" /> Tải Lên File
+                <FileUp className="w-3.5 h-3.5" /> Tải Lên File (.CSV / .XLS)
                 <input
                   type="file"
-                  accept=".csv,.tsv,.txt"
+                  accept=".csv,.tsv,.txt,.xls,.xml"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -374,12 +414,23 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
               >
                 <Sparkles className="w-3.5 h-3.5" /> Dữ Liệu Mẫu
               </button>
-            </div>
 
-            {bulkRawText.length > 0 && (
               <button
                 type="button"
-                onClick={() => setBulkRawText('')}
+                onClick={handleAddEmptyRow}
+                className="px-3 py-1.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-800 dark:text-indigo-300 text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" /> Thêm dòng trực tiếp
+              </button>
+            </div>
+
+            {(bulkRawText.length > 0 || editableRows.length > 0) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkRawText('');
+                  setEditableRows([]);
+                }}
                 className="text-xs text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Xóa trắng
@@ -404,7 +455,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
                     className="text-emerald-600 focus:ring-emerald-500"
                   />
                   <span>
-                    Theo cột <b>DayNumber</b> trong file
+                    Theo cột <b>DayNumber</b> của từng dòng
                   </span>
                 </label>
                 <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
@@ -417,7 +468,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
                     className="text-emerald-600 focus:ring-emerald-500"
                   />
                   <span>
-                    Chỉ nhập vào <b>Day {selectedDay}</b>
+                    Chỉ nhập tất cả vào <b>Day {selectedDay}</b>
                   </span>
                 </label>
               </div>
@@ -458,28 +509,31 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
 
           {/* Textarea dán dữ liệu */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between">
+              <span className={`text-[11px] font-bold ${textSecondary}`}>
+                Dán nội dung từ Excel / CSV (hoặc bấm "Tải Lên File" / "Thêm dòng trực tiếp"):
+              </span>
               <span className="text-[11px] font-mono text-slate-400">
-                {bulkRawText.split(/\r?\n/).filter((l) => l.trim()).length} dòng dữ liệu
+                {bulkRawText.split(/\r?\n/).filter((l) => l.trim()).length} dòng văn bản
               </span>
             </div>
             <textarea
               value={bulkRawText}
               onChange={(e) => setBulkRawText(e.target.value)}
-              rows={6}
+              rows={4}
               placeholder="Dán nội dung từ bảng Excel hoặc file CSV vào đây..."
               className={`w-full px-3.5 py-2.5 rounded-2xl border font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inputBg}`}
             />
           </div>
 
-          {/* Báo cáo trạng thái Parsing & Validation */}
-          {bulkRawText.trim().length > 0 && (
+          {/* Báo cáo trạng thái Parsing & Bảng chỉnh sửa trực tiếp bằng Dropdown */}
+          {(bulkRawText.trim().length > 0 || editableRows.length > 0) && (
             <div className="space-y-2.5">
               {bulkParseErrors.length > 0 && (
                 <div className="p-3 rounded-2xl border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 text-xs space-y-1">
                   <div className="font-black flex items-center gap-1.5">
                     <AlertCircle className="w-4 h-4 text-rose-500" />
-                    Có {bulkParseErrors.length} dòng dữ liệu bị lỗi cần chỉnh sửa:
+                    Lưu ý khi đọc file ({bulkParseErrors.length} dòng):
                   </div>
                   <ul className="list-disc list-inside space-y-0.5 text-[11px] max-h-24 overflow-y-auto">
                     {bulkParseErrors.map((err, i) => (
@@ -490,11 +544,54 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
               )}
 
               <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800">
-                <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  Nhận diện hợp lệ: {bulkParsedQuestions.length} câu hỏi
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <Check className="w-4 h-4 text-emerald-600" />
+                    Danh sách câu hỏi ({editableRows.length} câu) — Chỉnh trực tiếp bằng Dropdown bên dưới:
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLivePreview((v) => !v)}
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-black flex items-center gap-1.5 transition ${
+                      showLivePreview
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                        : inputBg
+                    }`}
+                  >
+                    {showLivePreview ? (
+                      <>
+                        <EyeOff className="w-3.5 h-3.5" /> Ẩn xem trước
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5" /> Xem trước giao diện thi
+                      </>
+                    )}
+                  </button>
+
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      const val = e.target.value as BulkQuestionType;
+                      if (val) {
+                        handleApplyQuestionTypeToAll(val);
+                        e.target.value = '';
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold outline-none ${inputBg}`}
+                    title="Đổi nhanh Dạng câu cho toàn bộ các dòng trong bảng"
+                  >
+                    <option value="">⚡ Đổi nhanh Dạng câu cho cả bảng...</option>
+                    {QUESTION_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        Áp dụng tất cả: {opt.label}
+                      </option>
+                    ))}
+                  </select>
+
                   {Object.entries(bulkDayCounts).map(([d, count]) => (
                     <span
                       key={d}
@@ -506,8 +603,23 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
                 </div>
               </div>
 
-              {bulkParsedQuestions.length > 0 && (
-                <div className="border rounded-2xl overflow-hidden max-h-52 overflow-y-auto shadow-inner">
+              {showLivePreview && editableRows.length > 0 && (
+                <AdminBulkQuestionPreview
+                  rows={editableRows}
+                  previewIndex={previewIndex}
+                  setPreviewIndex={setPreviewIndex}
+                  onUpdateRow={updateRow}
+                  onConvertAllOfType={handleConvertAllOfType}
+                  darkMode={darkMode}
+                  subCardBg={subCardBg}
+                  inputBg={inputBg}
+                  textPrimary={textPrimary}
+                  textSecondary={textSecondary}
+                />
+              )}
+
+              {editableRows.length > 0 && (
+                <div className="border rounded-2xl overflow-hidden max-h-80 overflow-y-auto shadow-inner">
                   <table className="w-full text-left text-xs">
                     <thead
                       className={`sticky top-0 z-10 text-[10px] uppercase font-black tracking-wider border-b ${
@@ -517,13 +629,14 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
                       }`}
                     >
                       <tr>
-                        <th className="p-2 text-center">Day</th>
-                        <th className="p-2 text-center">#</th>
-                        <th className="p-2">Dạng câu</th>
+                        <th className="p-2 text-center w-24">Day (Chọn)</th>
+                        <th className="p-2 text-center w-12">#</th>
+                        <th className="p-2 w-48">Dạng câu (Dropdown)</th>
                         <th className="p-2">Nội dung câu hỏi (Prompt)</th>
-                        <th className="p-2">Đáp án A / B / C / D</th>
-                        <th className="p-2 text-center">Đ/Án Đúng</th>
-                        <th className="p-2 text-center">Điểm</th>
+                        <th className="p-2">Phương án A / B / C / D hoặc Từ điền</th>
+                        <th className="p-2 text-center w-36">Đ/Án Đúng (Chọn)</th>
+                        <th className="p-2 text-center w-16">Điểm</th>
+                        <th className="p-2 text-center w-20">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody
@@ -531,33 +644,223 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
                         darkMode ? 'divide-slate-800 text-slate-200' : 'divide-slate-100 text-slate-700'
                       }`}
                     >
-                      {bulkParsedQuestions.map((q, idx) => (
-                        <tr key={idx} className="hover:bg-blue-50/50 dark:hover:bg-slate-800/50 transition">
-                          <td className="p-2 text-center font-bold text-blue-600 dark:text-blue-400">
-                            Day {q.dayNumber}
+                      {editableRows.map((q, idx) => (
+                        <tr
+                          key={idx}
+                          className={`transition ${
+                            previewIndex === idx && showLivePreview
+                              ? darkMode
+                                ? 'bg-indigo-950/45 ring-1 ring-inset ring-indigo-500/60'
+                                : 'bg-indigo-50/80 ring-1 ring-inset ring-indigo-300'
+                              : 'hover:bg-blue-50/50 dark:hover:bg-slate-800/50'
+                          }`}
+                        >
+                          {/* Dropdown chọn Day */}
+                          <td className="p-1.5 text-center">
+                            {bulkTargetMode === 'current' ? (
+                              <span className="font-bold text-blue-600 dark:text-blue-400">
+                                Day {selectedDay}
+                              </span>
+                            ) : (
+                              <select
+                                value={q.dayNumber}
+                                onChange={(e) =>
+                                  updateRow(idx, { dayNumber: Number(e.target.value) || 1 })
+                                }
+                                className={`px-2 py-1 rounded-lg border text-[11px] font-bold outline-none ${inputBg}`}
+                              >
+                                {Array.from({ length: effectiveMaxDays }, (_, i) => i + 1).map(
+                                  (d) => (
+                                    <option key={d} value={d}>
+                                      Day {d}
+                                    </option>
+                                  )
+                                )}
+                              </select>
+                            )}
                           </td>
-                          <td className="p-2 text-center font-bold text-slate-400">{q.orderIndex}</td>
-                          <td className="p-2">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px] font-black">
-                              {q.questionType}
-                            </span>
+
+                          {/* Thứ tự câu */}
+                          <td className="p-1.5 text-center font-bold text-slate-400">
+                            {q.orderIndex}
                           </td>
-                          <td className="p-2 max-w-xs truncate" title={q.promptText}>
-                            {q.promptText}
+
+                          {/* Dropdown chọn Dạng câu (QuestionType) */}
+                          <td className="p-1.5">
+                            <select
+                              value={q.questionType}
+                              onChange={(e) =>
+                                updateRow(idx, {
+                                  questionType: e.target.value as BulkQuestionType,
+                                })
+                              }
+                              className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-extrabold outline-none ${
+                                darkMode
+                                  ? 'bg-slate-900 border-blue-500/60 text-blue-300'
+                                  : 'bg-blue-50/70 border-blue-300 text-blue-900'
+                              }`}
+                            >
+                              {QUESTION_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
                           </td>
-                          <td className="p-2 max-w-xs truncate text-[11px] text-slate-500">
-                            {q.questionType === 'FILL_IN_THE_BLANK'
-                              ? `Từ điền: ${q.targetWord || q.correctOptionId}`
-                              : [q.optionA, q.optionB, q.optionC, q.optionD]
-                                  .filter(Boolean)
-                                  .join(' | ')}
+
+                          {/* Nội dung câu hỏi (có thể sửa trực tiếp) */}
+                          <td className="p-1.5 min-w-[180px]">
+                            <input
+                              type="text"
+                              value={q.promptText}
+                              onChange={(e) => updateRow(idx, { promptText: e.target.value })}
+                              placeholder="Nhập nội dung câu hỏi..."
+                              className={`w-full px-2 py-1 rounded-lg border text-xs font-semibold outline-none ${inputBg}`}
+                            />
                           </td>
-                          <td className="p-2 text-center">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-black text-[11px]">
-                              {q.correctOptionId}
-                            </span>
+
+                          {/* Phương án hoặc Từ điền */}
+                          <td className="p-1.5 max-w-xs text-[11px]">
+                            {q.questionType === 'FILL_IN_THE_BLANK' ? (
+                              <input
+                                type="text"
+                                value={q.targetWord}
+                                onChange={(e) => updateRow(idx, { targetWord: e.target.value })}
+                                placeholder="Nhập từ tiếng Anh cần điền (VD: Feedback)..."
+                                className={`w-full px-2 py-1 rounded-lg border text-xs font-black border-purple-400 outline-none ${inputBg}`}
+                              />
+                            ) : q.questionType === 'TRUE_FALSE' ? (
+                              <span className="text-slate-500 font-semibold">
+                                A: {q.optionA || 'True – Đúng'} | B: {q.optionB || 'False – Sai'}
+                              </span>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-1">
+                                <input
+                                  type="text"
+                                  value={q.optionA}
+                                  onChange={(e) => updateRow(idx, { optionA: e.target.value })}
+                                  placeholder="Đáp án A"
+                                  className={`px-1.5 py-0.5 rounded border text-[11px] outline-none ${inputBg}`}
+                                />
+                                <input
+                                  type="text"
+                                  value={q.optionB}
+                                  onChange={(e) => updateRow(idx, { optionB: e.target.value })}
+                                  placeholder="Đáp án B"
+                                  className={`px-1.5 py-0.5 rounded border text-[11px] outline-none ${inputBg}`}
+                                />
+                                <input
+                                  type="text"
+                                  value={q.optionC}
+                                  onChange={(e) => updateRow(idx, { optionC: e.target.value })}
+                                  placeholder="Đáp án C"
+                                  className={`px-1.5 py-0.5 rounded border text-[11px] outline-none ${inputBg}`}
+                                />
+                                <input
+                                  type="text"
+                                  value={q.optionD}
+                                  onChange={(e) => updateRow(idx, { optionD: e.target.value })}
+                                  placeholder="Đáp án D (tùy chọn)"
+                                  className={`px-1.5 py-0.5 rounded border text-[11px] outline-none ${inputBg}`}
+                                />
+                              </div>
+                            )}
                           </td>
-                          <td className="p-2 text-center font-mono font-bold">{q.points}</td>
+
+                          {/* Dropdown chọn Đáp Án Đúng */}
+                          <td className="p-1.5 text-center">
+                            {q.questionType === 'FILL_IN_THE_BLANK' ? (
+                              <span
+                                className="px-2 py-1 rounded-lg bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-black text-[11px] inline-block truncate max-w-[130px]"
+                                title="Không phân biệt chữ HOA / chữ thường"
+                              >
+                                {q.targetWord || q.correctOptionId || 'Chưa nhập'}
+                              </span>
+                            ) : q.questionType === 'TRUE_FALSE' ? (
+                              <select
+                                value={q.correctOptionId === 'B' ? 'B' : 'A'}
+                                onChange={(e) =>
+                                  updateRow(idx, { correctOptionId: e.target.value })
+                                }
+                                className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-black outline-none ${
+                                  darkMode
+                                    ? 'bg-emerald-950/70 border-emerald-700 text-emerald-300'
+                                    : 'bg-emerald-50 border-emerald-400 text-emerald-900'
+                                }`}
+                              >
+                                <option value="A">A — True (Đúng)</option>
+                                <option value="B">B — False (Sai)</option>
+                              </select>
+                            ) : (
+                              <select
+                                value={
+                                  ['A', 'B', 'C', 'D'].includes(q.correctOptionId)
+                                    ? q.correctOptionId
+                                    : 'A'
+                                }
+                                onChange={(e) =>
+                                  updateRow(idx, { correctOptionId: e.target.value })
+                                }
+                                className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-black outline-none ${
+                                  darkMode
+                                    ? 'bg-emerald-950/70 border-emerald-700 text-emerald-300'
+                                    : 'bg-emerald-50 border-emerald-400 text-emerald-900'
+                                }`}
+                              >
+                                <option value="A">Đáp án A</option>
+                                <option value="B">Đáp án B</option>
+                                <option value="C">Đáp án C</option>
+                                {(q.optionD?.trim() || q.correctOptionId === 'D') && (
+                                  <option value="D">Đáp án D</option>
+                                )}
+                              </select>
+                            )}
+                          </td>
+
+                          {/* Điểm */}
+                          <td className="p-1.5 text-center">
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={q.points}
+                              onChange={(e) =>
+                                updateRow(idx, {
+                                  points: Math.max(1, parseInt(e.target.value, 10) || 10),
+                                })
+                              }
+                              className={`w-14 px-1.5 py-1 rounded-lg border text-center font-mono font-bold text-xs outline-none ${inputBg}`}
+                            />
+                          </td>
+
+                          {/* Xem trước & Xóa dòng */}
+                          <td className="p-1.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPreviewIndex(idx);
+                                  setShowLivePreview(true);
+                                }}
+                                className={`p-1 rounded-lg transition ${
+                                  previewIndex === idx && showLivePreview
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/50'
+                                }`}
+                                title="Xem trước giao diện câu hỏi này khi lên bài thi"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveRow(idx)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                title="Xóa dòng câu hỏi này"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -575,13 +878,16 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
           }`}
         >
           <div className="text-xs text-slate-500 font-medium text-center sm:text-left">
-            {bulkParsedQuestions.length > 0 ? (
+            {editableRows.length > 0 ? (
               <span>
-                Chuẩn bị nhập <b>{bulkParsedQuestions.length} câu hỏi</b> vào{' '}
+                Chuẩn bị nhập <b>{editableRows.length} câu hỏi</b> vào{' '}
                 <b>{Object.keys(bulkDayCounts).length} ngày thử thách</b>
               </span>
             ) : (
-              <span>Hãy tải file mẫu hoặc dán các ô từ Excel để bắt đầu</span>
+              <span>
+                Hãy tải <b>File Excel Mẫu (Có Dropdown .XLS)</b>, tải file lên hoặc bấm{' '}
+                <b>Thêm dòng trực tiếp</b> để bắt đầu
+              </span>
             )}
           </div>
 
@@ -595,7 +901,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
             </button>
             <button
               type="button"
-              disabled={bulkParsedQuestions.length === 0 || bulkLoading}
+              disabled={editableRows.length === 0 || bulkLoading}
               onClick={handleExecuteBulkImport}
               className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-xs sm:text-sm shadow-md flex items-center gap-2 transition"
             >
@@ -607,7 +913,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
               ) : (
                 <>
                   <FileSpreadsheet className="w-4 h-4" />
-                  Tiến Hành Nhập {bulkParsedQuestions.length} Câu Hỏi
+                  Tiến Hành Nhập {editableRows.length} Câu Hỏi
                 </>
               )}
             </button>

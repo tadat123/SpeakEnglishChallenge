@@ -92,10 +92,19 @@ export function prepareOptionsForQuiz(
 
   const cloned = shuffleArray(candidateOptions, seedStr);
   if (questionType === 'CHOOSE_AUDIO') {
-    return cloned.map((opt, idx) => ({
-      ...opt,
-      text: `Mẫu phát âm ${idx + 1}`,
-    }));
+    return cloned.map((opt, idx) => {
+      const rawText = String(opt.text || '').trim();
+      const isPlaceholderOrUrl =
+        !rawText ||
+        /^(Audio\s*[A-D]|Mẫu phát âm\s*\d+)$/i.test(rawText) ||
+        /^(https?:\/\/|\/uploads\/)/i.test(rawText) ||
+        /\.mp3(\?|$)/i.test(rawText);
+      return {
+        ...opt,
+        hasOptionAudio: true,
+        text: isPlaceholderOrUrl ? `Mẫu phát âm ${idx + 1}` : rawText,
+      };
+    });
   }
   return cloned;
 }
@@ -617,13 +626,39 @@ export function bulkImportQuestions(
       const rawType = String(row.questionType || '').trim().toUpperCase();
       let questionType: QuestionType = 'LISTEN_AND_CHOOSE';
 
-      if (rawType.includes('CHOOSE_AUDIO') || rawType === '1' || rawType.includes('AUDIO')) {
+      if (
+        rawType.includes('CHOOSE_AUDIO') ||
+        rawType.includes('CHON_AUDIO') ||
+        rawType.includes('CHỌN AUDIO') ||
+        rawType === '1' ||
+        rawType === 'AUDIO'
+      ) {
         questionType = 'CHOOSE_AUDIO';
-      } else if (rawType.includes('TRUE_FALSE') || rawType === '2' || rawType.includes('TF') || rawType.includes('TRUE')) {
+      } else if (
+        rawType.includes('TRUE_FALSE') ||
+        rawType.includes('TRUE/FALSE') ||
+        rawType === '2' ||
+        rawType === 'TF' ||
+        rawType.includes('TRUE') ||
+        rawType.includes('ĐÚNG/SAI') ||
+        rawType.includes('DUNG/SAI')
+      ) {
         questionType = 'TRUE_FALSE';
-      } else if (rawType.includes('VOCAB') || rawType === '4' || rawType.includes('MEANING')) {
+      } else if (
+        rawType.includes('VOCAB') ||
+        rawType === '4' ||
+        rawType.includes('MEANING') ||
+        rawType.includes('NGHĨA') ||
+        rawType.includes('NGHIA')
+      ) {
         questionType = 'VOCAB_MEANING';
-      } else if (rawType.includes('FILL') || rawType.includes('BLANK') || rawType === '5') {
+      } else if (
+        rawType.includes('FILL') ||
+        rawType.includes('BLANK') ||
+        rawType === '5' ||
+        rawType.includes('ĐIỀN') ||
+        rawType.includes('DIEN TU')
+      ) {
         questionType = 'FILL_IN_THE_BLANK';
       }
 
@@ -636,7 +671,7 @@ export function bulkImportQuestions(
         else if (questionType === 'FILL_IN_THE_BLANK') categoryLabel = 'Điền từ chính xác';
       }
 
-      const targetWord = String(row.targetWord || '').trim();
+      let targetWord = String(row.targetWord || '').trim();
       const statementText = row.statementText?.trim() || undefined;
       const promptText = String(row.promptText || '').trim();
       const promptAudioUrl = row.promptAudioUrl?.trim() || undefined;
@@ -647,36 +682,106 @@ export function bulkImportQuestions(
       let options: QuestionOption[] = [];
       let correctOptionId = 'A';
 
+      const resolveMcqCorrect = (
+        rawVal: unknown,
+        optA: string,
+        optB: string,
+        optC?: string,
+        optD?: string
+      ): string => {
+        const clean = String(rawVal || 'A')
+          .trim()
+          .replace(/^(OPTION|ĐÁP ÁN|DAP AN|CÂU|CAU)\s+/i, '')
+          .trim();
+        const upper = clean.toUpperCase();
+        if (['A', 'B', 'C', 'D'].includes(upper)) return upper;
+        if (upper === '1') return 'A';
+        if (upper === '2') return 'B';
+        if (upper === '3') return 'C';
+        if (upper === '4') return 'D';
+        const lower = clean.toLowerCase();
+        if (lower) {
+          if (optA && optA.trim().toLowerCase() === lower) return 'A';
+          if (optB && optB.trim().toLowerCase() === lower) return 'B';
+          if (optC && optC.trim().toLowerCase() === lower) return 'C';
+          if (optD && optD.trim().toLowerCase() === lower) return 'D';
+        }
+        return 'A';
+      };
+
       if (questionType === 'TRUE_FALSE') {
         options = [
           { id: 'A', text: row.optionA?.trim() || 'True – Đúng', hasOptionAudio: false },
           { id: 'B', text: row.optionB?.trim() || 'False – Sai', hasOptionAudio: false },
         ];
         const rawCorr = String(row.correctOptionId || '').trim().toUpperCase();
-        correctOptionId = rawCorr === 'B' || rawCorr.includes('FALSE') || rawCorr.includes('SAI') ? 'B' : 'A';
+        correctOptionId =
+          rawCorr === 'B' ||
+          rawCorr === '2' ||
+          rawCorr === '0' ||
+          rawCorr === 'F' ||
+          rawCorr.includes('FALSE') ||
+          rawCorr.includes('SAI')
+            ? 'B'
+            : 'A';
       } else if (questionType === 'FILL_IN_THE_BLANK') {
         options = [];
         const ans = targetWord || String(row.correctOptionId || '').trim();
+        targetWord = ans;
         correctOptionId = ans.toLowerCase();
       } else if (questionType === 'CHOOSE_AUDIO') {
+        const buildAudioOpt = (id: 'A' | 'B' | 'C' | 'D', rawVal: string | undefined, idx: number): QuestionOption => {
+          const trimmed = String(rawVal || '').trim();
+          if (!trimmed) {
+            return {
+              id,
+              text: `Mẫu phát âm ${idx + 1}`,
+              spokenText: targetWord || `Option ${id}`,
+              hasOptionAudio: true,
+            };
+          }
+          if (trimmed.includes('|')) {
+            const [left, right] = trimmed.split('|').map((s) => s.trim());
+            if (/^(https?:\/\/|\/uploads\/)/i.test(right) || /\.mp3(\?|$)/i.test(right)) {
+              return {
+                id,
+                text: left || `Mẫu phát âm ${idx + 1}`,
+                spokenText: left || targetWord,
+                audioUrl: right,
+                hasOptionAudio: true,
+              };
+            }
+          }
+          if (/^(https?:\/\/|\/uploads\/)/i.test(trimmed) || /\.mp3(\?|$)/i.test(trimmed)) {
+            return {
+              id,
+              text: `Mẫu phát âm ${idx + 1}`,
+              spokenText: targetWord || `Option ${id}`,
+              audioUrl: trimmed,
+              hasOptionAudio: true,
+            };
+          }
+          const isPlaceholder = /^(Audio\s*[A-D]|Mẫu phát âm\s*\d+)$/i.test(trimmed);
+          return {
+            id,
+            text: trimmed,
+            spokenText: isPlaceholder ? targetWord || trimmed : trimmed,
+            hasOptionAudio: true,
+          };
+        };
+
         const optA = row.optionA?.trim() || 'Audio A';
         const optB = row.optionB?.trim() || 'Audio B';
         const optC = row.optionC?.trim() || 'Audio C';
         options = [
-          { id: 'A', text: optA, spokenText: targetWord || optA, hasOptionAudio: true },
-          { id: 'B', text: optB, spokenText: targetWord || optB, hasOptionAudio: true },
-          { id: 'C', text: optC, spokenText: targetWord || optC, hasOptionAudio: true },
+          buildAudioOpt('A', optA, 0),
+          buildAudioOpt('B', optB, 1),
+          buildAudioOpt('C', optC, 2),
         ];
         if (row.optionD?.trim()) {
-          options.push({
-            id: 'D',
-            text: row.optionD.trim(),
-            spokenText: targetWord || row.optionD.trim(),
-            hasOptionAudio: true,
-          });
+          options.push(buildAudioOpt('D', row.optionD.trim(), 3));
         }
-        const rawCorr = String(row.correctOptionId || 'A').trim().toUpperCase();
-        correctOptionId = ['A', 'B', 'C', 'D'].includes(rawCorr) ? rawCorr : 'A';
+        correctOptionId = resolveMcqCorrect(row.correctOptionId, optA, optB, optC, row.optionD);
       } else {
         const optA = row.optionA?.trim() || 'Option A';
         const optB = row.optionB?.trim() || 'Option B';
@@ -686,8 +791,13 @@ export function bulkImportQuestions(
         ];
         if (row.optionC?.trim()) options.push({ id: 'C', text: row.optionC.trim(), spokenText: row.optionC.trim(), hasOptionAudio: false });
         if (row.optionD?.trim()) options.push({ id: 'D', text: row.optionD.trim(), spokenText: row.optionD.trim(), hasOptionAudio: false });
-        const rawCorr = String(row.correctOptionId || 'A').trim().toUpperCase();
-        correctOptionId = ['A', 'B', 'C', 'D'].includes(rawCorr) ? rawCorr : 'A';
+        correctOptionId = resolveMcqCorrect(
+          row.correctOptionId,
+          optA,
+          optB,
+          row.optionC,
+          row.optionD
+        );
       }
 
       const hasPromptAudio = Boolean(

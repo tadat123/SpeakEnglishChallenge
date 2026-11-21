@@ -182,18 +182,25 @@ export function registerAdminChallengeRoutes(app: FastifyInstance, uploadsDir: s
         return reply.status(400).send({ message: 'Vui lòng nhập nội dung câu hỏi (promptText).' });
       }
 
+      const qType = body.questionType || 'LISTEN_AND_CHOOSE';
+      const fillAnswer =
+        qType === 'FILL_IN_THE_BLANK'
+          ? String(body.targetWord || body.correctOptionId || '').trim()
+          : String(body.targetWord || '').trim();
+
       const created = store.addQuestionToDay(dayNumber, {
-        questionType: body.questionType || 'LISTEN_AND_CHOOSE',
+        questionType: qType,
         categoryLabel: body.categoryLabel || 'Câu hỏi tùy chỉnh',
         promptText: body.promptText.trim(),
         statementText: body.statementText?.trim() || undefined,
-        targetWord: body.targetWord?.trim() || '',
+        targetWord: fillAnswer,
         hasPromptAudio: Boolean(body.hasPromptAudio),
         audioNote: body.audioNote || '',
         promptAudioUrl: body.promptAudioUrl?.trim() || undefined,
         promptVideoUrl: body.promptVideoUrl?.trim() || undefined,
-        options: Array.isArray(body.options) ? body.options : [],
-        correctOptionId: body.correctOptionId || 'A',
+        options: qType === 'FILL_IN_THE_BLANK' ? [] : Array.isArray(body.options) ? body.options : [],
+        correctOptionId:
+          qType === 'FILL_IN_THE_BLANK' ? fillAnswer.toLowerCase() : body.correctOptionId || 'A',
         explanation: body.explanation?.trim() || '',
         points: Number(body.points) || 10,
       });
@@ -216,19 +223,23 @@ export function registerAdminChallengeRoutes(app: FastifyInstance, uploadsDir: s
       const dayNumber = Number(request.params.dayNumber);
       const questionId = request.params.questionId;
       const body = request.body as any;
+      const isFill = body.questionType === 'FILL_IN_THE_BLANK';
+      const fillAnswer = isFill
+        ? String(body.targetWord || body.correctOptionId || '').trim()
+        : body.targetWord?.trim();
 
       const updated = store.updateQuestionInDay(dayNumber, questionId, {
         questionType: body.questionType,
         categoryLabel: body.categoryLabel,
         promptText: body.promptText,
         statementText: body.statementText,
-        targetWord: body.targetWord,
+        targetWord: fillAnswer,
         hasPromptAudio: body.hasPromptAudio,
         audioNote: body.audioNote,
         promptAudioUrl: body.promptAudioUrl,
         promptVideoUrl: body.promptVideoUrl,
-        options: body.options,
-        correctOptionId: body.correctOptionId,
+        options: isFill ? [] : body.options,
+        correctOptionId: isFill ? fillAnswer.toLowerCase() : body.correctOptionId,
         explanation: body.explanation,
         points: Number(body.points) || 10,
       });

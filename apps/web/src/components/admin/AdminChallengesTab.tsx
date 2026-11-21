@@ -268,7 +268,11 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
 
   const openEditQuestionModal = (q: any) => {
     setIsCreatingNew(false);
-    setEditingQuestion(JSON.parse(JSON.stringify(q)));
+    const cloned = JSON.parse(JSON.stringify(q));
+    if (cloned.questionType === 'FILL_IN_THE_BLANK' && !cloned.targetWord?.trim() && cloned.correctOptionId) {
+      cloned.targetWord = cloned.correctOptionId;
+    }
+    setEditingQuestion(cloned);
   };
 
   const handleQuestionTypeChange = (newType: string) => {
@@ -332,21 +336,24 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
       return;
     }
 
-    if (
-      editingQuestion.questionType === 'FILL_IN_THE_BLANK' &&
-      !editingQuestion.targetWord?.trim()
-    ) {
+    const resolvedFillWord =
+      editingQuestion.questionType === 'FILL_IN_THE_BLANK'
+        ? (editingQuestion.targetWord || editingQuestion.correctOptionId || '').trim()
+        : (editingQuestion.targetWord || '').trim();
+
+    if (editingQuestion.questionType === 'FILL_IN_THE_BLANK' && !resolvedFillWord) {
       showMessage('Vui lòng nhập Từ vựng cần điền (Đáp án đúng)!', true);
       return;
     }
 
     const payload = {
       ...editingQuestion,
+      targetWord: resolvedFillWord,
       options:
         editingQuestion.questionType === 'FILL_IN_THE_BLANK' ? [] : editingQuestion.options,
       correctOptionId:
         editingQuestion.questionType === 'FILL_IN_THE_BLANK'
-          ? editingQuestion.targetWord?.trim().toLowerCase()
+          ? resolvedFillWord.toLowerCase()
           : editingQuestion.correctOptionId,
     };
 

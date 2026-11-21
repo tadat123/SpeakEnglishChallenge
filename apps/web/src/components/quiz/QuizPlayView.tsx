@@ -400,11 +400,13 @@ export const QuizPlayView: React.FC<QuizPlayViewProps> = ({
                   type="text"
                   autoFocus
                   autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
                   spellCheck="false"
                   placeholder={L(
-                    'Gõ từ tiếng Anh tại đây (VD: registration)...',
-                    'Type English word here (e.g. registration)...',
-                    '영단어를 입력하세요 (예: registration)...'
+                    'Gõ từ tiếng Anh tại đây (VD: Feedback / feedback)...',
+                    'Type English word here (e.g. Feedback / feedback)...',
+                    '영단어를 입력하세요 (대/소문자 구분 없음)...'
                   )}
                   value={activeQuiz.answers[q.id] || ''}
                   onChange={(e) => {
@@ -444,13 +446,13 @@ export const QuizPlayView: React.FC<QuizPlayViewProps> = ({
                   } focus:ring-4 focus:ring-blue-400/30`}
                 />
               </div>
-              <div className="flex items-center justify-between text-[11px]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
                 <span className={`font-semibold ${textSecondary}`}>
                   💡{' '}
                   {L(
-                    'Gợi ý: Xem phiên âm & nghĩa ở khung trên, gõ từ rồi bấm "Tiếp theo"',
-                    'Hint: Check phonetic & meaning above, type the word and tap "Next"',
-                    '힌트: 위 발음기호와 뜻을 보고 단어를 입력한 뒤 "다음"을 누르세요'
+                    'Không phân biệt chữ HOA / chữ thường (VD: Feedback, feedback hay FEEDBACK đều đúng).',
+                    'Case-insensitive grading (e.g. Feedback, feedback, or FEEDBACK are all accepted).',
+                    '대문자/소문자 구분 없이 채점됩니다 (예: Feedback, feedback, FEEDBACK 모두 정답 처리).'
                   )}
                 </span>
                 {activeQuiz.answers[q.id] && (

@@ -153,7 +153,13 @@ export const AdminQuestionModal: React.FC<AdminQuestionModalProps> = ({
               type="text"
               value={editingQuestion.targetWord || ''}
               onChange={(e) =>
-                setEditingQuestion({ ...editingQuestion, targetWord: e.target.value })
+                setEditingQuestion({
+                  ...editingQuestion,
+                  targetWord: e.target.value,
+                  ...(editingQuestion.questionType === 'FILL_IN_THE_BLANK'
+                    ? { correctOptionId: e.target.value.trim().toLowerCase() }
+                    : {}),
+                })
               }
               placeholder="Yield rate / M. E. G."
               className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold ${inputBg}`}
@@ -372,7 +378,7 @@ export const AdminQuestionModal: React.FC<AdminQuestionModalProps> = ({
               <input
                 type="text"
                 required
-                value={editingQuestion.targetWord || ''}
+                value={editingQuestion.targetWord || editingQuestion.correctOptionId || ''}
                 onChange={(e) =>
                   setEditingQuestion({
                     ...editingQuestion,
@@ -380,9 +386,12 @@ export const AdminQuestionModal: React.FC<AdminQuestionModalProps> = ({
                     correctOptionId: e.target.value.trim().toLowerCase(),
                   })
                 }
-                placeholder="registration"
+                placeholder="Feedback / registration"
                 className={`w-full px-3.5 py-2.5 rounded-xl border border-indigo-400 text-sm font-black ${inputBg}`}
               />
+              <p className={`text-[11px] mt-1.5 font-medium ${textSecondary}`}>
+                💡 Hệ thống tự động chấm <strong>không phân biệt chữ HOA / chữ thường</strong> và bỏ khoảng trắng thừa (VD: đáp án là <code>Feedback</code> thì học viên nhập <code>feedback</code>, <code>Feedback</code> hay <code>FEEDBACK</code> đều được tính đúng).
+              </p>
             </div>
           </div>
         ) : (
