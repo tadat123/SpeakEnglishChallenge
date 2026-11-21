@@ -266,13 +266,10 @@ class DataStore {
           hydrated.challenges.length >= 10 &&
           hydrated.challenges[0]?.dateLabel === '02/11/2026'
         ) {
-          const freshSchedule = generateChallengeDays(
-            hydrated.challengeTotalDays || hydrated.challenges.length || 21
-          );
           const farFuture = new Date(Date.now() + 86400000 * 365).toISOString();
-          hydrated.challenges = hydrated.challenges.map((c, idx) => ({
+          hydrated.challenges = hydrated.challenges.map((c) => ({
             ...c,
-            dateLabel: freshSchedule[idx]?.dateLabel || c.dateLabel,
+            dateLabel: '',
             unlockDate: farFuture,
             isPublished: false,
             forceLockedAt: null,

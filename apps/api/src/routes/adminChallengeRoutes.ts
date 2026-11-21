@@ -87,6 +87,15 @@ export function registerAdminChallengeRoutes(app: FastifyInstance, uploadsDir: s
     async (request: any, reply) => {
       const dayNumber = Number(request.params.dayNumber);
       const body = (request.body || {}) as { forceRevealed?: boolean };
+      const existing = store.getChallengeByDay(dayNumber);
+      if (!existing) {
+        return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });
+      }
+      if (!store.isDayUnlocked(existing) && !store.isDayPassedDeadline(existing)) {
+        return reply.status(400).send({
+          message: `Day ${dayNumber} chưa mở khóa hoặc sự kiện chưa bắt đầu, chưa thể công bố hay ẩn đáp án.`,
+        });
+      }
       const updated = store.toggleRevealResults(dayNumber, body.forceRevealed);
       if (!updated) {
         return reply.status(404).send({ message: 'Không tìm thấy ngày thử thách.' });

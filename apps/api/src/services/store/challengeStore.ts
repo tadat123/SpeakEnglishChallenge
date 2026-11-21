@@ -34,10 +34,16 @@ export function getDayEndDate(challenge: DailyChallengeItem): string {
 }
 
 export function isDayPassedDeadline(challenge: DailyChallengeItem): boolean {
+  if (!challenge.isPublished || challenge.forceLockedAt != null) return false;
+  const unlockMs = new Date(challenge.unlockDate).getTime();
+  if (!Number.isFinite(unlockMs) || unlockMs > Date.now()) return false;
   return Date.now() >= new Date(getDayEndDate(challenge)).getTime();
 }
 
 export function isResultsRevealed(challenge: DailyChallengeItem): boolean {
+  if (!challenge.isPublished || challenge.forceLockedAt != null) return false;
+  const unlockMs = new Date(challenge.unlockDate).getTime();
+  if (!Number.isFinite(unlockMs) || unlockMs > Date.now()) return false;
   if (challenge.forceRevealed) return true;
   return isDayPassedDeadline(challenge);
 }
@@ -234,6 +240,16 @@ export function updateChallengeDay(
       challenge.isPublished = true;
       challenge.forceLockedAt = null;
       ctx.forceLockedDays.delete(dayNumber);
+      if (
+        payload.dateLabel === undefined &&
+        (!challenge.dateLabel || Date.now() >= new Date(getDayEndDate(challenge)).getTime())
+      ) {
+        const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
+        const dd = String(vnNow.getUTCDate()).padStart(2, '0');
+        const mm = String(vnNow.getUTCMonth() + 1).padStart(2, '0');
+        const yyyy = vnNow.getUTCFullYear();
+        challenge.dateLabel = `${dd}/${mm}/${yyyy}`;
+      }
     } else {
       challenge.unlockDate = new Date(Date.now() + 86400000 * 365).toISOString();
       challenge.isPublished = false;
@@ -257,7 +273,7 @@ export function updateChallengeDay(
     activePlayersAffected: activePlayers.length,
     lockModeUsed: payload.lockMode || ('GRACEFUL' as const),
     isUnlocked: isDayUnlocked(ctx, challenge),
-    resultsRevealed: isDayPassedDeadline(challenge),
+    resultsRevealed: isResultsRevealed(challenge),
   };
 }
 
@@ -292,6 +308,7 @@ export function configureChallengeDays(ctx: StoreContext, totalDaysInput: number
         baseItem.unlockDate = new Date(targetMs).toISOString();
         baseItem.isPublished = true;
       } else {
+        baseItem.dateLabel = '';
         baseItem.unlockDate = farFuture;
         baseItem.isPublished = false;
       }
@@ -344,6 +361,7 @@ export function startChallengeSchedule(
   if (options?.lockAllUntilStart) {
     const farFuture = new Date(Date.now() + 86400000 * 365).toISOString();
     for (const c of data.challenges) {
+      c.dateLabel = '';
       c.isPublished = false;
       c.unlockDate = farFuture;
       c.forceLockedAt = null;

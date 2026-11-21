@@ -554,7 +554,8 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
   const isMetaDirty = dayDetail
     ? dayTitle !== (dayDetail.title || `Day ${selectedDay}`)
     : false;
-  const isRevealed = Boolean(dayDetail?.resultsRevealed || dayDetail?.forceRevealed);
+  const isDayStarted = Boolean(dayDetail?.isUnlocked || dayDetail?.isEnded);
+  const isRevealed = isDayStarted && Boolean(dayDetail?.resultsRevealed || dayDetail?.forceRevealed);
 
   return (
     <div className="space-y-4">
@@ -677,27 +678,43 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
                   )}
                 </span>
 
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                    isRevealed
-                      ? darkMode
-                        ? 'bg-violet-950/60 text-violet-300 border-violet-800'
-                        : 'bg-violet-50 text-violet-700 border-violet-200'
-                      : darkMode
-                      ? 'bg-amber-950/50 text-amber-300 border-amber-800/70'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
-                  }`}
-                >
-                  {isRevealed ? (
-                    <>
-                      <Eye className="w-3 h-3" /> Đã công bố đáp án
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="w-3 h-3" /> Ẩn đáp án (tới 00:00)
-                    </>
-                  )}
-                </span>
+                {isDayStarted ? (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                      isRevealed
+                        ? darkMode
+                          ? 'bg-violet-950/60 text-violet-300 border-violet-800'
+                          : 'bg-violet-50 text-violet-700 border-violet-200'
+                        : darkMode
+                        ? 'bg-amber-950/50 text-amber-300 border-amber-800/70'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}
+                  >
+                    {isRevealed ? (
+                      <>
+                        <Eye className="w-3 h-3" /> Đã công bố đáp án
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-3 h-3" /> Ẩn đáp án (tới 00:00)
+                      </>
+                    )}
+                  </span>
+                ) : (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                      darkMode
+                        ? 'bg-slate-800/70 text-slate-400 border-slate-700'
+                        : 'bg-slate-100 text-slate-500 border-slate-200'
+                    }`}
+                  >
+                    {eventStatus === 'NOT_STARTED'
+                      ? 'Chờ khai mạc'
+                      : eventStatus === 'COUNTDOWN'
+                      ? 'Đang đếm ngược mở giải'
+                      : 'Chưa mở thi'}
+                  </span>
+                )}
 
                 <span
                   className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
@@ -720,7 +737,7 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
               </div>
             </div>
 
-            {/* Chỉ 2 nút điều khiển trạng thái riêng của Day đang chọn */}
+            {/* Điều khiển trạng thái riêng của Day đang chọn */}
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               {dayDetail.isUnlocked ? (
                 <button
@@ -742,34 +759,36 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={handleToggleRevealResults}
-                className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 border transition ${
-                  isRevealed
-                    ? darkMode
-                      ? 'border-violet-700 bg-violet-950/60 hover:bg-violet-900/70 text-violet-200'
-                      : 'border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-700'
-                    : 'border-transparent bg-amber-500 hover:bg-amber-600 text-white shadow-xs'
-                }`}
-                title={
-                  isRevealed
-                    ? 'Đáp án & Bảng điểm đang được CÔNG BỐ. Bấm để ẩn lại (chờ 00:00).'
-                    : 'Bấm để CÔNG BỐ đáp án & bảng điểm ngay lập tức cho toàn thể nhân viên.'
-                }
-              >
-                {isRevealed ? (
-                  <>
-                    <EyeOff className="w-3.5 h-3.5" />
-                    <span>Ẩn đáp án</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Công bố đáp án</span>
-                  </>
-                )}
-              </button>
+              {isDayStarted && (
+                <button
+                  type="button"
+                  onClick={handleToggleRevealResults}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 border transition ${
+                    isRevealed
+                      ? darkMode
+                        ? 'border-violet-700 bg-violet-950/60 hover:bg-violet-900/70 text-violet-200'
+                        : 'border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-700'
+                      : 'border-transparent bg-amber-500 hover:bg-amber-600 text-white shadow-xs'
+                  }`}
+                  title={
+                    isRevealed
+                      ? 'Đáp án & Bảng điểm đang được CÔNG BỐ. Bấm để ẩn lại (chờ 00:00).'
+                      : 'Bấm để CÔNG BỐ đáp án & bảng điểm ngay lập tức cho toàn thể nhân viên.'
+                  }
+                >
+                  {isRevealed ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Ẩn đáp án</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Công bố đáp án</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 

@@ -343,33 +343,20 @@ export const OFFICIAL_10_QUESTIONS: Omit<QuestionItem, 'id' | 'challengeId' | 'o
   },
 ];
 
-export function generateChallengeDays(totalDays = 21, baseDateMs?: number): DailyChallengeItem[] {
+export function generateChallengeDays(totalDays = 21, _baseDateMs?: number): DailyChallengeItem[] {
   const days: DailyChallengeItem[] = [];
   const totalCount = Math.min(90, Math.max(1, Math.round(Number(totalDays) || 21)));
-  const refMs = typeof baseDateMs === 'number' ? baseDateMs : Date.now();
-  // Tính ngày hiện tại theo múi giờ Việt Nam (UTC+7) để không bị lệch giờ trên Docker container (mặc định UTC)
-  const vnNow = new Date(refMs + 7 * 3600 * 1000);
-  const vnYear = vnNow.getUTCFullYear();
-  const vnMonth = vnNow.getUTCMonth();
-  const vnDate = vnNow.getUTCDate();
-  // Mốc 00:00:00 giờ Việt Nam (tương ứng 17:00:00 UTC của ngày hôm trước)
-  const todayVnMidnightUtcMs = Date.UTC(vnYear, vnMonth, vnDate, 0, 0, 0, 0) - 7 * 3600 * 1000;
+  const farFutureIso = new Date(Date.now() + 86400000 * 365).toISOString();
 
   for (let day = 1; day <= totalCount; day++) {
-    const unlockUtcMs = todayVnMidnightUtcMs + (day - 1) * 86400 * 1000;
-    const vnDayObj = new Date(unlockUtcMs + 7 * 3600 * 1000);
-    const dd = String(vnDayObj.getUTCDate()).padStart(2, '0');
-    const mm = String(vnDayObj.getUTCMonth() + 1).padStart(2, '0');
-    const yyyy = vnDayObj.getUTCFullYear();
-
     const questions: QuestionItem[] = [];
 
     days.push({
       id: day,
       dayNumber: day,
       title: `Day ${day}`,
-      dateLabel: `${dd}/${mm}/${yyyy}`,
-      unlockDate: new Date(Date.now() + 86400000 * 365).toISOString(),
+      dateLabel: '',
+      unlockDate: farFutureIso,
       // Mặc định khi khởi tạo mới: KHÓA toàn bộ ngày, chỉ mở khi Admin bấm "Start Challenge" hoặc mở khóa ngày
       isPublished: false,
       forceLockedAt: null,
