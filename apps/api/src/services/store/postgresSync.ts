@@ -1,11 +1,17 @@
 import { AttemptRecord, StoreContext, UserRecord } from './storeTypes.js';
 import { DailyChallengeItem } from '../seedData.js';
 
+let lastPgSyncMs = 0;
+
 /** Đồng bộ hai chiều giữa JSON store và PostgreSQL qua Prisma */
-export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void> {
+export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false): Promise<void> {
   ctx.reloadIfChanged();
   const prisma = ctx.getPrisma();
   if (!prisma) return;
+
+  const now = Date.now();
+  if (!force && now - lastPgSyncMs < 5000) return;
+  lastPgSyncMs = now;
 
   try {
     const [dbUsers, dbChallenges, dbAttempts] = await Promise.all([
@@ -16,6 +22,7 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
 
     ctx.reloadIfChanged();
     const data = ctx.getData();
+    let didMutate = false;
 
     const challengeIdToDay = new Map<number, number>();
     for (const dc of dbChallenges || []) {
@@ -29,6 +36,7 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
         );
         const local = idx >= 0 ? data.users[idx] : null;
         if (local && local.id !== u.id) {
+          didMutate = true;
           const oldId = local.id;
           for (const att of data.attempts) {
             if (att.userId === oldId) att.userId = u.id;
@@ -41,6 +49,10 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
           }
         }
 
+        const nextScore = Math.max(u.totalScore || 0, local?.totalScore || 0);
+        const nextTime = Math.max(u.totalTimeMs || 0, local?.totalTimeMs || 0);
+        const nextDays = Math.max(u.completedDays || 0, local?.completedDays || 0);
+
         const userRec: UserRecord = {
           id: u.id,
           employeeId: u.employeeId,
@@ -51,9 +63,9 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
           avatarUrl: u.avatarUrl || '',
           passwordHash: u.passwordHash,
           role: u.role as 'USER' | 'ADMIN',
-          totalScore: Math.max(u.totalScore || 0, local?.totalScore || 0),
-          totalTimeMs: Math.max(u.totalTimeMs || 0, local?.totalTimeMs || 0),
-          completedDays: Math.max(u.completedDays || 0, local?.completedDays || 0),
+          totalScore: nextScore,
+          totalTimeMs: nextTime,
+          completedDays: nextDays,
           resetOtpCode: u.resetOtpCode || null,
           resetToken: u.resetToken || null,
           resetExpiresAt: u.resetExpiresAt ? u.resetExpiresAt.toISOString() : null,
@@ -61,8 +73,19 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
         };
 
         if (idx >= 0) {
+          if (
+            local &&
+            (local.totalScore !== nextScore ||
+              local.totalTimeMs !== nextTime ||
+              local.completedDays !== nextDays ||
+              local.fullName !== u.fullName ||
+              local.email !== u.email)
+          ) {
+            didMutate = true;
+          }
           data.users[idx] = { ...data.users[idx], ...userRec };
         } else {
+          didMutate = true;
           data.users.push(userRec);
         }
       }
@@ -75,6 +98,7 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
           (att) => att.id === a.id || (att.userId === a.userId && att.dayNumber === dayNum)
         );
         if (!exists) {
+          didMutate = true;
           data.attempts.push({
             id: a.id,
             userId: a.userId,
@@ -111,13 +135,26 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
     for (const local of data.users) {
       const userAttempts = attemptsByUser.get(local.id);
       if (userAttempts && userAttempts.length > 0) {
-        local.totalScore = userAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
-        local.totalTimeMs = userAttempts.reduce((acc, a) => acc + (Number(a.timeSpentMs) || 0), 0);
-        local.completedDays = new Set(userAttempts.map((a) => a.dayNumber)).size;
+        const calcScore = userAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
+        const calcTime = userAttempts.reduce((acc, a) => acc + (Number(a.timeSpentMs) || 0), 0);
+        const calcDays = new Set(userAttempts.map((a) => a.dayNumber)).size;
+        if (
+          local.totalScore !== calcScore ||
+          local.totalTimeMs !== calcTime ||
+          local.completedDays !== calcDays
+        ) {
+          local.totalScore = calcScore;
+          local.totalTimeMs = calcTime;
+          local.completedDays = calcDays;
+          didMutate = true;
+        }
       }
     }
 
-    ctx.save();
+    // CHỈ ghi xuống db.json khi thực sự có dữ liệu thay đổi từ Postgres (không ghi đè vô cớ trong các lệnh GET)
+    if (didMutate) {
+      ctx.save();
+    }
 
     const dbUserByEmpId = new Map<string, any>();
     for (const u of dbUsers || []) {

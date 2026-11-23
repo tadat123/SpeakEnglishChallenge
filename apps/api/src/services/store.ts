@@ -101,12 +101,8 @@ class DataStore {
 
   private reloadIfChanged(): void {
     try {
-      // Nếu đang có dữ liệu mới trong RAM chờ ghi xuống đĩa thì không đọc đè từ đĩa lên
-      if (this.savePending || this.isWritingAsync) return;
-
-      const now = Date.now();
-      if (now - this.lastStatCheckMs < 1000) return;
-      this.lastStatCheckMs = now;
+      // Nếu đang có tiến trình ghi cục bộ đang chạy thì bỏ qua lượt đọc này
+      if (this.isWritingAsync) return;
 
       if (!fs.existsSync(DB_FILE)) return;
       const stat = fs.statSync(DB_FILE);
@@ -120,6 +116,7 @@ class DataStore {
           }
           this.lastLoadedMtime = stat.mtimeMs;
           this.lastLoadedSize = stat.size;
+          this.lastStatCheckMs = Date.now();
           adminStatsOps.invalidateLeaderboardCache();
           if (Array.isArray(parsed.inAppNotifications) && parsed.inAppNotifications.length > 0) {
             this.lastNotificationTimestamp = new Date(
@@ -352,22 +349,39 @@ class DataStore {
     return initialData;
   }
 
+  private makeUniqueTmpFile(): string {
+    const inst = process.env.INSTANCE_ID || `pid${process.pid}`;
+    const rand = Math.random().toString(36).slice(2, 8);
+    return `${DB_FILE}.tmp.${inst}.${Date.now()}.${rand}`;
+  }
+
+  /**
+   * Ghi nguyên tử tức thì (Atomic Write) để đảm bảo 3 container api-1, api-2, api-3
+   * thấy dữ liệu mới ngay lập tức (0ms delay), không bao giờ bị sai lệch trạng thái Start/Stop Challenge.
+   */
   public save() {
     adminStatsOps.invalidateLeaderboardCache();
+    this.flushSaveSync();
+  }
+
+  /**
+   * Ghi trì hoãn bất đồng bộ (chỉ dùng cho heartbeat tiến độ làm bài tần suất cao).
+   */
+  public saveDeferred() {
     this.savePending = true;
     if (this.saveTimer) return;
 
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
       void this.flushSaveAsync();
-    }, 250);
+    }, 300);
   }
 
   private async flushSaveAsync() {
     if (!this.savePending || this.isWritingAsync) return;
     this.savePending = false;
     this.isWritingAsync = true;
-    const tmpFile = `${DB_FILE}.tmp.${process.pid}`;
+    const tmpFile = this.makeUniqueTmpFile();
     try {
       this.data.activeSessions = Object.fromEntries(this.activeSessions.entries());
       const payload = JSON.stringify(this.data);
@@ -385,12 +399,13 @@ class DataStore {
     } finally {
       this.isWritingAsync = false;
       if (this.savePending) {
-        this.save();
+        this.saveDeferred();
       }
     }
   }
 
   public flushSaveSync() {
+    const tmpFile = this.makeUniqueTmpFile();
     try {
       if (this.saveTimer) {
         clearTimeout(this.saveTimer);
@@ -398,7 +413,9 @@ class DataStore {
       }
       this.savePending = false;
       this.data.activeSessions = Object.fromEntries(this.activeSessions.entries());
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data), 'utf-8');
+      const payload = JSON.stringify(this.data);
+      fs.writeFileSync(tmpFile, payload, 'utf-8');
+      fs.renameSync(tmpFile, DB_FILE);
       if (fs.existsSync(DB_FILE)) {
         const st = fs.statSync(DB_FILE);
         this.lastLoadedMtime = st.mtimeMs;
@@ -406,6 +423,9 @@ class DataStore {
         this.lastStatCheckMs = Date.now();
       }
     } catch (err) {
+      try {
+        if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+      } catch {}
       console.error('[Store] Failed to write DB_FILE:', err);
     }
   }
@@ -665,7 +685,7 @@ class DataStore {
     }
     session.lastSyncedAt = Date.now();
     this.activeSessions.set(sessionKey, session);
-    this.save();
+    this.saveDeferred();
     return session;
   }
 

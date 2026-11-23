@@ -32,6 +32,7 @@ interface AdminScheduleControllerProps {
   selectedDay: number;
   onRefreshGlobal: () => void;
   onRefreshDashboardStats: (day?: number) => void;
+  onEventStateUpdated?: (eventState: any) => void;
   onTotalDaysConfigured?: (cleanTotal: number) => void;
   onDayDetailNeedsRefresh: (day: number) => void;
   darkMode: boolean;
@@ -55,6 +56,7 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
   selectedDay,
   onRefreshGlobal,
   onRefreshDashboardStats,
+  onEventStateUpdated,
   onTotalDaysConfigured,
   onDayDetailNeedsRefresh,
   darkMode,
@@ -74,6 +76,7 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
 
   const [totalDaysInput, setTotalDaysInput] = useState<number>(() => challengesLength || 21);
   const [savingTotalDays, setSavingTotalDays] = useState<boolean>(false);
+  const [submittingSchedule, setSubmittingSchedule] = useState<boolean>(false);
   const [scheduleStartDate, setScheduleStartDate] = useState<string>(
     () => activeStartYmd || getTodayVnYmd()
   );
@@ -179,6 +182,7 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
     });
     if (!confirmed) return;
 
+    setSubmittingSchedule(true);
     try {
       const payload = options.lockAllUntilStart
         ? { ...options, totalDays: computedTotalDays }
@@ -190,6 +194,9 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.eventState) {
+          onEventStateUpdated?.(data.eventState);
+        }
         showMessage(data.message || `Đã cập nhật lịch trình ${computedTotalDays} ngày thành công!`);
         const safeDay = Math.min(selectedDay, computedTotalDays);
         onDayDetailNeedsRefresh(safeDay);
@@ -200,6 +207,8 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
       }
     } catch (e: any) {
       showMessage(e?.message || 'Lỗi kết nối máy chủ!', true);
+    } finally {
+      setSubmittingSchedule(false);
     }
   };
 
@@ -376,6 +385,7 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
             {eventStatus === 'NOT_STARTED' ? (
               <button
                 type="button"
+                disabled={submittingSchedule}
                 onClick={() =>
                   handleStartChallengeSchedule({
                     startFromDayNumber: Math.min(scheduleStartDay, effectiveTotalDays),
@@ -383,9 +393,14 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
                     lockPreviousDays: scheduleStartDay > 1,
                   })
                 }
-                className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition whitespace-nowrap"
+                className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition whitespace-nowrap"
               >
-                {isFutureSchedule ? (
+                {submittingSchedule ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang khởi động...</span>
+                  </>
+                ) : isFutureSchedule ? (
                   <>
                     <Clock className="w-3.5 h-3.5" />
                     <span>Hẹn lịch ({formatYmdToDmy(scheduleStartDate)})</span>
@@ -402,6 +417,7 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
                 {hasScheduleChanges && (
                   <button
                     type="button"
+                    disabled={submittingSchedule}
                     onClick={() =>
                       handleStartChallengeSchedule({
                         startFromDayNumber: Math.min(scheduleStartDay, effectiveTotalDays),
@@ -409,9 +425,13 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
                         lockPreviousDays: scheduleStartDay > 1,
                       })
                     }
-                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition whitespace-nowrap"
+                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition whitespace-nowrap"
                   >
-                    <Check className="w-3.5 h-3.5" />
+                    {submittingSchedule ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
                     <span>
                       {isFutureSchedule
                         ? `Cập nhật lịch (${formatYmdToDmy(scheduleStartDate)})`
@@ -422,15 +442,20 @@ export const AdminScheduleController: React.FC<AdminScheduleControllerProps> = (
 
                 <button
                   type="button"
+                  disabled={submittingSchedule}
                   onClick={() => handleStartChallengeSchedule({ lockAllUntilStart: true })}
-                  className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition whitespace-nowrap"
+                  className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] disabled:opacity-60 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition whitespace-nowrap"
                   title={
                     eventStatus === 'COUNTDOWN'
                       ? 'Hủy lịch đếm ngược và dừng sự kiện về trạng thái chưa bắt đầu'
                       : `Dừng sự kiện và khóa toàn bộ ${effectiveTotalDays} ngày`
                   }
                 >
-                  <Square className="w-3.5 h-3.5 fill-current" />
+                  {submittingSchedule ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                  )}
                   <span>{eventStatus === 'COUNTDOWN' ? 'Hủy lịch (Stop)' : 'Stop Challenge'}</span>
                 </button>
               </>

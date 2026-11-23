@@ -757,6 +757,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               navigateAdmin={navigateAdmin}
               onRefreshGlobal={onRefreshGlobal}
               onRefreshDashboardStats={(d) => fetchDashboardStats(d)}
+              onEventStateUpdated={(nextEventState) =>
+                setDashboardStats((prev: any) =>
+                  prev ? { ...prev, eventState: nextEventState } : { eventState: nextEventState }
+                )
+              }
               onRefreshPushStatus={() => fetchPushStatus(false)}
               onTotalDaysConfigured={(cleanTotal) => {
                 if (selectedDay > cleanTotal) setSelectedDay(cleanTotal);

@@ -33,6 +33,7 @@ interface AdminChallengesTabProps {
   navigateAdmin: (nextTab: AdminSubTab, dayNumber?: number) => void;
   onRefreshGlobal: () => void;
   onRefreshDashboardStats: (day?: number) => void;
+  onEventStateUpdated?: (eventState: any) => void;
   onRefreshPushStatus: () => void;
   onTotalDaysConfigured?: (cleanTotal: number) => void;
   at: (typeof ADMIN_I18N)[Lang];
@@ -56,6 +57,7 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
   navigateAdmin,
   onRefreshGlobal,
   onRefreshDashboardStats,
+  onEventStateUpdated,
   onRefreshPushStatus,
   onTotalDaysConfigured,
   at,
@@ -576,6 +578,7 @@ export const AdminChallengesTab: React.FC<AdminChallengesTabProps> = ({
         selectedDay={selectedDay}
         onRefreshGlobal={onRefreshGlobal}
         onRefreshDashboardStats={onRefreshDashboardStats}
+        onEventStateUpdated={onEventStateUpdated}
         onTotalDaysConfigured={onTotalDaysConfigured}
         onDayDetailNeedsRefresh={fetchDayDetail}
         darkMode={darkMode}
