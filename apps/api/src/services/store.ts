@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 import {
@@ -18,17 +16,20 @@ import {
   EventPopupItem,
   InAppNotificationRecord,
   PushCampaignRecord,
-  PushNotificationType,
   PushStaggerConfig,
-  PwaPushSubscriptionRecord,
   StoreContext,
   UserDeviceRecord,
   UserRecord,
 } from './store/storeTypes.js';
 import {
+  checkAndReloadAppStateFromPostgres,
+  ensurePostgresAppStateTable,
+  loadAppStateFromPostgres,
+  saveAppStateToPostgres,
   syncAttemptToPostgres,
   syncDatabaseWithPostgres,
   syncUserCreateToPostgres,
+  waitForPendingPostgresSave,
 } from './store/postgresSync.js';
 import * as challengeOps from './store/challengeStore.js';
 import * as pushEventOps from './store/pushEventStore.js';
@@ -41,34 +42,19 @@ let prisma: PrismaClient | null = null;
 if (dbUrl) {
   try {
     prisma = new PrismaClient({ datasources: { db: { url: dbUrl } } });
-    console.log('[DB] Đã khởi tạo Prisma Client kết nối tới PostgreSQL!');
+    console.log('[DB] Đã khởi tạo Prisma Client kết nối trực tiếp tới PostgreSQL (100% Database Mode - No db.json)!');
   } catch (err) {
     console.warn('Prisma Client init warning:', err);
   }
 }
 
-const resolveDataDir = () => {
-  const fromRepoRoot = path.resolve(process.cwd(), 'apps', 'api', 'data');
-  if (fs.existsSync(path.resolve(process.cwd(), 'apps', 'api'))) {
-    return fromRepoRoot;
-  }
-  return path.resolve(process.cwd(), 'data');
-};
-
-const DATA_DIR = resolveDataDir();
-const DB_FILE = path.join(DATA_DIR, 'db.json');
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 class DataStore {
   private data: DatabaseShape;
   private activeSessions = new Map<string, ActiveQuizSession>();
   private forceLockedDays = new Map<number, number>();
-  private lastLoadedMtime = 0;
-  private lastLoadedSize = 0;
-  private lastStatCheckMs = 0;
-  private savePending = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
-  private isWritingAsync = false;
   private lastNotificationTimestamp = 0;
   private readonly ctx: StoreContext;
 
@@ -86,48 +72,41 @@ class DataStore {
         this.lastNotificationTimestamp = ts;
       },
     };
-    this.data = this.loadOrSeed();
-    void this.syncFromPostgres();
 
-    const flushOnExit = () => {
-      if (this.savePending) {
-        this.flushSaveSync();
+    this.data = this.createInitialInMemorySeed();
+    void this.bootstrapFromPostgres();
+
+    // Đồng bộ ngầm cực nhẹ giữa các container api-1, api-2, api-3 thông qua PostgreSQL
+    setInterval(() => {
+      void checkAndReloadAppStateFromPostgres(this.ctx);
+    }, 450);
+
+    setInterval(() => {
+      void syncDatabaseWithPostgres(this.ctx, true);
+    }, 3000);
+  }
+
+  private async bootstrapFromPostgres(): Promise<void> {
+    if (!prisma) return;
+    try {
+      await ensurePostgresAppStateTable(prisma);
+      await loadAppStateFromPostgres(this.ctx);
+      await syncDatabaseWithPostgres(this.ctx, true);
+      const admin = this.data.users.find((u) => u.employeeId === '88888888');
+      if (admin) {
+        await syncUserCreateToPostgres(prisma, admin);
       }
-    };
-    process.on('SIGINT', flushOnExit);
-    process.on('SIGTERM', flushOnExit);
-    process.on('beforeExit', flushOnExit);
+      console.log(
+        `[PostgreSQL] Đã nạp thành công ${this.data.users.length} users, ${this.data.challenges.length} ngày thi, ${this.data.attempts.length} lượt nộp bài từ PostgreSQL!`
+      );
+    } catch (err: any) {
+      console.warn('[PostgreSQL] Bootstrap notice:', err?.message || err);
+    }
   }
 
   private reloadIfChanged(): void {
-    try {
-      // Nếu đang có tiến trình ghi cục bộ đang chạy thì bỏ qua lượt đọc này
-      if (this.isWritingAsync) return;
-
-      if (!fs.existsSync(DB_FILE)) return;
-      const stat = fs.statSync(DB_FILE);
-      if (stat.mtimeMs !== this.lastLoadedMtime || stat.size !== this.lastLoadedSize) {
-        const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        const parsed = JSON.parse(raw) as DatabaseShape;
-        if (parsed && Array.isArray(parsed.challenges) && Array.isArray(parsed.users)) {
-          this.data = this.ensurePushState(parsed);
-          if (parsed.activeSessions && typeof parsed.activeSessions === 'object') {
-            this.activeSessions = new Map(Object.entries(parsed.activeSessions));
-          }
-          this.lastLoadedMtime = stat.mtimeMs;
-          this.lastLoadedSize = stat.size;
-          this.lastStatCheckMs = Date.now();
-          adminStatsOps.invalidateLeaderboardCache();
-          if (Array.isArray(parsed.inAppNotifications) && parsed.inAppNotifications.length > 0) {
-            this.lastNotificationTimestamp = new Date(
-              parsed.inAppNotifications[0].deliveredAt
-            ).getTime();
-          }
-        }
-      }
-    } catch {
-      // Ignore transient concurrent read error
-    }
+    // Mọi đồng bộ được thực hiện hoàn toàn qua PostgreSQL (AppStateStore + User + ChallengeAttempt).
+    // Tuyệt đối không đọc/ghi bất kỳ file db.json nào trên ổ đĩa.
   }
 
   public getPrisma(): PrismaClient | null {
@@ -135,11 +114,24 @@ class DataStore {
   }
 
   public getLastMtime(): number {
-    return this.lastLoadedMtime;
+    return Date.now();
   }
 
-  public async syncFromPostgres() {
-    await syncDatabaseWithPostgres(this.ctx);
+  public async syncFromPostgres(): Promise<void> {
+    await syncDatabaseWithPostgres(this.ctx, true);
+  }
+
+  public async checkPostgresVersion(): Promise<void> {
+    await checkAndReloadAppStateFromPostgres(this.ctx);
+  }
+
+  public async waitForPendingWrites(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+      await saveAppStateToPostgres(this.ctx);
+    }
+    await waitForPendingPostgresSave();
   }
 
   private ensurePushState(parsed: DatabaseShape): DatabaseShape {
@@ -181,10 +173,6 @@ class DataStore {
         notifiedUnstudiedKeys: [],
       };
     } else {
-      if (parsed.pushConfig.morningHour === 8 && parsed.pushConfig.nightUnstudiedHour === 23) {
-        parsed.pushConfig.morningHour = 7;
-        parsed.pushConfig.nightUnstudiedHour = 21;
-      }
       parsed.pushConfig.morningHour = parsed.pushConfig.morningHour ?? 7;
       parsed.pushConfig.morningMinute = parsed.pushConfig.morningMinute ?? 0;
       parsed.pushConfig.eveningTop1Hour = parsed.pushConfig.eveningTop1Hour ?? 19;
@@ -199,122 +187,8 @@ class DataStore {
     return parsed;
   }
 
-  private loadOrSeed(): DatabaseShape {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (fs.existsSync(DB_FILE)) {
-      try {
-        this.lastLoadedMtime = fs.statSync(DB_FILE).mtimeMs;
-        const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        const parsed = JSON.parse(raw) as DatabaseShape;
-        const targetTotal =
-          typeof parsed.challengeTotalDays === 'number' &&
-          parsed.challengeTotalDays >= 1 &&
-          parsed.challengeTotalDays <= 90
-            ? parsed.challengeTotalDays
-            : parsed.challenges?.length || 21;
-
-        if (!Array.isArray(parsed.challenges) || parsed.challenges.length === 0) {
-          parsed.challenges = generateChallengeDays(targetTotal);
-          parsed.challengeTotalDays = parsed.challenges.length;
-        } else {
-          parsed.challenges = parsed.challenges
-            .filter((c) => c.dayNumber >= 1 && c.dayNumber <= 90)
-            .sort((a, b) => a.dayNumber - b.dayNumber);
-          if (typeof parsed.challengeTotalDays === 'number' && parsed.challengeTotalDays >= 1) {
-            parsed.challenges = parsed.challenges.filter((c) => c.dayNumber <= parsed.challengeTotalDays!);
-          } else {
-            parsed.challengeTotalDays = parsed.challenges.length;
-          }
-          for (const c of parsed.challenges) {
-            if (!Array.isArray(c.q11Words)) {
-              c.q11Words = [];
-            } else if (c.q11Words.length > 5) {
-              c.q11Words = c.q11Words.slice(0, 5);
-            }
-            for (const q of c.questions || []) {
-              if (
-                q.questionType !== 'TRUE_FALSE' &&
-                q.questionType !== 'FILL_IN_THE_BLANK' &&
-                q.options &&
-                q.options.length > 3
-              ) {
-                const correct = q.options.find((o: any) => o.id === q.correctOptionId);
-                const others = q.options.filter((o: any) => o.id !== q.correctOptionId);
-                q.options = correct
-                  ? [correct, ...others.slice(0, 2)].sort((a: any, b: any) => a.id.localeCompare(b.id))
-                  : q.options.slice(0, 3);
-              }
-            }
-          }
-        }
-
-        if (!Array.isArray(parsed.users)) parsed.users = [];
-        if (!Array.isArray(parsed.attempts)) parsed.attempts = [];
-
-        const defaultAdminPass = process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026';
-        const adminUser = parsed.users.find((u) => u.employeeId === '88888888');
-        if (!adminUser) {
-          parsed.users.unshift({
-            id: 'u-admin',
-            employeeId: '88888888',
-            fullName: 'Ban Tổ Chức (Admin)',
-            email: 'admin.speakright@gmail.com',
-            phone: '0901234567',
-            department: 'HR & Training',
-            avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AdminSpeak',
-            passwordHash: bcrypt.hashSync(defaultAdminPass, 10),
-            role: 'ADMIN',
-            totalScore: 0,
-            totalTimeMs: 0,
-            completedDays: 0,
-            createdAt: new Date().toISOString(),
-          });
-        } else {
-          adminUser.role = 'ADMIN';
-          if (!adminUser.passwordHash) {
-            adminUser.passwordHash = bcrypt.hashSync(defaultAdminPass, 10);
-          }
-        }
-
-        const hydrated = this.ensurePushState(parsed);
-        if (
-          Array.isArray(hydrated.challenges) &&
-          hydrated.challenges.length >= 10 &&
-          hydrated.challenges[0]?.dateLabel === '02/11/2026'
-        ) {
-          const farFuture = new Date(Date.now() + 86400000 * 365).toISOString();
-          hydrated.challenges = hydrated.challenges.map((c) => ({
-            ...c,
-            dateLabel: '',
-            unlockDate: farFuture,
-            isPublished: false,
-            forceLockedAt: null,
-            forceRevealed: false,
-          }));
-        }
-        if (hydrated.activeSessions && typeof hydrated.activeSessions === 'object') {
-          this.activeSessions = new Map(Object.entries(hydrated.activeSessions));
-        }
-        if (Array.isArray(hydrated.inAppNotifications) && hydrated.inAppNotifications.length > 0) {
-          this.lastNotificationTimestamp = new Date(
-            hydrated.inAppNotifications[0].deliveredAt
-          ).getTime();
-        }
-        fs.writeFileSync(DB_FILE, JSON.stringify(hydrated, null, 2), 'utf-8');
-        if (fs.existsSync(DB_FILE)) {
-          const st = fs.statSync(DB_FILE);
-          this.lastLoadedMtime = st.mtimeMs;
-          this.lastLoadedSize = st.size;
-        }
-        return hydrated;
-      } catch (e) {
-        console.warn('Khởi tạo lại dữ liệu mẫu do file db.json lỗi:', e);
-      }
-    }
-
-    const adminPassHash = bcrypt.hashSync(process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026', 10);
+  private createInitialInMemorySeed(): DatabaseShape {
+    const adminPassHash = bcrypt.hashSync(process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026', 8);
     const initialUsers: UserRecord[] = [
       {
         id: 'u-admin',
@@ -333,109 +207,46 @@ class DataStore {
       },
     ];
     const challenges = generateChallengeDays(21);
-    const initialData: DatabaseShape = this.ensurePushState({
+    const farFuture = new Date(Date.now() + 86400000 * 365).toISOString();
+    for (const c of challenges) {
+      c.dateLabel = '';
+      c.unlockDate = farFuture;
+      c.isPublished = false;
+      c.forceLockedAt = null;
+      c.forceRevealed = false;
+    }
+    return this.ensurePushState({
       users: initialUsers,
       challenges,
       challengeTotalDays: challenges.length,
       attempts: [],
     });
-
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
-    if (fs.existsSync(DB_FILE)) {
-      const st = fs.statSync(DB_FILE);
-      this.lastLoadedMtime = st.mtimeMs;
-      this.lastLoadedSize = st.size;
-    }
-    return initialData;
-  }
-
-  private makeUniqueTmpFile(): string {
-    const inst = process.env.INSTANCE_ID || `pid${process.pid}`;
-    const rand = Math.random().toString(36).slice(2, 8);
-    return `${DB_FILE}.tmp.${inst}.${Date.now()}.${rand}`;
   }
 
   /**
-   * Ghi nguyên tử tức thì (Atomic Write) để đảm bảo 3 container api-1, api-2, api-3
-   * thấy dữ liệu mới ngay lập tức (0ms delay), không bao giờ bị sai lệch trạng thái Start/Stop Challenge.
+   * Lưu trạng thái trực tiếp vào PostgreSQL (bảng AppStateStore). Tuyệt đối không dùng db.json.
    */
   public save() {
     adminStatsOps.invalidateLeaderboardCache();
-    this.flushSaveSync();
+    void saveAppStateToPostgres(this.ctx);
   }
 
   /**
-   * Ghi trì hoãn bất đồng bộ (chỉ dùng cho heartbeat tiến độ làm bài tần suất cao).
+   * Lưu trì hoãn 300ms vào PostgreSQL cho các nhịp heartbeat tần suất cao.
    */
   public saveDeferred() {
-    this.savePending = true;
     if (this.saveTimer) return;
-
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
-      void this.flushSaveAsync();
+      void saveAppStateToPostgres(this.ctx);
     }, 300);
   }
 
-  private async flushSaveAsync() {
-    if (!this.savePending || this.isWritingAsync) return;
-    this.savePending = false;
-    this.isWritingAsync = true;
-    const tmpFile = this.makeUniqueTmpFile();
-    try {
-      this.data.activeSessions = Object.fromEntries(this.activeSessions.entries());
-      const payload = JSON.stringify(this.data);
-      await fs.promises.writeFile(tmpFile, payload, 'utf-8');
-      await fs.promises.rename(tmpFile, DB_FILE);
-      const st = await fs.promises.stat(DB_FILE);
-      this.lastLoadedMtime = st.mtimeMs;
-      this.lastLoadedSize = st.size;
-      this.lastStatCheckMs = Date.now();
-    } catch (err) {
-      try {
-        if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-      } catch {}
-      console.error('[Store] Failed async write DB_FILE:', err);
-    } finally {
-      this.isWritingAsync = false;
-      if (this.savePending) {
-        this.saveDeferred();
-      }
-    }
-  }
-
-  public flushSaveSync() {
-    const tmpFile = this.makeUniqueTmpFile();
-    try {
-      if (this.saveTimer) {
-        clearTimeout(this.saveTimer);
-        this.saveTimer = null;
-      }
-      this.savePending = false;
-      this.data.activeSessions = Object.fromEntries(this.activeSessions.entries());
-      const payload = JSON.stringify(this.data);
-      fs.writeFileSync(tmpFile, payload, 'utf-8');
-      fs.renameSync(tmpFile, DB_FILE);
-      if (fs.existsSync(DB_FILE)) {
-        const st = fs.statSync(DB_FILE);
-        this.lastLoadedMtime = st.mtimeMs;
-        this.lastLoadedSize = st.size;
-        this.lastStatCheckMs = Date.now();
-      }
-    } catch (err) {
-      try {
-        if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-      } catch {}
-      console.error('[Store] Failed to write DB_FILE:', err);
-    }
-  }
-
   public async resetToFreshAdminOnly(): Promise<{ success: boolean; message: string }> {
-    this.reloadIfChanged();
     const existingAdmin = this.data.users.find((u) => u.employeeId === '88888888');
     const adminPassHash =
       existingAdmin?.passwordHash ||
-      bcrypt.hashSync(process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026', 10);
+      bcrypt.hashSync(process.env.ADMIN_DEFAULT_PASSWORD || 'Admin@2026', 8);
     const adminUser: UserRecord = {
       id: existingAdmin?.id || 'u-admin',
       employeeId: '88888888',
@@ -465,7 +276,7 @@ class DataStore {
     this.data.challenges = generateChallengeDays(this.data.challengeTotalDays || this.data.challenges.length || 21);
 
     this.startChallengeSchedule({ lockAllUntilStart: true });
-    this.save();
+    await saveAppStateToPostgres(this.ctx);
 
     if (prisma) {
       try {
@@ -502,7 +313,7 @@ class DataStore {
     return {
       success: true,
       message:
-        'Hệ thống đã được thiết lập mới toanh! Chỉ còn duy nhất tài khoản Admin (GEN: 88888888 / Mật khẩu: Admin@2026).',
+        'Hệ thống đã được thiết lập mới hoàn toàn trong PostgreSQL! Chỉ còn duy nhất tài khoản Admin (GEN: 88888888 / Mật khẩu: Admin@2026).',
     };
   }
 
@@ -518,12 +329,10 @@ class DataStore {
   // ==================== USER QUERIES & ATTEMPTS ====================
 
   public getUsers() {
-    this.reloadIfChanged();
     return this.data.users;
   }
 
   public findUserByIdentifier(identifier: string): UserRecord | undefined {
-    this.reloadIfChanged();
     const clean = identifier.trim().toLowerCase();
     return this.data.users.find(
       (u) => u.employeeId.toLowerCase() === clean || u.email.toLowerCase() === clean
@@ -531,30 +340,25 @@ class DataStore {
   }
 
   public findUserById(id: string): UserRecord | undefined {
-    this.reloadIfChanged();
     return this.data.users.find((u) => u.id === id);
   }
 
   public async createUser(user: UserRecord): Promise<UserRecord> {
-    this.reloadIfChanged();
     this.data.users.push(user);
-    this.save();
+    adminStatsOps.invalidateLeaderboardCache();
     await syncUserCreateToPostgres(prisma, user);
     return user;
   }
 
   public getUserAttempts(userId: string): AttemptRecord[] {
-    this.reloadIfChanged();
     return this.data.attempts.filter((a) => a.userId === userId);
   }
 
   public getAttempt(userId: string, dayNumber: number): AttemptRecord | undefined {
-    this.reloadIfChanged();
     return this.data.attempts.find((a) => a.userId === userId && a.dayNumber === dayNumber);
   }
 
   public async recordAttempt(attempt: AttemptRecord) {
-    this.reloadIfChanged();
     const existing = this.getAttempt(attempt.userId, attempt.dayNumber);
     if (existing) {
       return {
@@ -578,13 +382,16 @@ class DataStore {
       user.completedDays = new Set(userAttempts.map((a) => a.dayNumber)).size;
     }
 
+    adminStatsOps.invalidateLeaderboardCache();
     const newTop1 = this.getLeaderboard()[0] || null;
     const climbedToTop1 = Boolean(
       newTop1 && newTop1.totalScore > 0 && baselineTop1Id !== newTop1.id
     );
-    if (newTop1) cfg.lastTop1UserId = newTop1.id;
+    if (newTop1) {
+      cfg.lastTop1UserId = newTop1.id;
+      this.saveDeferred();
+    }
 
-    this.save();
     const challengeItem = this.data.challenges.find((c) => c.dayNumber === attempt.dayNumber);
     await syncAttemptToPostgres(prisma, user, challengeItem, attempt);
 
@@ -603,7 +410,6 @@ class DataStore {
   // ==================== ACTIVE QUIZ SESSIONS ====================
 
   public startQuizSession(userId: string, dayNumber: number): ActiveQuizSession | null {
-    this.reloadIfChanged();
     this.pruneExpiredSessions();
     const user = this.findUserById(userId);
     const challenge = this.getChallengeByDay(dayNumber);
@@ -651,7 +457,7 @@ class DataStore {
     };
 
     this.activeSessions.set(sessionKey, session);
-    this.save();
+    this.saveDeferred();
     return session;
   }
 
@@ -665,7 +471,6 @@ class DataStore {
       q10ElapsedSeconds?: number;
     }
   ): ActiveQuizSession | null {
-    this.reloadIfChanged();
     this.pruneExpiredSessions();
     const sessionKey = `${userId}:${dayNumber}`;
     const session = this.activeSessions.get(sessionKey);
@@ -690,19 +495,16 @@ class DataStore {
   }
 
   public getActiveSession(userId: string, dayNumber: number): ActiveQuizSession | undefined {
-    this.reloadIfChanged();
     this.pruneExpiredSessions();
     return this.activeSessions.get(`${userId}:${dayNumber}`);
   }
 
   public completeActiveSession(userId: string, dayNumber: number) {
-    this.reloadIfChanged();
     this.activeSessions.delete(`${userId}:${dayNumber}`);
-    this.save();
+    this.saveDeferred();
   }
 
   public markSessionQ10Finished(userId: string, dayNumber: number, clientElapsedSeconds?: number): number | null {
-    this.reloadIfChanged();
     const session = this.getActiveSession(userId, dayNumber);
     if (!session) return null;
     if (!session.q10FinishedAt) session.q10FinishedAt = Date.now();
@@ -712,7 +514,7 @@ class DataStore {
     } else if (!session.q10ElapsedSeconds && session.elapsedSeconds) {
       session.q10ElapsedSeconds = session.elapsedSeconds;
     }
-    this.save();
+    this.saveDeferred();
     if (session.q10ElapsedSeconds && session.q10ElapsedSeconds > 0) {
       return Math.max(2000, session.q10ElapsedSeconds * 1000);
     }
@@ -720,12 +522,11 @@ class DataStore {
   }
 
   public clearSessionQ10Finished(userId: string, dayNumber: number): void {
-    this.reloadIfChanged();
     const session = this.getActiveSession(userId, dayNumber);
     if (session) {
       delete session.q10FinishedAt;
       delete session.q10ElapsedSeconds;
-      this.save();
+      this.saveDeferred();
     }
   }
 
@@ -744,7 +545,6 @@ class DataStore {
   }
 
   public isSessionForceLocked(dayNumber: number, _sessionStartedAt?: number): boolean {
-    this.reloadIfChanged();
     const challenge = this.getChallengeByDay(dayNumber);
     if (challenge && (challenge.forceLockedAt != null || !challenge.isPublished)) return true;
     return Boolean(this.forceLockedDays.get(dayNumber));
@@ -753,11 +553,9 @@ class DataStore {
   // ==================== CHALLENGES & QUESTIONS DELEGATORS ====================
 
   public getChallenges(): DailyChallengeItem[] {
-    this.reloadIfChanged();
     return this.data.challenges;
   }
   public getChallengeByDay(dayNumber: number) {
-    this.reloadIfChanged();
     return this.data.challenges.find((c) => c.dayNumber === dayNumber);
   }
   public isDayUnlocked = (c: DailyChallengeItem) => challengeOps.isDayUnlocked(this.ctx, c);
@@ -839,7 +637,6 @@ class DataStore {
   public addBatchInAppNotifications = (notifs: InAppNotificationRecord[]) =>
     pushEventOps.addBatchInAppNotifications(this.ctx, notifs);
   public getLastNotificationTimestamp(): number {
-    this.reloadIfChanged();
     return this.lastNotificationTimestamp;
   }
   public markNotificationsDelivered = (

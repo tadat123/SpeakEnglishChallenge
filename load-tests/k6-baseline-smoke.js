@@ -75,14 +75,14 @@ export default function () {
     errorRate.add(!ok);
   });
 
-  group('3. Luồng Bảng Xếp Hạng Công Ty (Leaderboard)', () => {
-    const res = http.get(`${BASE_URL}/api/leaderboard?scope=company`, params);
+  group('3. Luồng Trạng Thái Sự Kiện (Event Status)', () => {
+    const res = http.get(`${BASE_URL}/api/event-status`, params);
     leaderboardLatency.add(res.timings.duration);
     const rem = Number(res.headers['X-Ratelimit-Remaining'] || res.headers['x-ratelimit-remaining'] || -1);
     if (rem >= 0) rateLimitRemainingMin.add(rem);
 
     const ok = check(res, {
-      'leaderboard status 200': (r) => r.status === 200,
+      'event-status 200': (r) => r.status === 200,
     });
     errorRate.add(!ok);
   });

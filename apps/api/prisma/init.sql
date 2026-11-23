@@ -106,11 +106,21 @@ CREATE TABLE IF NOT EXISTS "ChallengeAttempt" (
     CONSTRAINT "ChallengeAttempt_pkey" PRIMARY KEY ("id")
 );
 
--- Chỉ mục (Indexes)
+-- 8. Bảng AppStateStore (Lưu trữ trạng thái Lịch thi, Đề thi chi tiết, Sự kiện, Thông báo, Phiên thi trong PostgreSQL - Thay thế hoàn toàn db.json)
+CREATE TABLE IF NOT EXISTS "AppStateStore" (
+    "key" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "version" BIGINT NOT NULL DEFAULT 1,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AppStateStore_pkey" PRIMARY KEY ("key")
+);
+
+-- Chỉ mục (Indexes) tối ưu cho quy mô 30.000+ người dùng
 CREATE UNIQUE INDEX IF NOT EXISTS "User_employeeId_key" ON "User"("employeeId");
 CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
 CREATE INDEX IF NOT EXISTS "User_totalScore_totalTimeMs_idx" ON "User"("totalScore" DESC, "totalTimeMs" ASC);
 CREATE INDEX IF NOT EXISTS "User_department_idx" ON "User"("department");
+CREATE INDEX IF NOT EXISTS "User_updatedAt_idx" ON "User"("updatedAt");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "PwaPushSubscription_endpoint_key" ON "PwaPushSubscription"("endpoint");
 CREATE INDEX IF NOT EXISTS "PwaPushSubscription_userId_idx" ON "PwaPushSubscription"("userId");
@@ -123,6 +133,7 @@ CREATE INDEX IF NOT EXISTS "Question_challengeId_orderIndex_idx" ON "Question"("
 
 CREATE INDEX IF NOT EXISTS "ChallengeAttempt_challengeId_score_timeSpentMs_idx" ON "ChallengeAttempt"("challengeId", "score" DESC, "timeSpentMs" ASC);
 CREATE UNIQUE INDEX IF NOT EXISTS "ChallengeAttempt_userId_challengeId_key" ON "ChallengeAttempt"("userId", "challengeId");
+CREATE INDEX IF NOT EXISTS "ChallengeAttempt_completedAt_idx" ON "ChallengeAttempt"("completedAt");
 
 -- Khóa ngoại (Foreign Keys)
 DO $$ BEGIN

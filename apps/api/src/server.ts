@@ -104,6 +104,26 @@ await app.register(rateLimit, {
 app.addHook('onRequest', ddosAndBotProtection);
 app.addHook('preHandler', sqlInjectionGuard);
 
+// Đồng bộ trạng thái tức thì từ PostgreSQL giữa các container api-1, api-2, api-3 (100% Database Mode)
+app.addHook('preHandler', async (request) => {
+  if (
+    request.url.startsWith('/api/admin') ||
+    request.url.startsWith('/api/event-status') ||
+    request.url.startsWith('/api/public/today') ||
+    request.method !== 'GET'
+  ) {
+    await store.checkPostgresVersion();
+  }
+});
+
+// Đảm bảo mọi lệnh ghi (POST/PUT/PATCH/DELETE) đã commit xong vào PostgreSQL trước khi trả HTTP response
+app.addHook('onSend', async (request, _reply, payload) => {
+  if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH' || request.method === 'DELETE') {
+    await store.waitForPendingWrites();
+  }
+  return payload;
+});
+
 app.decorate('authenticate', async (request: any, reply: any) => {
   try {
     await request.jwtVerify();

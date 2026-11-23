@@ -21,6 +21,7 @@ services:
       - apidata:/app/data
     environment:
       - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=1024
       - PORT=4000
       - INSTANCE_ID=api-1
       - IS_CRON_LEADER=true
@@ -28,7 +29,7 @@ services:
       - DIRECT_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-speak-right-2026-super-secret-jwt-key}
-      - FRONTEND_URL=${FRONTEND_URL:-https://tadat123.github.io/SpeakEnglishChallenge}
+      - FRONTEND_URL=${FRONTEND_URL:-https://speak-english-challenge.vercel.app}
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-465}
       - SMTP_USER=${SMTP_USER:-}
@@ -43,6 +44,7 @@ services:
     <<: *api-service
     environment:
       - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=1024
       - PORT=4000
       - INSTANCE_ID=api-2
       - IS_CRON_LEADER=false
@@ -50,7 +52,7 @@ services:
       - DIRECT_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-speak-right-2026-super-secret-jwt-key}
-      - FRONTEND_URL=${FRONTEND_URL:-https://tadat123.github.io/SpeakEnglishChallenge}
+      - FRONTEND_URL=${FRONTEND_URL:-https://speak-english-challenge.vercel.app}
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-465}
       - SMTP_USER=${SMTP_USER:-}
@@ -61,6 +63,7 @@ services:
     <<: *api-service
     environment:
       - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=1024
       - PORT=4000
       - INSTANCE_ID=api-3
       - IS_CRON_LEADER=false
@@ -68,7 +71,7 @@ services:
       - DIRECT_URL=postgresql://postgres:postgres@postgres:5432/speakright
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-speak-right-2026-super-secret-jwt-key}
-      - FRONTEND_URL=${FRONTEND_URL:-https://tadat123.github.io/SpeakEnglishChallenge}
+      - FRONTEND_URL=${FRONTEND_URL:-https://speak-english-challenge.vercel.app}
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-465}
       - SMTP_USER=${SMTP_USER:-}
@@ -87,7 +90,16 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./apps/api/prisma/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    command: postgres -c max_connections=500 -c shared_buffers=256MB
+    command: >
+      postgres
+      -c max_connections=500
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c work_mem=16MB
+      -c maintenance_work_mem=128MB
+      -c synchronous_commit=off
+      -c wal_buffers=16MB
+      -c checkpoint_completion_target=0.9
     restart: unless-stopped
 
   pgbouncer:
@@ -97,7 +109,7 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/speakright
       - POOL_MODE=transaction
       - MAX_CLIENT_CONN=5000
-      - DEFAULT_POOL_SIZE=50
+      - DEFAULT_POOL_SIZE=80
     ports:
       - "6432:5432"
     depends_on:

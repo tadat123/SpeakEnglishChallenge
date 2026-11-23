@@ -1,42 +1,280 @@
-import { AttemptRecord, StoreContext, UserRecord } from './storeTypes.js';
+import fs from 'fs';
+import path from 'path';
+import { AttemptRecord, DatabaseShape, StoreContext, UserRecord } from './storeTypes.js';
 import { DailyChallengeItem } from '../seedData.js';
+import { invalidateLeaderboardCache } from './adminStatsStore.js';
+
+/**
+ * Xóa triệt để mọi tàn dư file db.json cũ trên ổ đĩa sau khi đã chuyển 100% sang PostgreSQL.
+ */
+function purgeLegacyJsonFiles(): any | null {
+  let legacyParsed: any | null = null;
+  const dirs = [
+    path.resolve(process.cwd(), 'apps', 'api', 'data'),
+    path.resolve(process.cwd(), 'data'),
+  ];
+  for (const dir of dirs) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const legacyFile = path.join(dir, 'db.json');
+      if (fs.existsSync(legacyFile)) {
+        try {
+          legacyParsed = JSON.parse(fs.readFileSync(legacyFile, 'utf-8'));
+        } catch {}
+      }
+      for (const name of fs.readdirSync(dir)) {
+        if (name === 'db.json' || name.startsWith('db.json.tmp')) {
+          try {
+            fs.unlinkSync(path.join(dir, name));
+            console.log(`[PostgreSQL Migration] Đã xóa vĩnh viễn file cũ: ${name}`);
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+  return legacyParsed;
+}
 
 let lastPgSyncMs = 0;
+let localAppStateVersion = 0;
+let tableInitialized = false;
+let pendingSavePromise: Promise<void> | null = null;
 
-/** Đồng bộ hai chiều giữa JSON store và PostgreSQL qua Prisma */
+/**
+ * Khởi tạo bảng AppStateStore trong PostgreSQL (lưu lịch trình, câu hỏi chi tiết, sự kiện, cấu hình push, phiên thi).
+ * Tuyệt đối KHÔNG sử dụng file db.json trên ổ đĩa.
+ */
+export async function ensurePostgresAppStateTable(
+  prisma: ReturnType<StoreContext['getPrisma']>
+): Promise<void> {
+  if (!prisma || tableInitialized) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "AppStateStore" (
+        "key" TEXT NOT NULL,
+        "payload" JSONB NOT NULL,
+        "version" BIGINT NOT NULL DEFAULT 1,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "AppStateStore_pkey" PRIMARY KEY ("key")
+      );
+    `);
+    tableInitialized = true;
+  } catch (err: any) {
+    console.warn('[PostgreSQL] ensurePostgresAppStateTable notice:', err?.message || err);
+  }
+}
+
+/**
+ * Ghi trạng thái cấu hình & đề thi vào bảng AppStateStore của PostgreSQL (tăng version nguyên tử để đồng bộ giữa các container api-1, api-2, api-3).
+ */
+export function saveAppStateToPostgres(ctx: StoreContext): Promise<void> {
+  const prisma = ctx.getPrisma();
+  if (!prisma) return Promise.resolve();
+
+  const runSave = async () => {
+    try {
+      await ensurePostgresAppStateTable(prisma);
+      const data = ctx.getData();
+      const activeSessionsObj = Object.fromEntries(ctx.activeSessions.entries());
+
+      // Chỉ lưu cấu hình, đề thi, sự kiện, thông báo và phiên thi (~45KB) vào AppStateStore.
+      // Toàn bộ 30.000 Users và 600.000 Attempts được lưu riêng trong bảng chuẩn "User" và "ChallengeAttempt".
+      const statePayload = {
+        challenges: data.challenges,
+        challengeTotalDays: data.challengeTotalDays || data.challenges.length || 21,
+        events: data.events || [],
+        pushConfig: data.pushConfig,
+        inAppNotifications: (data.inAppNotifications || []).slice(0, 200),
+        pwaSubscriptions: data.pwaSubscriptions || [],
+        pushCampaigns: (data.pushCampaigns || []).slice(0, 100),
+        devices: data.devices || [],
+        activeSessions: activeSessionsObj,
+      };
+
+      const jsonStr = JSON.stringify(statePayload);
+      const rows = await prisma.$queryRawUnsafe<Array<{ version: string }>>(
+        `INSERT INTO "AppStateStore" ("key", "payload", "version", "updatedAt")
+         VALUES ('app_state', $1::jsonb, 1, CURRENT_TIMESTAMP)
+         ON CONFLICT ("key") DO UPDATE
+         SET "payload" = EXCLUDED."payload",
+             "version" = "AppStateStore"."version" + 1,
+             "updatedAt" = CURRENT_TIMESTAMP
+         RETURNING "version"::text AS "version"`,
+        jsonStr
+      );
+
+      if (rows && rows[0]?.version) {
+        localAppStateVersion = Number(rows[0].version) || localAppStateVersion + 1;
+      }
+    } catch (err: any) {
+      console.error('[PostgreSQL] Lỗi khi lưu AppStateStore:', err?.message || err);
+    }
+  };
+
+  const nextPromise = (pendingSavePromise || Promise.resolve()).then(runSave, runSave);
+  pendingSavePromise = nextPromise;
+  return nextPromise;
+}
+
+export async function waitForPendingPostgresSave(): Promise<void> {
+  if (pendingSavePromise) {
+    await pendingSavePromise;
+  }
+}
+
+/**
+ * Nạp trạng thái AppStateStore từ PostgreSQL khi khởi động hoặc khi phát hiện container khác vừa cập nhật version mới.
+ */
+export async function loadAppStateFromPostgres(ctx: StoreContext): Promise<boolean> {
+  const prisma = ctx.getPrisma();
+  if (!prisma) return false;
+
+  try {
+    await ensurePostgresAppStateTable(prisma);
+    const rows = await prisma.$queryRawUnsafe<Array<{ payload: any; version: string }>>(
+      `SELECT "payload", "version"::text AS "version" FROM "AppStateStore" WHERE "key" = 'app_state' LIMIT 1`
+    );
+
+    const legacyData = purgeLegacyJsonFiles();
+
+    if (!rows || rows.length === 0 || !rows[0].payload) {
+      // Nếu có dữ liệu đề thi từ bản cũ vừa được di trú thì nạp vào PostgreSQL trước khi xóa hẳn file
+      if (legacyData) {
+        const data = ctx.getData();
+        if (Array.isArray(legacyData.challenges) && legacyData.challenges.length > 0) {
+          data.challenges = legacyData.challenges;
+          data.challengeTotalDays =
+            typeof legacyData.challengeTotalDays === 'number'
+              ? legacyData.challengeTotalDays
+              : legacyData.challenges.length;
+        }
+        if (Array.isArray(legacyData.events) && legacyData.events.length > 0) {
+          data.events = legacyData.events;
+        }
+        if (legacyData.pushConfig) {
+          data.pushConfig = legacyData.pushConfig;
+        }
+      }
+      await saveAppStateToPostgres(ctx);
+      return true;
+    }
+
+    const remoteVersion = Number(rows[0].version) || 1;
+    const rawPayload =
+      typeof rows[0].payload === 'string' ? JSON.parse(rows[0].payload) : rows[0].payload;
+
+    const data = ctx.getData();
+    if (Array.isArray(rawPayload.challenges) && rawPayload.challenges.length > 0) {
+      data.challenges = rawPayload.challenges;
+      data.challengeTotalDays =
+        typeof rawPayload.challengeTotalDays === 'number'
+          ? rawPayload.challengeTotalDays
+          : rawPayload.challenges.length;
+    }
+    if (Array.isArray(rawPayload.events) && rawPayload.events.length > 0) {
+      data.events = rawPayload.events;
+    }
+    if (rawPayload.pushConfig) {
+      data.pushConfig = rawPayload.pushConfig;
+    }
+    if (Array.isArray(rawPayload.inAppNotifications)) {
+      const notifs = rawPayload.inAppNotifications;
+      data.inAppNotifications = notifs;
+      if (notifs.length > 0 && notifs[0]?.deliveredAt) {
+        ctx.setLastNotificationTimestamp(
+          new Date(notifs[0].deliveredAt).getTime()
+        );
+      }
+    }
+    if (Array.isArray(rawPayload.pwaSubscriptions)) {
+      data.pwaSubscriptions = rawPayload.pwaSubscriptions;
+    }
+    if (Array.isArray(rawPayload.pushCampaigns)) {
+      data.pushCampaigns = rawPayload.pushCampaigns;
+    }
+    if (Array.isArray(rawPayload.devices)) {
+      data.devices = rawPayload.devices;
+    }
+    if (rawPayload.activeSessions && typeof rawPayload.activeSessions === 'object') {
+      ctx.activeSessions.clear();
+      for (const [k, v] of Object.entries(rawPayload.activeSessions)) {
+        ctx.activeSessions.set(k, v as any);
+      }
+    }
+
+    ctx.ensurePushState(data as DatabaseShape);
+    localAppStateVersion = remoteVersion;
+    invalidateLeaderboardCache();
+    return true;
+  } catch (err: any) {
+    console.warn('[PostgreSQL] loadAppStateFromPostgres notice:', err?.message || err);
+    return false;
+  }
+}
+
+/**
+ * Kiểm tra nhanh version trong PostgreSQL (chỉ ~0.2ms) để đồng bộ tức thì giữa api-1, api-2, api-3.
+ */
+export async function checkAndReloadAppStateFromPostgres(ctx: StoreContext): Promise<void> {
+  const prisma = ctx.getPrisma();
+  if (!prisma) return;
+  try {
+    await ensurePostgresAppStateTable(prisma);
+    const rows = await prisma.$queryRawUnsafe<Array<{ version: string }>>(
+      `SELECT "version"::text AS "version" FROM "AppStateStore" WHERE "key" = 'app_state' LIMIT 1`
+    );
+    if (rows && rows[0]?.version) {
+      const remoteVersion = Number(rows[0].version) || 0;
+      if (remoteVersion !== localAppStateVersion) {
+        await loadAppStateFromPostgres(ctx);
+      }
+    }
+  } catch {
+    // Ignore transient query errors
+  }
+}
+
+/** Đồng bộ dữ liệu Users & ChallengeAttempts từ PostgreSQL lên bộ nhớ đệm RAM (tối ưu O(N+M) cho 30.000 người dùng) */
 export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false): Promise<void> {
-  ctx.reloadIfChanged();
   const prisma = ctx.getPrisma();
   if (!prisma) return;
 
   const now = Date.now();
-  if (!force && now - lastPgSyncMs < 5000) return;
+  if (!force && now - lastPgSyncMs < 2000) {
+    await checkAndReloadAppStateFromPostgres(ctx);
+    return;
+  }
   lastPgSyncMs = now;
 
   try {
+    await checkAndReloadAppStateFromPostgres(ctx);
+
     const [dbUsers, dbChallenges, dbAttempts] = await Promise.all([
       prisma.user.findMany(),
       prisma.dailyChallenge.findMany().catch(() => []),
       prisma.challengeAttempt.findMany().catch(() => []),
     ]);
 
-    ctx.reloadIfChanged();
     const data = ctx.getData();
-    let didMutate = false;
 
     const challengeIdToDay = new Map<number, number>();
     for (const dc of dbChallenges || []) {
       challengeIdToDay.set(dc.id, dc.dayNumber);
     }
 
+    // 1. Xây dựng Map index O(1) thay vì findIndex O(N^2) để chạy mượt với 30.000 users
+    const localById = new Map<string, number>();
+    const localByEmpId = new Map<string, number>();
+    data.users.forEach((u, i) => {
+      localById.set(u.id, i);
+      localByEmpId.set(u.employeeId, i);
+    });
+
     if (dbUsers && dbUsers.length > 0) {
       for (const u of dbUsers) {
-        const idx = data.users.findIndex(
-          (local) => local.id === u.id || local.employeeId === u.employeeId
-        );
+        const idx = localById.get(u.id) ?? localByEmpId.get(u.employeeId) ?? -1;
         const local = idx >= 0 ? data.users[idx] : null;
         if (local && local.id !== u.id) {
-          didMutate = true;
           const oldId = local.id;
           for (const att of data.attempts) {
             if (att.userId === oldId) att.userId = u.id;
@@ -73,32 +311,28 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
         };
 
         if (idx >= 0) {
-          if (
-            local &&
-            (local.totalScore !== nextScore ||
-              local.totalTimeMs !== nextTime ||
-              local.completedDays !== nextDays ||
-              local.fullName !== u.fullName ||
-              local.email !== u.email)
-          ) {
-            didMutate = true;
-          }
           data.users[idx] = { ...data.users[idx], ...userRec };
         } else {
-          didMutate = true;
-          data.users.push(userRec);
+          const newIdx = data.users.push(userRec) - 1;
+          localById.set(userRec.id, newIdx);
+          localByEmpId.set(userRec.employeeId, newIdx);
         }
       }
+    }
+
+    // 2. Đồng bộ Attempts với Set O(1) thay vì .some() O(M^2)
+    const localAttemptIds = new Set<string>();
+    const localAttemptUserDays = new Set<string>();
+    for (const att of data.attempts) {
+      localAttemptIds.add(att.id);
+      localAttemptUserDays.add(`${att.userId}:${att.dayNumber}`);
     }
 
     if (dbAttempts && dbAttempts.length > 0) {
       for (const a of dbAttempts) {
         const dayNum = challengeIdToDay.get(a.challengeId) ?? a.challengeId;
-        const exists = data.attempts.some(
-          (att) => att.id === a.id || (att.userId === a.userId && att.dayNumber === dayNum)
-        );
-        if (!exists) {
-          didMutate = true;
+        const userDayKey = `${a.userId}:${dayNum}`;
+        if (!localAttemptIds.has(a.id) && !localAttemptUserDays.has(userDayKey)) {
           data.attempts.push({
             id: a.id,
             userId: a.userId,
@@ -117,11 +351,13 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
             startedAt: a.startedAt.toISOString(),
             completedAt: a.completedAt.toISOString(),
           });
+          localAttemptIds.add(a.id);
+          localAttemptUserDays.add(userDayKey);
         }
       }
     }
 
-    // Gom nhóm attempts theo userId trong 1 lượt duyệt O(M) thay vì O(N*M)
+    // 3. Gom nhóm attempts theo userId trong 1 lượt duyệt O(M)
     const attemptsByUser = new Map<string, AttemptRecord[]>();
     for (const a of data.attempts) {
       let arr = attemptsByUser.get(a.userId);
@@ -135,25 +371,10 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
     for (const local of data.users) {
       const userAttempts = attemptsByUser.get(local.id);
       if (userAttempts && userAttempts.length > 0) {
-        const calcScore = userAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
-        const calcTime = userAttempts.reduce((acc, a) => acc + (Number(a.timeSpentMs) || 0), 0);
-        const calcDays = new Set(userAttempts.map((a) => a.dayNumber)).size;
-        if (
-          local.totalScore !== calcScore ||
-          local.totalTimeMs !== calcTime ||
-          local.completedDays !== calcDays
-        ) {
-          local.totalScore = calcScore;
-          local.totalTimeMs = calcTime;
-          local.completedDays = calcDays;
-          didMutate = true;
-        }
+        local.totalScore = userAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
+        local.totalTimeMs = userAttempts.reduce((acc, a) => acc + (Number(a.timeSpentMs) || 0), 0);
+        local.completedDays = new Set(userAttempts.map((a) => a.dayNumber)).size;
       }
-    }
-
-    // CHỈ ghi xuống db.json khi thực sự có dữ liệu thay đổi từ Postgres (không ghi đè vô cớ trong các lệnh GET)
-    if (didMutate) {
-      ctx.save();
     }
 
     const dbUserByEmpId = new Map<string, any>();
@@ -161,7 +382,6 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
       dbUserByEmpId.set(u.employeeId, u);
     }
 
-    // Chỉ upsert những user chưa có trong Postgres hoặc có điểm số thay đổi
     for (const local of data.users) {
       const pgUser = dbUserByEmpId.get(local.employeeId);
       if (
@@ -207,51 +427,7 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
       }
     }
 
-    const pgAttemptKeys = new Set(
-      (dbAttempts || []).map((a) => `${a.userId}:${challengeIdToDay.get(a.challengeId) ?? a.challengeId}`)
-    );
-    for (const att of data.attempts) {
-      if (pgAttemptKeys.has(`${att.userId}:${att.dayNumber}`)) continue;
-      try {
-        const ch = data.challenges.find((c) => c.dayNumber === att.dayNumber);
-        const pgChallenge = await prisma.dailyChallenge.upsert({
-          where: { dayNumber: att.dayNumber },
-          update: { title: ch?.title || `Day ${att.dayNumber}` },
-          create: {
-            dayNumber: att.dayNumber,
-            title: ch?.title || `Day ${att.dayNumber}`,
-            unlockDate: new Date(ch?.unlockDate || Date.now()),
-            isPublished: Boolean(ch?.isPublished ?? true),
-          },
-        });
-        await prisma.challengeAttempt.upsert({
-          where: {
-            userId_challengeId: { userId: att.userId, challengeId: pgChallenge.id },
-          },
-          update: {
-            score: att.score,
-            correctCount: att.correctCount,
-            wrongCount: att.wrongCount,
-            timeSpentMs: att.timeSpentMs,
-            answersDetail: att.answersDetail as any,
-          },
-          create: {
-            id: att.id,
-            userId: att.userId,
-            challengeId: pgChallenge.id,
-            score: att.score,
-            correctCount: att.correctCount,
-            wrongCount: att.wrongCount,
-            timeSpentMs: att.timeSpentMs,
-            answersDetail: att.answersDetail as any,
-            startedAt: new Date(att.startedAt),
-            completedAt: new Date(att.completedAt),
-          },
-        });
-      } catch {
-        // Ignore transient per-attempt sync errors
-      }
-    }
+    invalidateLeaderboardCache();
   } catch (e: any) {
     console.warn('Prisma syncFromPostgres notice:', e?.message || e);
   }
@@ -292,7 +468,6 @@ export async function syncUserCreateToPostgres(
         completedDays: user.completedDays,
       },
     });
-    console.log(`[DB] Đã lưu thành công user ${user.employeeId} (${user.fullName}) vào PostgreSQL!`);
   } catch (err: any) {
     console.error('[DB Error] Không thể lưu user vào PostgreSQL:', err?.message || err);
   }
@@ -370,7 +545,6 @@ export async function syncAttemptToPostgres(
         completedAt: new Date(attempt.completedAt),
       },
     });
-    console.log(`[DB] Đã lưu bài nộp Day ${attempt.dayNumber} của user ${attempt.userId} vào PostgreSQL!`);
   } catch (err: any) {
     console.error('[DB Error] Không thể lưu bài nộp vào PostgreSQL:', err?.message || err);
   }
