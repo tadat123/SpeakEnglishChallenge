@@ -10,7 +10,7 @@ import { store } from './services/store.js';
 import { pushService } from './services/pushNotification.js';
 import {
   ddosAndBotProtection,
-  ipThreatManager,
+  resolveClientIp,
   sanitizePrototypePollution,
 } from './middlewares/ddosProtection.js';
 import { sqlInjectionGuard } from './middlewares/sqlInjectionGuard.js';
@@ -35,6 +35,7 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 
 const app = Fastify({
   logger: true,
+  trustProxy: true,
   bodyLimit: 1024 * 1024,
   connectionTimeout: 10000,
   keepAliveTimeout: 5000,
@@ -69,7 +70,15 @@ await app.register(cors, {
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'X-LoadTest-IP',
+    'X-LoadTest-Secret',
+  ],
   maxAge: 86400,
 });
 
@@ -79,11 +88,10 @@ await app.register(jwt, {
 
 await app.register(rateLimit, {
   global: true,
-  max: 120,
+  max: 1500,
   timeWindow: '1 minute',
-  errorResponseBuilder: (request, context) => {
-    const ip = request.ip || request.headers['x-forwarded-for']?.toString() || 'unknown';
-    ipThreatManager.recordStrike(ip, 1, 'RATE_LIMIT_EXCEEDED');
+  keyGenerator: (request) => resolveClientIp(request),
+  errorResponseBuilder: (_request, context) => {
     return {
       statusCode: 429,
       error: 'TOO_MANY_REQUESTS',

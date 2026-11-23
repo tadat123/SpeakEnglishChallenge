@@ -14,54 +14,85 @@ import {
 import { getUserDevices } from './pushEventStore.js';
 import { syncDatabaseWithPostgres } from './postgresSync.js';
 
+let lbCacheRevealed: { ts: number; userCount: number; attemptCount: number; list: any[] } | null = null;
+let lbCacheUnrevealed: { ts: number; userCount: number; attemptCount: number; list: any[] } | null = null;
+const LB_CACHE_TTL_MS = 1500;
+
+export function invalidateLeaderboardCache() {
+  lbCacheRevealed = null;
+  lbCacheUnrevealed = null;
+}
+
 export function getLeaderboard(ctx: StoreContext, includeUnrevealed = false) {
   ctx.reloadIfChanged();
   const data = ctx.getData();
+  const now = Date.now();
+  const uLen = data.users.length;
+  const aLen = data.attempts.length;
+
+  const currentCache = includeUnrevealed ? lbCacheUnrevealed : lbCacheRevealed;
+  if (
+    currentCache &&
+    now - currentCache.ts < LB_CACHE_TTL_MS &&
+    currentCache.userCount === uLen &&
+    currentCache.attemptCount === aLen
+  ) {
+    return currentCache.list;
+  }
+
   const revealedDayMap = new Map<number, boolean>();
   for (const c of data.challenges) {
     revealedDayMap.set(c.dayNumber, isResultsRevealed(c));
+  }
+
+  // Gom nhóm điểm đã công bố trong 1 lượt duyệt duy nhất O(M) thay vì O(N*M)
+  const revealedStatsByUser = new Map<string, { score: number; timeMs: number; completed: number }>();
+  if (!includeUnrevealed) {
+    for (const a of data.attempts) {
+      if (revealedDayMap.get(a.dayNumber)) {
+        let st = revealedStatsByUser.get(a.userId);
+        if (!st) {
+          st = { score: 0, timeMs: 0, completed: 0 };
+          revealedStatsByUser.set(a.userId, st);
+        }
+        st.score += a.score;
+        st.timeMs += a.timeSpentMs;
+        st.completed += 1;
+      }
+    }
   }
 
   const eligibleUsers = data.users.filter((u) => u.role !== 'ADMIN');
 
   const userScores = eligibleUsers.map((u) => {
     if (includeUnrevealed) {
+      const comp = computeCompositeLeaderboardScore(u.totalScore, u.totalTimeMs);
       return {
         user: u,
         score: u.totalScore,
         timeMs: u.totalTimeMs,
         completedDays: u.completedDays,
+        composite: comp,
       };
     }
 
-    const attempts = data.attempts.filter((a) => a.userId === u.id);
-    let revealedScore = 0;
-    let revealedTimeMs = 0;
-    let revealedCompleted = 0;
-
-    for (const a of attempts) {
-      if (revealedDayMap.get(a.dayNumber)) {
-        revealedScore += a.score;
-        revealedTimeMs += a.timeSpentMs;
-        revealedCompleted += 1;
-      }
-    }
+    const st = revealedStatsByUser.get(u.id);
+    const revealedScore = st ? st.score : 0;
+    const revealedTimeMs = st ? st.timeMs : 0;
+    const revealedCompleted = st ? st.completed : 0;
 
     return {
       user: u,
       score: revealedScore,
       timeMs: revealedTimeMs,
       completedDays: revealedCompleted,
+      composite: computeCompositeLeaderboardScore(revealedScore, revealedTimeMs),
     };
   });
 
-  const sorted = [...userScores].sort((a, b) => {
-    const scoreA = computeCompositeLeaderboardScore(a.score, a.timeMs);
-    const scoreB = computeCompositeLeaderboardScore(b.score, b.timeMs);
-    return scoreB - scoreA;
-  });
+  userScores.sort((a, b) => b.composite - a.composite);
 
-  return sorted.map((item, idx) => ({
+  const result = userScores.map((item, idx) => ({
     rank: idx + 1,
     id: item.user.id,
     employeeId: item.user.employeeId,
@@ -71,6 +102,14 @@ export function getLeaderboard(ctx: StoreContext, includeUnrevealed = false) {
     totalTimeMs: item.timeMs,
     completedDays: item.completedDays,
   }));
+
+  if (includeUnrevealed) {
+    lbCacheUnrevealed = { ts: now, userCount: uLen, attemptCount: aLen, list: result };
+  } else {
+    lbCacheRevealed = { ts: now, userCount: uLen, attemptCount: aLen, list: result };
+  }
+
+  return result;
 }
 
 export async function getDashboardStats(ctx: StoreContext, dayFilter?: number) {

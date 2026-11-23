@@ -21,6 +21,59 @@ const SCANNER_PROBE_PATHS = [
   '/debug/default/view',
 ];
 
+const LOADTEST_SECRET = process.env.LOADTEST_SECRET || 'speakright-k6-2026';
+
+/**
+ * Kiểm tra IP nội bộ Docker / Localhost (Tuyệt đối KHÔNG BAO GIỜ khóa IP của Nginx hay Cloudflared nội bộ)
+ */
+export function isInternalOrPrivateIp(ip: string): boolean {
+  if (!ip) return true;
+  const clean = ip.trim().toLowerCase();
+  return (
+    clean === '127.0.0.1' ||
+    clean === '::1' ||
+    clean === 'localhost' ||
+    clean === 'unknown' ||
+    clean.startsWith('10.') ||
+    clean.startsWith('192.168.') ||
+    clean.startsWith('172.') ||
+    clean.startsWith('::ffff:127.') ||
+    clean.startsWith('::ffff:10.') ||
+    clean.startsWith('::ffff:172.') ||
+    clean.startsWith('::ffff:192.168.')
+  );
+}
+
+/**
+ * Trích xuất IP thật của người dùng qua Cloudflare Tunnel -> Nginx -> Fastify
+ * Hỗ trợ header X-LoadTest-IP (kèm X-LoadTest-Secret) để k6 có thể giả lập 2.000 nhân viên từ 2.000 IP khác nhau
+ */
+export function resolveClientIp(request: FastifyRequest): string {
+  const ltSecret = request.headers['x-loadtest-secret'];
+  const ltIp = request.headers['x-loadtest-ip'];
+  if (ltSecret === LOADTEST_SECRET && typeof ltIp === 'string' && ltIp.trim()) {
+    return ltIp.trim();
+  }
+
+  const cfIp = request.headers['cf-connecting-ip'];
+  if (typeof cfIp === 'string' && cfIp.trim()) {
+    return cfIp.trim();
+  }
+
+  const xff = request.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.trim()) {
+    const firstIp = xff.split(',')[0]?.trim();
+    if (firstIp) return firstIp;
+  }
+
+  const xRealIp = request.headers['x-real-ip'];
+  if (typeof xRealIp === 'string' && xRealIp.trim()) {
+    return xRealIp.trim();
+  }
+
+  return request.ip || 'unknown';
+}
+
 class IpThreatManager {
   // IP bị cấm tạm thời: ip -> { bannedUntil, reason, strikes }
   private bannedIps = new Map<string, { bannedUntil: number; reason: string; strikes: number }>();
@@ -29,12 +82,12 @@ class IpThreatManager {
   // Bộ đếm lưu lượng Burst tức thời: ip -> { timestamps: number[] }
   private burstTracker = new Map<string, { timestamps: number[] }>();
 
-  // Cấu hình
-  private readonly BAN_DURATION_MS = 30 * 60 * 1000; // Khóa 30 phút
-  private readonly STRIKE_THRESHOLD = 3; // 3 vi phạm là khóa IP
-  private readonly STRIKE_RESET_WINDOW_MS = 15 * 60 * 1000; // Reset điểm vi phạm sau 15 phút không tái phạm
+  // Cấu hình đã tối ưu cho mạng NAT doanh nghiệp (nhiều nhân viên chung 1 IP Wi-Fi công ty)
+  private readonly BAN_DURATION_MS = 15 * 60 * 1000; // Khóa 15 phút với bot quét lỗ hổng
+  private readonly STRIKE_THRESHOLD = 12; // 12 vi phạm liên tiếp mới khóa IP
+  private readonly STRIKE_RESET_WINDOW_MS = 10 * 60 * 1000; // Reset điểm vi phạm sau 10 phút
   private readonly BURST_WINDOW_MS = 1000; // Cửa sổ kiểm tra lưu lượng burst: 1 giây
-  private readonly BURST_MAX_REQUESTS = 35; // Tối đa 35 requests/giây từ 1 IP
+  private readonly BURST_MAX_REQUESTS = 350; // Tối đa 350 requests/giây từ 1 IP (đủ cho cả phòng ban mở app cùng lúc)
 
   constructor() {
     // Dọn dẹp định kỳ mỗi 5 phút để tránh rò rỉ bộ nhớ
@@ -47,7 +100,7 @@ class IpThreatManager {
    * Kiểm tra xem IP có đang bị cấm hay không
    */
   public isBanned(ip: string): { banned: boolean; remainingSeconds?: number; reason?: string } {
-    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    if (isInternalOrPrivateIp(ip)) {
       return { banned: false };
     }
 
@@ -69,7 +122,7 @@ class IpThreatManager {
    * Khóa IP thủ công hoặc tự động
    */
   public banIp(ip: string, durationMs = this.BAN_DURATION_MS, reason = 'EXCESSIVE_VIOLATIONS') {
-    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return;
+    if (isInternalOrPrivateIp(ip)) return;
 
     this.bannedIps.set(ip, {
       bannedUntil: Date.now() + durationMs,
@@ -90,12 +143,11 @@ class IpThreatManager {
    * Ghi nhận một hành vi vi phạm (Strike)
    */
   public recordStrike(ip: string, points = 1, reason = 'SUSPICIOUS_BEHAVIOR') {
-    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return;
+    if (isInternalOrPrivateIp(ip)) return;
 
     const now = Date.now();
     const current = this.strikes.get(ip) || { count: 0, lastStrike: now };
 
-    // Nếu lần vi phạm trước đã quá 15 phút thì reset điểm
     if (now - current.lastStrike > this.STRIKE_RESET_WINDOW_MS) {
       current.count = 0;
     }
@@ -113,7 +165,7 @@ class IpThreatManager {
    * Kiểm tra và phòng chống tấn công lũ lụt xung kích (Burst Flood Protection)
    */
   public checkBurstExceeded(ip: string): boolean {
-    if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return false;
+    if (isInternalOrPrivateIp(ip)) return false;
 
     const now = Date.now();
     let tracker = this.burstTracker.get(ip);
@@ -122,7 +174,6 @@ class IpThreatManager {
       this.burstTracker.set(ip, tracker);
     }
 
-    // Giữ lại các request trong cửa sổ 1 giây
     tracker.timestamps = tracker.timestamps.filter((t) => now - t < this.BURST_WINDOW_MS);
     tracker.timestamps.push(now);
 
@@ -180,12 +231,12 @@ export const ipThreatManager = new IpThreatManager();
  * Chạy ngay tại tầng `onRequest` (trước khi parse body hay xử lý routing) để tiết kiệm 100% CPU/RAM
  */
 export async function ddosAndBotProtection(request: FastifyRequest, reply: FastifyReply) {
-  const ip = request.ip || request.headers['x-forwarded-for']?.toString() || 'unknown';
+  const ip = resolveClientIp(request);
 
   // 1. Kiểm tra IP trong danh sách Banned Jail
   const banStatus = ipThreatManager.isBanned(ip);
   if (banStatus.banned) {
-    reply.header('Retry-After', banStatus.remainingSeconds || 1800);
+    reply.header('Retry-After', banStatus.remainingSeconds || 900);
     return reply.status(429).send({
       statusCode: 429,
       error: 'IP_BANNED',
@@ -199,7 +250,7 @@ export async function ddosAndBotProtection(request: FastifyRequest, reply: Fasti
   const lowerUrl = request.url.toLowerCase();
   for (const probe of SCANNER_PROBE_PATHS) {
     if (lowerUrl.includes(probe)) {
-      ipThreatManager.recordStrike(ip, 2, `SCANNER_PROBE_${probe}`);
+      ipThreatManager.recordStrike(ip, 4, `SCANNER_PROBE_${probe}`);
       request.log.warn({ ip, url: request.url }, `[DDoS Guard] Đã phát hiện và chặn bot quét lỗ hổng ${probe}`);
       return reply.status(403).send({
         statusCode: 403,
@@ -209,7 +260,7 @@ export async function ddosAndBotProtection(request: FastifyRequest, reply: Fasti
     }
   }
 
-  // 3. Kiểm tra Burst Flood (>35 req/giây)
+  // 3. Kiểm tra Burst Flood (>350 req/giây từ 1 IP)
   if (ipThreatManager.checkBurstExceeded(ip)) {
     request.log.warn({ ip }, `[DDoS Guard] Phát hiện Burst Flood từ IP ${ip}`);
     return reply.status(429).send({

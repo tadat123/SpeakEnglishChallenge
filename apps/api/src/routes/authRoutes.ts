@@ -14,7 +14,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
   app.post(
     '/api/auth/register',
     {
-      config: { rateLimit: { max: 8, timeWindow: '10 minutes' } },
+      config: { rateLimit: { max: 400, timeWindow: '10 minutes' } },
     },
     async (request, reply) => {
       const parsed = registerSchema.safeParse(request.body);
@@ -25,7 +25,6 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
       const { employeeId, fullName, email, phone, password } = parsed.data;
 
-      await store.syncFromPostgres();
       if (store.findUserByIdentifier(employeeId)) {
         return reply.status(409).send({ message: `Số GEN ${employeeId} đã được đăng ký trên hệ thống!` });
       }
@@ -33,7 +32,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         return reply.status(409).send({ message: `Địa chỉ Gmail ${email} đã được sử dụng!` });
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash(password, 8);
       const newUser = await store.createUser({
         id: crypto.randomUUID(),
         employeeId,
@@ -74,7 +73,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
   app.post(
     '/api/auth/login',
     {
-      config: { rateLimit: { max: 10, timeWindow: '5 minutes' } },
+      config: { rateLimit: { max: 600, timeWindow: '5 minutes' } },
     },
     async (request, reply) => {
       const parsed = loginSchema.safeParse(request.body);
@@ -90,11 +89,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         });
       }
 
-      let user = store.findUserByIdentifier(identifier);
-      if (!user) {
-        await store.syncFromPostgres();
-        user = store.findUserByIdentifier(identifier);
-      }
+      const user = store.findUserByIdentifier(identifier);
       if (!user) {
         return reply.status(401).send({ message: 'Không tìm thấy tài khoản với Số GEN hoặc Gmail này.' });
       }

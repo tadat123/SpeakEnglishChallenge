@@ -97,9 +97,20 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
       }
     }
 
+    // Gom nhóm attempts theo userId trong 1 lượt duyệt O(M) thay vì O(N*M)
+    const attemptsByUser = new Map<string, AttemptRecord[]>();
+    for (const a of data.attempts) {
+      let arr = attemptsByUser.get(a.userId);
+      if (!arr) {
+        arr = [];
+        attemptsByUser.set(a.userId, arr);
+      }
+      arr.push(a);
+    }
+
     for (const local of data.users) {
-      const userAttempts = data.attempts.filter((a) => a.userId === local.id);
-      if (userAttempts.length > 0) {
+      const userAttempts = attemptsByUser.get(local.id);
+      if (userAttempts && userAttempts.length > 0) {
         local.totalScore = userAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
         local.totalTimeMs = userAttempts.reduce((acc, a) => acc + (Number(a.timeSpentMs) || 0), 0);
         local.completedDays = new Set(userAttempts.map((a) => a.dayNumber)).size;
@@ -108,7 +119,22 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext): Promise<void>
 
     ctx.save();
 
+    const dbUserByEmpId = new Map<string, any>();
+    for (const u of dbUsers || []) {
+      dbUserByEmpId.set(u.employeeId, u);
+    }
+
+    // Chỉ upsert những user chưa có trong Postgres hoặc có điểm số thay đổi
     for (const local of data.users) {
+      const pgUser = dbUserByEmpId.get(local.employeeId);
+      if (
+        pgUser &&
+        pgUser.totalScore === local.totalScore &&
+        pgUser.completedDays === local.completedDays &&
+        pgUser.totalTimeMs === local.totalTimeMs
+      ) {
+        continue;
+      }
       try {
         await prisma.user.upsert({
           where: { employeeId: local.employeeId },

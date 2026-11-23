@@ -65,6 +65,10 @@ class DataStore {
   private forceLockedDays = new Map<number, number>();
   private lastLoadedMtime = 0;
   private lastLoadedSize = 0;
+  private lastStatCheckMs = 0;
+  private savePending = false;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private isWritingAsync = false;
   private lastNotificationTimestamp = 0;
   private readonly ctx: StoreContext;
 
@@ -84,10 +88,26 @@ class DataStore {
     };
     this.data = this.loadOrSeed();
     void this.syncFromPostgres();
+
+    const flushOnExit = () => {
+      if (this.savePending) {
+        this.flushSaveSync();
+      }
+    };
+    process.on('SIGINT', flushOnExit);
+    process.on('SIGTERM', flushOnExit);
+    process.on('beforeExit', flushOnExit);
   }
 
   private reloadIfChanged(): void {
     try {
+      // Nếu đang có dữ liệu mới trong RAM chờ ghi xuống đĩa thì không đọc đè từ đĩa lên
+      if (this.savePending || this.isWritingAsync) return;
+
+      const now = Date.now();
+      if (now - this.lastStatCheckMs < 1000) return;
+      this.lastStatCheckMs = now;
+
       if (!fs.existsSync(DB_FILE)) return;
       const stat = fs.statSync(DB_FILE);
       if (stat.mtimeMs !== this.lastLoadedMtime || stat.size !== this.lastLoadedSize) {
@@ -100,6 +120,7 @@ class DataStore {
           }
           this.lastLoadedMtime = stat.mtimeMs;
           this.lastLoadedSize = stat.size;
+          adminStatsOps.invalidateLeaderboardCache();
           if (Array.isArray(parsed.inAppNotifications) && parsed.inAppNotifications.length > 0) {
             this.lastNotificationTimestamp = new Date(
               parsed.inAppNotifications[0].deliveredAt
@@ -332,13 +353,57 @@ class DataStore {
   }
 
   public save() {
+    adminStatsOps.invalidateLeaderboardCache();
+    this.savePending = true;
+    if (this.saveTimer) return;
+
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      void this.flushSaveAsync();
+    }, 250);
+  }
+
+  private async flushSaveAsync() {
+    if (!this.savePending || this.isWritingAsync) return;
+    this.savePending = false;
+    this.isWritingAsync = true;
+    const tmpFile = `${DB_FILE}.tmp.${process.pid}`;
     try {
       this.data.activeSessions = Object.fromEntries(this.activeSessions.entries());
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+      const payload = JSON.stringify(this.data);
+      await fs.promises.writeFile(tmpFile, payload, 'utf-8');
+      await fs.promises.rename(tmpFile, DB_FILE);
+      const st = await fs.promises.stat(DB_FILE);
+      this.lastLoadedMtime = st.mtimeMs;
+      this.lastLoadedSize = st.size;
+      this.lastStatCheckMs = Date.now();
+    } catch (err) {
+      try {
+        if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+      } catch {}
+      console.error('[Store] Failed async write DB_FILE:', err);
+    } finally {
+      this.isWritingAsync = false;
+      if (this.savePending) {
+        this.save();
+      }
+    }
+  }
+
+  public flushSaveSync() {
+    try {
+      if (this.saveTimer) {
+        clearTimeout(this.saveTimer);
+        this.saveTimer = null;
+      }
+      this.savePending = false;
+      this.data.activeSessions = Object.fromEntries(this.activeSessions.entries());
+      fs.writeFileSync(DB_FILE, JSON.stringify(this.data), 'utf-8');
       if (fs.existsSync(DB_FILE)) {
         const st = fs.statSync(DB_FILE);
         this.lastLoadedMtime = st.mtimeMs;
         this.lastLoadedSize = st.size;
+        this.lastStatCheckMs = Date.now();
       }
     } catch (err) {
       console.error('[Store] Failed to write DB_FILE:', err);
