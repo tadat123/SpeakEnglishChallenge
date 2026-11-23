@@ -21,10 +21,13 @@ import {
   BulkParsedQuestionRow,
   BulkQuestionType,
   QUESTION_TYPE_OPTIONS,
-  buildExcelXmlWithDropdowns,
+  buildRealXlsxTemplateBytes,
   normalizeBulkCorrectOption,
   parseBulkText,
+  rowsToCsvText,
+  serializeEditableRowsToCsv,
 } from './bulkImportHelpers';
+import { parseXlsxFileToRows } from '../../utils/xlsxCodec';
 
 interface AdminBulkImportModalProps {
   show: boolean;
@@ -232,30 +235,47 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
   };
 
   const handleDownloadExcelWithDropdowns = () => {
-    const xml = buildExcelXmlWithDropdowns();
-    const blob = new Blob([xml], {
-      type: 'application/vnd.ms-excel;charset=utf-8;',
+    const bytes = buildRealXlsxTemplateBytes();
+    const blob = new Blob([bytes.buffer as ArrayBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'SpeakRight_Questions_Dropdown_Template.xls');
+    link.setAttribute('download', 'SpeakRight_Questions_Dropdown_Template.xlsx');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) setBulkRawText(content);
-    };
-    reader.readAsText(file, 'utf-8');
     e.target.value = '';
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const head = new Uint8Array(buffer.slice(0, 4));
+      const isZipXlsx =
+        file.name.toLowerCase().endsWith('.xlsx') ||
+        (head.length >= 2 && head[0] === 0x50 && head[1] === 0x4b);
+
+      if (isZipXlsx) {
+        const rows = await parseXlsxFileToRows(buffer);
+        if (rows.length > 0) {
+          setBulkRawText(rowsToCsvText(rows));
+        } else {
+          showMessage('File .xlsx không có dữ liệu câu hỏi.', true);
+        }
+        return;
+      }
+
+      const content = new TextDecoder('utf-8').decode(buffer);
+      if (content) setBulkRawText(content);
+    } catch (err: any) {
+      showMessage(err?.message || 'Không thể đọc file Excel / CSV vừa chọn!', true);
+    }
   };
 
   const handleLoadSampleData = () => {
@@ -384,9 +404,9 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
                 type="button"
                 onClick={handleDownloadExcelWithDropdowns}
                 className="px-3 py-1.5 rounded-xl border border-emerald-400 dark:border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs"
-                title="Tải file Excel (.xls) có sẵn danh sách thả xuống (Dropdown) ở cột QuestionType và CorrectOption"
+                title="Tải file Excel chuẩn OpenXML (.xlsx) có sẵn danh sách thả xuống (Dropdown) ở cột QuestionType và CorrectOption"
               >
-                <Download className="w-3.5 h-3.5" /> File Excel Mẫu (Có Dropdown .XLS)
+                <Download className="w-3.5 h-3.5" /> File Excel Mẫu (Có Dropdown .XLSX)
               </button>
 
               <button
@@ -398,10 +418,10 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
               </button>
 
               <label className="px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/70 text-blue-800 dark:text-blue-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs">
-                <FileUp className="w-3.5 h-3.5" /> Tải Lên File (.CSV / .XLS)
+                <FileUp className="w-3.5 h-3.5" /> Tải Lên File (.XLSX / .CSV)
                 <input
                   type="file"
-                  accept=".csv,.tsv,.txt,.xls,.xml"
+                  accept=".xlsx,.csv,.tsv,.txt"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -570,6 +590,28 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
                         <Eye className="w-3.5 h-3.5" /> Xem trước giao diện thi
                       </>
                     )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const csvOut = serializeEditableRowsToCsv(editableRows);
+                      const blob = new Blob(['\uFEFF' + csvOut.replace(/\r?\n/g, '\r\n')], {
+                        type: 'text/csv;charset=utf-8;',
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.setAttribute('download', 'SpeakRight_Questions_Edited.csv');
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1 transition ${inputBg}`}
+                    title="Xuất bảng câu hỏi sau khi đã chọn Dropdown ra file .CSV chuẩn"
+                  >
+                    <Download className="w-3 h-3 text-emerald-600" /> Xuất ra .CSV
                   </button>
 
                   <select
@@ -885,7 +927,7 @@ export const AdminBulkImportModal: React.FC<AdminBulkImportModalProps> = ({
               </span>
             ) : (
               <span>
-                Hãy tải <b>File Excel Mẫu (Có Dropdown .XLS)</b>, tải file lên hoặc bấm{' '}
+                Hãy tải <b>File Excel Mẫu (Có Dropdown .XLSX)</b>, tải file lên hoặc bấm{' '}
                 <b>Thêm dòng trực tiếp</b> để bắt đầu
               </span>
             )}

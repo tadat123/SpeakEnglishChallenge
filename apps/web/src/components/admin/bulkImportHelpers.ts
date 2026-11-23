@@ -1,3 +1,5 @@
+import { buildRealXlsxWithDropdowns } from '../../utils/xlsxCodec';
+
 export type BulkQuestionType =
   | 'CHOOSE_AUDIO'
   | 'TRUE_FALSE'
@@ -218,41 +220,6 @@ function detectCsvDelimiter(firstLine: string): string {
   return ',';
 }
 
-function extractLinesFromExcelXml(xmlText: string): string[][] | null {
-  if (!xmlText.includes('<Workbook') && !xmlText.includes('<Worksheet') && !xmlText.includes('<Table')) {
-    return null;
-  }
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlText, 'text/xml');
-    const rowNodes = Array.from(doc.getElementsByTagName('Row'));
-    if (rowNodes.length === 0) return null;
-
-    const rows: string[][] = [];
-    for (const rowNode of rowNodes) {
-      const cellNodes = Array.from(rowNode.getElementsByTagName('Cell'));
-      const rowValues: string[] = [];
-      for (const cell of cellNodes) {
-        const indexAttr = cell.getAttribute('ss:Index') || cell.getAttribute('Index');
-        if (indexAttr) {
-          const targetIdx = Math.max(0, parseInt(indexAttr, 10) - 1);
-          while (rowValues.length < targetIdx) {
-            rowValues.push('');
-          }
-        }
-        const dataNode = cell.getElementsByTagName('Data')[0];
-        rowValues.push((dataNode?.textContent ?? cell.textContent ?? '').trim());
-      }
-      if (rowValues.some((v) => v.length > 0)) {
-        rows.push(rowValues);
-      }
-    }
-    return rows.length > 0 ? rows : null;
-  } catch {
-    return null;
-  }
-}
-
 export function parseBulkText(
   text: string,
   bulkTargetMode: 'auto' | 'current',
@@ -266,52 +233,46 @@ export function parseBulkText(
   const clean = text.replace(/^\uFEFF/, '').trim();
   if (!clean) return { parsedList: [], errors: [], dayCounts: {} };
 
-  const xmlLines = extractLinesFromExcelXml(clean);
   const lines: string[][] = [];
+  const firstLine = clean.split(/\r?\n/)[0] || '';
+  const delimiter = detectCsvDelimiter(firstLine);
 
-  if (xmlLines) {
-    lines.push(...xmlLines);
-  } else {
-    const firstLine = clean.split(/\r?\n/)[0] || '';
-    const delimiter = detectCsvDelimiter(firstLine);
+  let currentRow: string[] = [];
+  let currentField = '';
+  let insideQuotes = false;
 
-    let currentRow: string[] = [];
-    let currentField = '';
-    let insideQuotes = false;
+  for (let i = 0; i < clean.length; i++) {
+    const char = clean[i];
+    const nextChar = clean[i + 1];
 
-    for (let i = 0; i < clean.length; i++) {
-      const char = clean[i];
-      const nextChar = clean[i + 1];
-
-      if (char === '"') {
-        if (insideQuotes && nextChar === '"') {
-          currentField += '"';
-          i++;
-        } else {
-          insideQuotes = !insideQuotes;
-        }
-      } else if (char === delimiter && !insideQuotes) {
-        currentRow.push(currentField.trim());
-        currentField = '';
-      } else if ((char === '\r' || char === '\n') && !insideQuotes) {
-        if (char === '\r' && nextChar === '\n') {
-          i++;
-        }
-        currentRow.push(currentField.trim());
-        if (currentRow.some((f) => f.length > 0)) {
-          lines.push(currentRow);
-        }
-        currentRow = [];
-        currentField = '';
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentField += '"';
+        i++;
       } else {
-        currentField += char;
+        insideQuotes = !insideQuotes;
       }
-    }
-    if (currentField.length > 0 || currentRow.length > 0) {
+    } else if (char === delimiter && !insideQuotes) {
+      currentRow.push(currentField.trim());
+      currentField = '';
+    } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
       currentRow.push(currentField.trim());
       if (currentRow.some((f) => f.length > 0)) {
         lines.push(currentRow);
       }
+      currentRow = [];
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+  }
+  if (currentField.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    if (currentRow.some((f) => f.length > 0)) {
+      lines.push(currentRow);
     }
   }
 
@@ -447,17 +408,54 @@ export function parseBulkText(
 }
 
 /**
- * Tạo nội dung file Excel XML (.xls) có sẵn Dropdown (Data Validation) ở cột QuestionType và CorrectOption
- * để người dùng mở bằng Microsoft Excel có thể bấm chọn từ danh sách thả xuống mà không sợ gõ nhầm.
+ * Chuyển mảng 2 chiều từ file .xlsx thành văn bản CSV chuẩn để hiển thị & đồng bộ với bộ parser
  */
-export function buildExcelXmlWithDropdowns(): string {
-  const esc = (s: string) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+export function rowsToCsvText(rows: string[][]): string {
+  return rows
+    .map((cols) =>
+      cols
+        .map((val) => {
+          const s = String(val ?? '').trim();
+          if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+            return `"${s.replace(/"/g, '""')}"`;
+          }
+          return s;
+        })
+        .join(',')
+    )
+    .join('\n');
+}
 
+/**
+ * Chuyển danh sách câu hỏi đã chọn bằng Dropdown trên bảng Web về lại nội dung file .CSV chuẩn
+ */
+export function serializeEditableRowsToCsv(rows: BulkParsedQuestionRow[]): string {
+  const dataLines = rows.map((r) => [
+    String(r.dayNumber),
+    String(r.orderIndex),
+    r.questionType,
+    r.categoryLabel,
+    r.promptText,
+    r.statementText,
+    r.targetWord,
+    r.optionA,
+    r.optionB,
+    r.optionC,
+    r.optionD,
+    r.correctOptionId,
+    r.explanation,
+    String(r.points || 10),
+    r.promptAudioUrl,
+    r.promptVideoUrl,
+  ]);
+  return rowsToCsvText([BULK_CSV_HEADER.split(','), ...dataLines]);
+}
+
+/**
+ * Tạo mảng byte nhị phân của file Excel chuẩn OpenXML (.xlsx - Binary ZIP thật 100%)
+ * có gắn sẵn Data Validation Dropdown ở cột C (QuestionType) và cột L (CorrectOption).
+ */
+export function buildRealXlsxTemplateBytes(): Uint8Array {
   const parsedSample = parseBulkText(
     [BULK_CSV_HEADER, ...BULK_SAMPLE_ROWS].join('\n'),
     'auto',
@@ -466,69 +464,5 @@ export function buildExcelXmlWithDropdowns(): string {
   ).parsedList;
 
   const headers = BULK_CSV_HEADER.split(',');
-
-  const headerCells = headers
-    .map((h) => `<Cell ss:StyleID="sHeader"><Data ss:Type="String">${esc(h)}</Data></Cell>`)
-    .join('');
-
-  const dataRowsXml = parsedSample
-    .map((r) => {
-      const cols = [
-        { v: String(r.dayNumber), t: 'Number' },
-        { v: String(r.orderIndex), t: 'Number' },
-        { v: r.questionType, t: 'String' },
-        { v: r.categoryLabel, t: 'String' },
-        { v: r.promptText, t: 'String' },
-        { v: r.statementText, t: 'String' },
-        { v: r.targetWord, t: 'String' },
-        { v: r.optionA, t: 'String' },
-        { v: r.optionB, t: 'String' },
-        { v: r.optionC, t: 'String' },
-        { v: r.optionD, t: 'String' },
-        { v: r.correctOptionId, t: 'String' },
-        { v: r.explanation, t: 'String' },
-        { v: String(r.points || 10), t: 'Number' },
-        { v: r.promptAudioUrl, t: 'String' },
-        { v: r.promptVideoUrl, t: 'String' },
-      ];
-      return `<Row>${cols
-        .map((c) => `<Cell><Data ss:Type="${c.t}">${esc(c.v)}</Data></Cell>`)
-        .join('')}</Row>`;
-    })
-    .join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Styles>
-  <Style ss:ID="Default" ss:Name="Normal">
-   <Font ss:FontName="Calibri" ss:Size="11"/>
-  </Style>
-  <Style ss:ID="sHeader">
-   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
-   <Interior ss:Color="#059669" ss:Pattern="Solid"/>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Questions">
-  <Table>
-   <Row>${headerCells}</Row>
-   ${dataRowsXml}
-  </Table>
-  <DataValidation xmlns="urn:schemas-microsoft-com:office:excel">
-   <Range>R2C3:R500C3</Range>
-   <Type>List</Type>
-   <CellRangeList/>
-   <Value>&quot;CHOOSE_AUDIO,TRUE_FALSE,LISTEN_AND_CHOOSE,VOCAB_MEANING,FILL_IN_THE_BLANK&quot;</Value>
-  </DataValidation>
-  <DataValidation xmlns="urn:schemas-microsoft-com:office:excel">
-   <Range>R2C12:R500C12</Range>
-   <Type>List</Type>
-   <CellRangeList/>
-   <Value>&quot;A,B,C,D&quot;</Value>
-  </DataValidation>
- </Worksheet>
-</Workbook>`;
+  return buildRealXlsxWithDropdowns(headers, parsedSample);
 }
