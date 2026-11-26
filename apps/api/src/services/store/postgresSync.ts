@@ -262,36 +262,12 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
       challengeIdToDay.set(dc.id, dc.dayNumber);
     }
 
-    // 1. Xây dựng Map index O(1) thay vì findIndex O(N^2) để chạy mượt với 30.000 users
-    const localById = new Map<string, number>();
-    const localByEmpId = new Map<string, number>();
-    data.users.forEach((u, i) => {
-      localById.set(u.id, i);
-      localByEmpId.set(u.employeeId, i);
-    });
-
+    // 1. PostgreSQL là nguồn chân lý duy nhất (Single Source of Truth) cho Users & Attempts.
+    // Tuyệt đối không upsert ngược user từ RAM vào PostgreSQL để tránh hồi sinh user đã bị Admin xóa ở container khác.
+    const nextUsers: UserRecord[] = [];
     if (dbUsers && dbUsers.length > 0) {
       for (const u of dbUsers) {
-        const idx = localById.get(u.id) ?? localByEmpId.get(u.employeeId) ?? -1;
-        const local = idx >= 0 ? data.users[idx] : null;
-        if (local && local.id !== u.id) {
-          const oldId = local.id;
-          for (const att of data.attempts) {
-            if (att.userId === oldId) att.userId = u.id;
-          }
-          for (const dev of data.devices || []) {
-            if (dev.userId === oldId) dev.userId = u.id;
-          }
-          for (const sub of data.pwaSubscriptions || []) {
-            if (sub.userId === oldId) sub.userId = u.id;
-          }
-        }
-
-        const nextScore = Math.max(u.totalScore || 0, local?.totalScore || 0);
-        const nextTime = Math.max(u.totalTimeMs || 0, local?.totalTimeMs || 0);
-        const nextDays = Math.max(u.completedDays || 0, local?.completedDays || 0);
-
-        const userRec: UserRecord = {
+        nextUsers.push({
           id: u.id,
           employeeId: u.employeeId,
           fullName: u.fullName,
@@ -301,63 +277,46 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
           avatarUrl: u.avatarUrl || '',
           passwordHash: u.passwordHash,
           role: u.role as 'USER' | 'ADMIN',
-          totalScore: nextScore,
-          totalTimeMs: nextTime,
-          completedDays: nextDays,
+          totalScore: u.totalScore || 0,
+          totalTimeMs: u.totalTimeMs || 0,
+          completedDays: u.completedDays || 0,
           resetOtpCode: u.resetOtpCode || null,
           resetToken: u.resetToken || null,
           resetExpiresAt: u.resetExpiresAt ? u.resetExpiresAt.toISOString() : null,
           createdAt: u.createdAt.toISOString(),
-        };
-
-        if (idx >= 0) {
-          data.users[idx] = { ...data.users[idx], ...userRec };
-        } else {
-          const newIdx = data.users.push(userRec) - 1;
-          localById.set(userRec.id, newIdx);
-          localByEmpId.set(userRec.employeeId, newIdx);
-        }
+        });
       }
+      data.users = nextUsers;
     }
 
-    // 2. Đồng bộ Attempts với Set O(1) thay vì .some() O(M^2)
-    const localAttemptIds = new Set<string>();
-    const localAttemptUserDays = new Set<string>();
-    for (const att of data.attempts) {
-      localAttemptIds.add(att.id);
-      localAttemptUserDays.add(`${att.userId}:${att.dayNumber}`);
-    }
-
-    if (dbAttempts && dbAttempts.length > 0) {
+    // 2. Đồng bộ Attempts trực tiếp từ PostgreSQL
+    if (dbAttempts) {
+      const nextAttempts: AttemptRecord[] = [];
       for (const a of dbAttempts) {
         const dayNum = challengeIdToDay.get(a.challengeId) ?? a.challengeId;
-        const userDayKey = `${a.userId}:${dayNum}`;
-        if (!localAttemptIds.has(a.id) && !localAttemptUserDays.has(userDayKey)) {
-          data.attempts.push({
-            id: a.id,
-            userId: a.userId,
-            challengeId: a.challengeId,
-            dayNumber: dayNum,
-            score: a.score,
-            practiceScore:
-              (a.answersDetail as any)?._meta?.practiceScore ??
-              (a.answersDetail as any)?._meta?.rawScore ??
-              a.score,
-            isExpired: Boolean((a.answersDetail as any)?._meta?.isExpired),
-            correctCount: a.correctCount,
-            wrongCount: a.wrongCount,
-            timeSpentMs: a.timeSpentMs,
-            answersDetail: (a.answersDetail as any) || {},
-            startedAt: a.startedAt.toISOString(),
-            completedAt: a.completedAt.toISOString(),
-          });
-          localAttemptIds.add(a.id);
-          localAttemptUserDays.add(userDayKey);
-        }
+        nextAttempts.push({
+          id: a.id,
+          userId: a.userId,
+          challengeId: a.challengeId,
+          dayNumber: dayNum,
+          score: a.score,
+          practiceScore:
+            (a.answersDetail as any)?._meta?.practiceScore ??
+            (a.answersDetail as any)?._meta?.rawScore ??
+            a.score,
+          isExpired: Boolean((a.answersDetail as any)?._meta?.isExpired),
+          correctCount: a.correctCount,
+          wrongCount: a.wrongCount,
+          timeSpentMs: a.timeSpentMs,
+          answersDetail: (a.answersDetail as any) || {},
+          startedAt: a.startedAt.toISOString(),
+          completedAt: a.completedAt.toISOString(),
+        });
       }
+      data.attempts = nextAttempts;
     }
 
-    // 3. Gom nhóm attempts theo userId trong 1 lượt duyệt O(M)
+    // 3. Gom nhóm attempts theo userId trong 1 lượt duyệt O(M) để cập nhật điểm chính xác trên RAM
     const attemptsByUser = new Map<string, AttemptRecord[]>();
     for (const a of data.attempts) {
       let arr = attemptsByUser.get(a.userId);
@@ -374,56 +333,6 @@ export async function syncDatabaseWithPostgres(ctx: StoreContext, force = false)
         local.totalScore = userAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
         local.totalTimeMs = userAttempts.reduce((acc, a) => acc + (Number(a.timeSpentMs) || 0), 0);
         local.completedDays = new Set(userAttempts.map((a) => a.dayNumber)).size;
-      }
-    }
-
-    const dbUserByEmpId = new Map<string, any>();
-    for (const u of dbUsers || []) {
-      dbUserByEmpId.set(u.employeeId, u);
-    }
-
-    for (const local of data.users) {
-      const pgUser = dbUserByEmpId.get(local.employeeId);
-      if (
-        pgUser &&
-        pgUser.totalScore === local.totalScore &&
-        pgUser.completedDays === local.completedDays &&
-        pgUser.totalTimeMs === local.totalTimeMs
-      ) {
-        continue;
-      }
-      try {
-        await prisma.user.upsert({
-          where: { employeeId: local.employeeId },
-          update: {
-            fullName: local.fullName,
-            email: local.email,
-            phone: local.phone || null,
-            department: local.department || null,
-            avatarUrl: local.avatarUrl || null,
-            passwordHash: local.passwordHash,
-            role: local.role,
-            totalScore: local.totalScore,
-            totalTimeMs: local.totalTimeMs,
-            completedDays: local.completedDays,
-          },
-          create: {
-            id: local.id,
-            employeeId: local.employeeId,
-            fullName: local.fullName,
-            email: local.email,
-            phone: local.phone || null,
-            department: local.department || null,
-            avatarUrl: local.avatarUrl || null,
-            passwordHash: local.passwordHash,
-            role: local.role,
-            totalScore: local.totalScore,
-            totalTimeMs: local.totalTimeMs,
-            completedDays: local.completedDays,
-          },
-        });
-      } catch {
-        // Ignore transient per-user sync errors
       }
     }
 
